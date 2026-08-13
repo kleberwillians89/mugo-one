@@ -160,3 +160,5 @@ button,a,input,select,textarea{touch-action:manipulation}
   .header-actions .avatar{display:none}
   .ai-metric-grid{grid-template-columns:1fr}
 }
+.client-name-link{appearance:none;border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-decoration-color:#bf9636;text-underline-offset:3px;cursor:pointer}
+.client-name-link:hover{color:#9f7c2b}

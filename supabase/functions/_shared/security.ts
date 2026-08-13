@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const allowedOrigins = new Set([
   'https://crmruahparfums.vercel.app',
+  'https://crm.ruahparfums.com.br',
   'http://localhost:5173',
 ])
 

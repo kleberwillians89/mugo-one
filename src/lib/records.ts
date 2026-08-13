@@ -78,7 +78,7 @@ export async function fetchClientPeriodSummaries(period:PeriodValue) {
 
 export type Client360 = {
   client:{id:string;name:string;phone:string|null;whatsapp_phone:string|null;email:string|null;cpf:string|null;cnpj:string|null;instagram:string|null;birth_date:string|null;postal_code:string|null;address_line:string|null;address_number:string|null;complement:string|null;district:string|null;city:string|null;state:string|null;notes:string|null;status:string;source:string;registration_origin:string|null;created_at:string;updated_at:string}
-  commercial:{purchases:number;total_purchased:number;paid:number;pending:number;cancelled:number;average_ticket:number;total_ml:number;first_purchase:string|null;last_purchase:string|null;top_perfume:string|null;top_perfume_value:number|null}
+  commercial:{purchases:number;total_purchased:number;paid:number;pending:number;cancelled:number;credit:number;average_ticket:number;total_ml:number;first_purchase:string|null;last_purchase:string|null;top_perfume:string|null;top_perfume_value:number|null}
   waiting:{waiting_ml:number;waiting_products:number}
 }
 
@@ -93,7 +93,7 @@ export async function fetchClient360(clientId:string) {
     supabase!.rpc('client_360',{p_client_id:clientId}),
     supabase!.from('sales').select('id,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
     supabase!.rpc('client_waiting_products',{p_client_id:clientId}),
-    supabase!.from('shipments').select('id,status,requested_at,carrier,service,shipping_price,tracking_code,posted_at,delivered_at,created_at').eq('client_id',clientId).order('created_at',{ascending:false}),
+    supabase!.from('shipments').select('id,status,requested_at,carrier,service,shipping_price,tracking_code,posted_at,delivered_at,created_at,shipment_items(sale_id,quantity_ml,sales(perfume_name_raw))').eq('client_id',clientId).order('created_at',{ascending:false}),
   ])
   const error=profileError||historyError||waitingError||shipmentsError
   if(error)throw new Error(error.message)
@@ -201,7 +201,7 @@ export async function approveShipmentForLabel(shipmentId:string){await currentOr
 
 async function invokeShipmentFunction(name:string,shipmentId:string){
   const {organizationId}=await currentOrganization(),{data,error}=await supabase!.functions.invoke(name,{body:{organization_id:organizationId,shipment_id:shipmentId}})
-  if(error){let message='Falha na integração SuperFrete.';try{const body=await (error as {context?:Response}).context?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
+  if(error){const response=(error as {context?:Response}).context;let message='Falha na integração SuperFrete.',code='';try{const body=await response?.clone().json();message=body?.error?.message??message;code=String(body?.error?.code??'')}catch{/* resposta sem JSON */}const status=response?.status?` HTTP ${response.status}.`:'';const reference=response?.headers.get('x-request-id');throw new Error(`${message}${status}${code?` Código: ${code}.`:''}${reference?` Referência: ${reference}.`:''}`)}
   return data?.data
 }
 export const quoteShipment=(shipmentId:string)=>invokeShipmentFunction('superfrete-quote',shipmentId)
