@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest'
-import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,shipmentHumanState,shipmentStatusLabels,type ShipmentActionState} from './superfrete'
+import {canBuyLabel,canQuoteShipment,getLabelUiState,getShipmentNextAction,missingLabelFields,missingQuoteFields,shipmentHumanState,shipmentStatusLabels,type ShipmentActionState} from './superfrete'
 
 const complete={recipient_name:'Maria',recipient_document:'12345678901',recipient_email:'maria@example.test',recipient_phone:'11999999999',recipient_postal_code:'01001-000',recipient_address:'Rua A',recipient_number:'10',recipient_district:'Centro',recipient_city:'São Paulo',recipient_state:'SP',package_weight:0.4,package_height:10,package_width:12,package_length:18,service_id:'1'}
 describe('regras SuperFrete no CRM',()=>{
@@ -17,4 +17,6 @@ describe('próxima ação única da etiqueta',()=>{
   it('só imprime status liberado com URL validada',()=>{expect(getShipmentNextAction(state({superfrete_status:'released',print_url:'https://etiqueta.superfrete.com/a.pdf'}))).toBe('sync');expect(getShipmentNextAction(state({superfrete_status:'released',print_url:'https://etiqueta.superfrete.com/a.pdf',print_available:true}))).toBe('print')})
   it('usa rastreio como ação depois da postagem',()=>expect(getShipmentNextAction(state({status:'posted',superfrete_status:'posted',tracking_code:'BR123'}))).toBe('track'))
   it('cria pedido somente quando ainda não existe order id',()=>expect(getShipmentNextAction(state({status:'customer_approved',superfrete_order_id:null,superfrete_status:null}))).toBe('create_label'))
+  it('mantém copiar rastreio independente do PDF',()=>{const ui=getLabelUiState(state({superfrete_status:'released',tracking_code:'SLG123',print_available:false,print_url:'https://etiqueta.superfrete.com/a.pdf'}));expect(ui).toMatchObject({canSync:true,canPrint:false,canCopyTracking:true,primaryAction:'sync'})})
+  it('habilita impressão somente com status, URL e disponibilidade',()=>{expect(getLabelUiState(state({superfrete_status:'released',print_available:true,print_url:null})).canPrint).toBe(false);expect(getLabelUiState(state({superfrete_status:'released',print_available:true,print_url:'https://etiqueta.superfrete.com/a.pdf'})).canPrint).toBe(true)})
 })

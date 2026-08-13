@@ -29,6 +29,18 @@ export function shipmentHumanState(shipment:ShipmentActionState){
   return shipment.status==='customer_approved'?'Cliente aprovou o frete':shipment.status==='awaiting_customer_approval'?'Aguardando aprovação do cliente':'Preparando produtos'
 }
 
+export type LabelUiState={title:string;description:string;canSync:boolean;canPrint:boolean;canCopyTracking:boolean;primaryAction:ShipmentNextAction;printUnavailableReason:string|null}
+export function getLabelUiState(shipment:ShipmentActionState):LabelUiState{
+  const primaryAction=getShipmentNextAction(shipment),hasOrder=Boolean(shipment.superfrete_order_id),hasTracking=Boolean(shipment.tracking_code)
+  const printableStatus=['released','posted','delivered'].includes(String(shipment.superfrete_status||'').toLowerCase())
+  const canPrint=printableStatus&&shipment.print_available&&Boolean(shipment.print_url||shipment.label_pdf_url)
+  if(primaryAction==='checkout')return {title:'ETIQUETA AGUARDANDO PAGAMENTO',description:'O pedido foi criado na SuperFrete, mas a compra ainda não foi concluída.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction,printUnavailableReason:'A compra precisa ser confirmada antes da impressão.'}
+  if(canPrint)return {title:'ETIQUETA PRONTA',description:'A compra foi concluída e o arquivo oficial está disponível.',canSync:true,canPrint:true,canCopyTracking:hasTracking,primaryAction:'print',printUnavailableReason:null}
+  if(hasOrder&&printableStatus)return {title:'ETIQUETA CRIADA',description:'A compra foi concluída e o rastreio já foi gerado. O arquivo ainda está sendo preparado pela SuperFrete.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.'}
+  if(hasOrder)return {title:'ETIQUETA SENDO PREPARADA',description:'A SuperFrete ainda está processando o arquivo. Você não precisa criar outra etiqueta.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.'}
+  return {title:'CRIAR ETIQUETA',description:'Prepare o pedido da etiqueta depois da conferência e aprovação.',canSync:false,canPrint:false,canCopyTracking:false,primaryAction:'create_label',printUnavailableReason:'Crie o pedido antes de imprimir.'}
+}
+
 export type ShippingFields={recipient_name?:unknown;recipient_document?:unknown;recipient_email?:unknown;recipient_phone?:unknown;recipient_postal_code?:unknown;recipient_address?:unknown;recipient_number?:unknown;recipient_district?:unknown;recipient_city?:unknown;recipient_state?:unknown;package_weight?:unknown;package_height?:unknown;package_width?:unknown;package_length?:unknown;service_id?:unknown}
 const text=(value:unknown)=>String(value??'').trim()
 export function missingQuoteFields(value:ShippingFields){
