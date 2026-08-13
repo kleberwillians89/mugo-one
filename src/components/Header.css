@@ -1,0 +1,15 @@
+.header-menu-btn { display: none; }
+
+@media (max-width: 767px) {
+  .header-menu-btn { display: grid; margin-right: var(--space-3); }
+}
+
+/* Hide the help icon on narrow tablets/phones, keep notification + avatar. */
+@media (max-width: 767px) {
+  .header-actions > button:first-child { display: none; }
+}
+
+/* Hide the notification icon on very small phones, keep only the avatar. */
+@media (max-width: 450px) {
+  .header-notification { display: none; }
+}

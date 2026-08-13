@@ -1,7 +1,7 @@
 import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Bell, Bot, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, CircleHelp,
-  Boxes, Clock3, Download, FileSpreadsheet, FileText, Home, LoaderCircle, Menu,
+  Bot, CalendarDays, ChartNoAxesCombined, Check, ChevronDown,
+  Boxes, Clock3, Download, FileSpreadsheet, FileText, Home, LoaderCircle,
   MoreHorizontal, Plus, RotateCcw, Search, Settings, ShoppingBag, SlidersHorizontal, Sparkles, TrendingUp,
   Truck, UploadCloud, UserRound, X, AlertTriangle, ArrowUpRight,
 } from 'lucide-react'
@@ -16,43 +16,14 @@ import { defaultPeriod, PeriodValue, previousPeriod } from './lib/period'
 import { operationalLabel, statusLabel } from './lib/presentation'
 import { exportCsv } from './lib/csv'
 import { todayIso, deliveryState, deliveryLabels, deliveryLabel } from './lib/delivery'
-import { Page, navigation, routes, pageFromPath } from './routing'
+import { Page, routes, pageFromPath } from './routing'
+import { Sidebar } from './components/Sidebar'
+import { Header } from './components/Header'
 import {
   CommercialSale, PeriodSummary, SaleFilters,
   adjustInventory, askIntelligence, confirmLegacyProductCustody, createDraftShipment, createInventoryItem, fetchClient360, fetchClientPeriodSummaries, fetchDeliveryRows, fetchSale360, releaseLegacyProductCustody,
   fetchInventory, fetchLogisticsSummary, fetchOperationalInventory, fetchPeriodSummary, fetchSalesPage, inventoryPerfumes, InventoryRow, InventorySummary, LogisticsSummary, OperationalInventoryRow, updateShipment,
 } from './lib/records'
-
-function Sidebar({ page, setPage, open, close }: { page: Page; setPage: (p: Page) => void; open: boolean; close: () => void }) {
-  return <>
-    {open && <button className="scrim" aria-label="Fechar menu" onClick={close} />}
-    <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
-      <div className="brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums" /><div><strong>RUAH</strong><span>INTELLIGENCE</span></div></div>
-      <nav>{navigation.map(({ label, icon: Icon }) =>
-        <button key={label} className={page === label ? 'active' : ''} onClick={() => { setPage(label); close() }}>
-          <Icon size={19} /><span>{label}</span>{label === 'IA' && <i>IA</i>}
-        </button>)}
-      </nav>
-      <div className="sidebar-foot">
-        <div className="workspace-mark">RP</div>
-        <div><strong>RUAH Parfums</strong><span>Administrador</span></div>
-        <MoreHorizontal size={18} />
-      </div>
-    </aside>
-  </>
-}
-
-function Header({ page, menu }: { page: Page; menu: () => void }) {
-  return <header>
-    <button className="icon-button mobile-menu" onClick={menu}><Menu size={21} /></button>
-    <div><p>CRM E INTELIGÊNCIA COMERCIAL</p><h1>{page}</h1></div>
-    <div className="header-actions">
-      <button className="icon-button"><CircleHelp size={20} /></button>
-      <button className="icon-button notification"><Bell size={20} /><i /></button>
-      <span className="avatar">KP</span>
-    </div>
-  </header>
-}
 
 function EmptyConnect({ title, text }: { title: string; text: string }) {
   return <div className="empty card">

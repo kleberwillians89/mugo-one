@@ -1,0 +1,38 @@
+/* Sidebar copy rendered inside the mobile Drawer: reuses the same .sidebar
+   look (defined in styles.css) but must give up the fixed positioning/width
+   since the Drawer panel already owns that. */
+.sidebar--drawer {
+  position: static;
+  width: 100%;
+  height: 100%;
+  inset: auto;
+}
+
+/* Tablet: collapse the desktop rail to icons only. Labels stay in the DOM
+   (via aria-label on each nav button) for screen readers, just hidden
+   visually so sighted users get a compact rail. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar:not(.sidebar--drawer) {
+    width: var(--sidebar-width-collapsed);
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .sidebar:not(.sidebar--drawer) .brand span,
+  .sidebar:not(.sidebar--drawer) .brand strong,
+  .sidebar:not(.sidebar--drawer) nav button span,
+  .sidebar:not(.sidebar--drawer) nav button i,
+  .sidebar:not(.sidebar--drawer) .sidebar-foot div:nth-child(2) {
+    display: none;
+  }
+  .sidebar:not(.sidebar--drawer) .brand { justify-content: center; padding-left: 0; padding-right: 0; }
+  .sidebar:not(.sidebar--drawer) nav button { justify-content: center; padding-left: 0; padding-right: 0; }
+  .sidebar:not(.sidebar--drawer) .sidebar-foot { grid-template-columns: 1fr; justify-items: center; }
+  main { width: calc(100% - var(--sidebar-width-collapsed)); margin-left: var(--sidebar-width-collapsed); }
+}
+
+/* Mobile: the fixed aside is fully replaced by the Drawer — hide it outright
+   instead of relying on the legacy translateX-off-screen approach. */
+@media (max-width: 767px) {
+  .sidebar:not(.sidebar--drawer) { display: none; }
+  main { width: 100%; margin-left: 0; }
+}
