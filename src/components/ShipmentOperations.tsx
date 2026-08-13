@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react'
 import {AlertTriangle,Check,Copy,ExternalLink,PackageCheck,RefreshCw,Truck,X} from 'lucide-react'
 import {brl,shortDate} from '../lib/format'
-import {approveShipmentForLabel,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
+import {approveShipmentForLabel,authenticatedOrganization,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
 import {canBuyLabel,canQuoteShipment,missingLabelFields,missingQuoteFields,shipmentStatusLabels} from '../lib/superfrete'
 import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
 import {Shipment360View} from './Shipment360View'
@@ -34,15 +34,18 @@ export function NewShipmentModal({close,preselectedSaleId}:{close:()=>void;prese
 }
 
 export function ShipmentDetailsPage({shipmentId}:{shipmentId:string}){
-  const [shipment,setShipment]=useState<OperationalShipment|null>(null),[editing,setEditing]=useState(false),[error,setError]=useState('')
+  const [shipment,setShipment]=useState<OperationalShipment|null>(null),[editing,setEditing]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(''),[isAdmin,setIsAdmin]=useState(false)
   const reload=async()=>{try{setShipment(await fetchShipment360(shipmentId));setError('')}catch(reason){setError(reason instanceof Error?reason.message:'Envio não encontrado.')}}
   useEffect(()=>{let active=true;fetchShipment360(shipmentId).then(data=>{if(active){setShipment(data);setError('')}}).catch(reason=>{if(active)setError(reason instanceof Error?reason.message:'Envio não encontrado.')});return()=>{active=false}},[shipmentId])
-  if(error)return <div className="page"><div className="notice"><AlertTriangle/><span>{error}</span></div></div>
+  useEffect(()=>{authenticatedOrganization().then(context=>setIsAdmin(context.role==='admin')).catch(()=>setIsAdmin(false))},[])
+  if(error&&!shipment)return <div className="page"><div className="notice"><AlertTriangle/><span>{error}</span></div></div>
   if(!shipment)return <div className="page"><div className="empty card"><h3>Carregando Envio 360…</h3></div></div>
   const items=[...shipment.shipment_items].sort((a,b)=>String(a.sales?.perfume_name_raw||'').localeCompare(String(b.sales?.perfume_name_raw||''),'pt-BR'))
   const change=async(item:typeof items[number],kind:'separated'|'checked',value:boolean)=>{try{await updateShipmentItemCheck(shipment.id,item.allocation_id,kind==='separated'?value:Boolean(item.separated_at),kind==='checked'?value:Boolean(item.checked_at),item.divergence_note||'');await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível atualizar a conferência.')}}
   const divergence=async(item:typeof items[number],value:string)=>{try{await updateShipmentItemCheck(shipment.id,item.allocation_id,Boolean(item.separated_at),Boolean(item.checked_at),value);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível registrar a divergência.')}}
-  return <div className="page shipment-360">{editing&&<ShipmentEditor shipment={shipment} close={()=>setEditing(false)} saved={async()=>{setEditing(false);await reload()}} refreshed={reload}/>}<button className="back-link" onClick={()=>history.back()}>← Voltar para entregas</button><Shipment360View shipment={shipment} items={items} onEdit={()=>setEditing(true)} onChange={change} onDivergence={divergence}/></div>
+  const sync=async()=>{setBusy('sync');setError('');try{await syncSuperFreteShipment(shipment.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível atualizar a etiqueta agora. A etiqueta existente continua preservada.')}finally{setBusy('')}}
+  const checkout=async()=>{if(!confirm(`CONFIRMAR COMPRA REAL DA ETIQUETA\n\nCliente: ${shipment.recipient_name}\nServiço: ${shipment.carrier||''} ${shipment.service||''}\nValor: ${brl(Number(shipment.shipping_price||0))}\n\nEsta ação utilizará saldo real da SuperFrete. Continuar?`))return;setBusy('checkout');setError('');try{await checkoutSuperFreteLabel(shipment.id);await syncSuperFreteShipment(shipment.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'A compra pode exigir reconciliação. Não tente novamente antes de atualizar o pedido.')}finally{setBusy('')}}
+  return <div className="page shipment-360">{editing&&<ShipmentEditor shipment={shipment} close={()=>setEditing(false)} saved={async()=>{setEditing(false);await reload()}} refreshed={reload}/>}<button className="back-link" onClick={()=>history.back()}>← Voltar para entregas</button>{error&&<div className="notice shipment-page-error"><AlertTriangle/><span>{error}</span></div>}<Shipment360View shipment={shipment} items={items} onEdit={()=>setEditing(true)} onSync={sync} onCheckout={checkout} busy={busy} isAdmin={isAdmin} onChange={change} onDivergence={divergence}/></div>
 }
 
 export function ShipmentEditor({shipment,close,saved,refreshed}:{shipment:OperationalShipment;close:()=>void;saved:()=>void;refreshed:()=>Promise<void>}){
