@@ -131,6 +131,13 @@
   margin-top: var(--space-2);
 }
 
+.row-number {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-weight: var(--fw-semibold);
+  width: 32px;
+}
+
 @media (max-width: 900px) {
   .dossier-columns { grid-template-columns: 1fr 1fr; }
 }
