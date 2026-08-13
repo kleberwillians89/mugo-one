@@ -210,6 +210,7 @@ export type OperationalShipment={
   declared_value:number|null;fiscal_mode:string;selected_quote_id:string|null;carrier:string|null;service:string|null;service_id:string|null
   shipping_price:number|null;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null
   tracking_code:string|null;print_url:string|null;label_pdf_url:string|null;integration_error:string|null
+  print_available:boolean;print_http_status:number|null;print_content_type:string|null;print_checked_at:string|null
   clients:{name:string}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
   shipment_events?:{id:number;event_type:string;from_status:string|null;to_status:string|null;metadata:Record<string,unknown>;created_at:string}[]
 }
