@@ -1,0 +1,26 @@
+.ui-divider {
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  margin: var(--space-5) 0;
+}
+
+.ui-divider-labeled {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 var(--space-4);
+}
+
+.ui-divider-labeled span {
+  font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ui-divider-labeled::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--hairline);
+}
