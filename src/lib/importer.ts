@@ -74,6 +74,42 @@ export function normalizeStatus(value: unknown): PaymentStatus {
 
 const signature = (parts: unknown[]) => parts.map((x) => String(x ?? '')).join('|')
 
+export const incrementalSaleSignature = (sale:{client:unknown;date:unknown;perfume:unknown;type:unknown;ml:unknown;amount:unknown;paymentStatus?:unknown;paymentMethod?:unknown}) =>
+  signature([normalizeClient(sale.client),sale.date,normalizeClient(sale.perfume),normalizeClient(sale.type),
+    normalizeClient(sale.ml),sale.amount])
+
+export type IncrementalClassification='existing_exact'|'existing_changed'|'new_safe'|'possible_duplicate'|'review_required'
+export type ComparableSale={client:unknown;date:unknown;perfume:unknown;type:unknown;ml:unknown;amount:unknown;paymentStatus?:unknown;paymentMethod?:unknown;paidAt?:unknown;shippedAt?:unknown;note?:unknown}
+export function classifyIncrementalSale(incoming:ComparableSale,candidates:ComparableSale[]):IncrementalClassification {
+  if(!normalizeClient(incoming.client)||!incoming.date||!normalizeClient(incoming.perfume)||!normalizeClient(incoming.type)||incoming.ml===null||incoming.amount===null)return'review_required'
+  const identity=incrementalSaleSignature(incoming),exact=candidates.filter((candidate)=>incrementalSaleSignature(candidate)===identity)
+  if(exact.length>1)return'possible_duplicate'
+  if(exact.length===1){
+    const mutable=(sale:ComparableSale)=>signature([normalizeStatus(sale.paymentStatus),normalizeClient(sale.paymentMethod),sale.paidAt??'',sale.shippedAt??'',normalizeClient(sale.note)])
+    return mutable(exact[0])===mutable(incoming)?'existing_exact':'existing_changed'
+  }
+  const near=candidates.filter((candidate)=>normalizeClient(candidate.client)===normalizeClient(incoming.client)&&candidate.date===incoming.date&&normalizeClient(candidate.type)===normalizeClient(incoming.type))
+  return near.length?'possible_duplicate':'new_safe'
+}
+
+export function analyzeIncrementalRows(rows:ParsedSale[],existingSignatures:Iterable<string>) {
+  const existing=new Set(existingSignatures),seenInFile=new Set<string>()
+  const classified=rows.map((row)=>{
+    const raw=row.raw
+    const key=incrementalSaleSignature({client:row.client,date:row.date,perfume:raw.PERFUME,type:raw.TIPO,ml:raw.ML,
+      amount:row.amount,paymentStatus:raw.PAGAMENTO,paymentMethod:row.paymentMethod})
+    const result=existing.has(key)?'existing':seenInFile.has(key)?'possible_duplicate':'new'
+    seenInFile.add(key)
+    return {row:row.row,signature:key,result}
+  })
+  return {
+    rows:classified,newRows:classified.filter((row)=>row.result==='new').length,
+    existingRows:classified.filter((row)=>row.result==='existing').length,
+    possibleDuplicates:classified.filter((row)=>row.result==='possible_duplicate').length,
+    comparisonComplete:existing.size>0,
+  }
+}
+
 export function parseRows(fileName: string, sheets: string[], sheetName: string, matrix: unknown[][]): ImportPreview {
   const headers = (matrix[0] ?? []).map((x) => String(x ?? '').trim())
   const data = matrix.slice(1).map((values) =>
@@ -88,17 +124,8 @@ export function parseRows(fileName: string, sheets: string[], sheetName: string,
     const amount = parseBrazilianMoney(source.VALOR)
     const paymentStatus = normalizeStatus(source.PAGAMENTO)
     const paymentMethod = String(source['FORMA DE PAGAMENTO'] ?? '').trim()
-    const sig = signature([
-      normalizedClient,
-      date,
-      normalizeClient(source.PERFUME),
-      normalizeClient(source.TIPO),
-      normalizeClient(source.ML),
-      amount,
-      normalizeClient(source.PAGAMENTO),
-      normalizeClient(source['FORMA DE PAGAMENTO']),
-      fileName,
-    ])
+    const sig = incrementalSaleSignature({client,date,perfume:source.PERFUME,type:source.TIPO,ml:source.ML,
+      amount,paymentStatus:source.PAGAMENTO,paymentMethod:source['FORMA DE PAGAMENTO']})
     const warnings: string[] = []
     const blockers: string[] = []
     if (!client) blockers.push('Cliente ausente')

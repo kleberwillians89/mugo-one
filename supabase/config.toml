@@ -31,3 +31,9 @@ verify_jwt = true
 verify_jwt = true
 [functions.recalculate-metrics]
 verify_jwt = true
+[functions.superfrete-quote]
+verify_jwt = true
+[functions.superfrete-create-label]
+verify_jwt = true
+[functions.superfrete-sync-shipment]
+verify_jwt = true

@@ -2,33 +2,33 @@
   "source": "JULHO - PLANILHA DE VENDAS.xlsx",
   "sheet": "PERFUMES",
   "sheets": 4,
-  "rows": 5926,
-  "valid": 5892,
-  "rejected": 34,
-  "duplicates": 20,
-  "warningRows": 438,
-  "impossibleRows": 34,
-  "operationalRows": 15,
-  "operationalValue": 2256.2,
-  "columnGrossValue": 1673690.78,
-  "possibleClientDuplicateGroups": 1,
-  "uniqueClients": 418,
-  "rowsWithClient": 5925,
-  "rowsWithNumericValue": 5908,
-  "rawClientNames": 5910,
-  "exactClientNames": 419,
-  "normalizedClientNames": 418,
-  "importedValue": 1669948.58,
-  "revenue": 1654150.38,
-  "grossToDashboardDifference": 19540.4,
-  "paid": 1561552.38,
-  "pending": 92598,
+  "rows": 7112,
+  "valid": 7082,
+  "rejected": 30,
+  "duplicates": 21,
+  "warningRows": 471,
+  "impossibleRows": 30,
+  "operationalRows": 12,
+  "operationalValue": 6291.4,
+  "columnGrossValue": 1982194.87,
+  "possibleClientDuplicateGroups": 3,
+  "uniqueClients": 467,
+  "rowsWithClient": 7112,
+  "rowsWithNumericValue": 7094,
+  "rawClientNames": 7100,
+  "exactClientNames": 470,
+  "normalizedClientNames": 467,
+  "importedValue": 1975903.47,
+  "revenue": 1946275.77,
+  "grossToDashboardDifference": 35919.1,
+  "paid": 1857436.97,
+  "pending": 88838.8,
   "cancelled": 5159,
-  "reviewValue": 14381.4,
+  "reviewValue": 30760.1,
   "rejectionReasonCounts": {
-    "missing_client": 1,
+    "missing_client": 0,
     "invalid_amount": 18,
-    "operational_label": 15
+    "operational_label": 12
   },
   "rejectedRows": [
     {
@@ -165,131 +165,103 @@
       "value": 247.8
     },
     {
-      "row": 2402,
+      "row": 2080,
+      "reasons": [
+        "operational_label"
+      ],
+      "value": 108.5
+    },
+    {
+      "row": 2253,
+      "reasons": [
+        "operational_label"
+      ],
+      "value": 152.6
+    },
+    {
+      "row": 2403,
       "reasons": [
         "operational_label"
       ],
       "value": 211.3
     },
     {
-      "row": 3092,
-      "reasons": [
-        "operational_label"
-      ],
-      "value": 153.5
-    },
-    {
-      "row": 3659,
+      "row": 3658,
       "reasons": [
         "operational_label"
       ],
       "value": 80.7
     },
     {
-      "row": 3824,
+      "row": 3810,
       "reasons": [
         "operational_label"
       ],
-      "value": 232.2
+      "value": 1500.8
     },
     {
-      "row": 3992,
+      "row": 4528,
       "reasons": [
         "operational_label"
       ],
-      "value": 80.7
+      "value": 1829.9
     },
     {
-      "row": 4408,
+      "row": 5814,
       "reasons": [
         "operational_label"
       ],
-      "value": 98.7
+      "value": 502.5
     },
     {
-      "row": 4664,
+      "row": 5815,
       "reasons": [
         "operational_label"
       ],
-      "value": 158.5
+      "value": 502.5
     },
     {
-      "row": 4709,
+      "row": 6240,
       "reasons": [
         "operational_label"
       ],
-      "value": 158.5
+      "value": 523.8
     },
     {
-      "row": 4829,
+      "row": 6374,
       "reasons": [
         "operational_label"
       ],
-      "value": 148.5
+      "value": 218.5
     },
     {
-      "row": 4928,
+      "row": 7113,
       "reasons": [
         "operational_label"
       ],
-      "value": 216.2
-    },
-    {
-      "row": 5075,
-      "reasons": [
-        "operational_label"
-      ],
-      "value": 158.5
-    },
-    {
-      "row": 5491,
-      "reasons": [
-        "operational_label"
-      ],
-      "value": 89.7
-    },
-    {
-      "row": 5856,
-      "reasons": [
-        "missing_client"
-      ],
-      "value": 1486
-    },
-    {
-      "row": 5896,
-      "reasons": [
-        "operational_label"
-      ],
-      "value": 104.7
-    },
-    {
-      "row": 5921,
-      "reasons": [
-        "operational_label"
-      ],
-      "value": 116.7
+      "value": 412.5
     }
   ],
   "reconciliation": {
     "gross_with_client_and_value": {
-      "lines": 5908,
-      "value": 1673690.78
+      "lines": 7094,
+      "value": 1982194.87
     },
     "paid": {
-      "lines": 5495,
-      "value": 1561552.38
+      "lines": 6648,
+      "value": 1857436.97
     },
     "pending": {
-      "lines": 362,
-      "value": 92598
+      "lines": 329,
+      "value": 88838.8
     },
     "cancelled": {
       "lines": 8,
       "value": 5159
     },
     "unstandardized_status": {
-      "lines": 43,
-      "value": 14381.4
+      "lines": 109,
+      "value": 30760.1
     },
     "invalid_or_missing_date": {
       "lines": 0,
@@ -304,44 +276,44 @@
       "value": 0
     },
     "dashboard_accounted": {
-      "lines": 5857,
-      "value": 1654150.38
+      "lines": 6977,
+      "value": 1946275.77
     },
     "excluded_from_revenue": {
-      "lines": 51,
-      "value": 19540.4
+      "lines": 117,
+      "value": 35919.1
     },
     "impossible_without_client": {
-      "lines": 1,
-      "value": 1486
+      "lines": 0,
+      "value": 0
     }
   },
   "previous_report": {
     "valid_value": 1563985.48,
     "dashboard_revenue": 1560267.48,
-    "strict_recalculated": 1563985.48,
-    "difference_gross_vs_previous": 105963.1
+    "strict_recalculated": 1859870.07,
+    "difference_gross_vs_previous": 411917.99
   },
   "paymentMethods": [
     {
       "name": "PIX",
-      "value": 3889
+      "value": 4660
     },
     {
       "name": "CARTÃO DE CRÉDITO",
-      "value": 1399
+      "value": 1707
     },
     {
       "name": "Não informado",
-      "value": 392
+      "value": 429
     },
     {
       "name": "CRÉDITO E PIX",
-      "value": 95
+      "value": 149
     },
     {
       "name": "DEPÓSITO",
-      "value": 92
+      "value": 109
     },
     {
       "name": "ACORDO COM GABRIELA",
@@ -349,7 +321,7 @@
     },
     {
       "name": "PRESENTE DA GABI",
-      "value": 4
+      "value": 7
     },
     {
       "name": "PX",
@@ -391,15 +363,15 @@
   "statusCounts": [
     {
       "name": "paid",
-      "value": 5495
+      "value": 6648
     },
     {
       "name": "pending",
-      "value": 362
+      "value": 329
     },
     {
       "name": "unknown",
-      "value": 43
+      "value": 109
     },
     {
       "name": "cancelled",
@@ -425,15 +397,19 @@
     },
     {
       "month": "2026-05",
-      "revenue": 388805.6
+      "revenue": 388586.3
     },
     {
       "month": "2026-06",
-      "revenue": 326853.88
+      "revenue": 327714.58
     },
     {
       "month": "2026-07",
-      "revenue": 328029.4
+      "revenue": 376973.6
+    },
+    {
+      "month": "2026-08",
+      "revenue": 242539.79
     }
   ]
 }

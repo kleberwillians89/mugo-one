@@ -11,7 +11,16 @@
     "lint": "eslint .",
     "test": "vitest run",
     "validate:workbook": "node scripts/validate-workbook.mjs",
+    "analyze:incremental": "node scripts/analyze-incremental-workbook.mjs",
+    "snapshot:remote": "node scripts/snapshot-remote.mjs private_data",
+    "test:operational": "node scripts/test-operational-foundation.mjs",
+    "apply:incremental": "node scripts/apply-incremental-workbook.mjs",
     "test:remote-security": "node scripts/validate-remote-security.mjs"
+    ,"test:superfrete-safety": "node scripts/validate-superfrete-safety.mjs",
+    "test:superfrete-remote": "node scripts/test-superfrete-foundation.mjs",
+    "test:superfrete-quote-production": "node scripts/test-superfrete-foundation.mjs --production-quote",
+    "analyze:historical-logistics": "node scripts/analyze-historical-logistics.mjs",
+    "apply:historical-logistics": "node scripts/apply-historical-logistics.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.52.1",

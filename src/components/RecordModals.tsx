@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Check, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import { DateField } from './DateField'
-import { ClientInput, createClient, createSale, searchClients } from '../lib/records'
+import { ClientInput, createClient, createSale, searchClients, updateClient } from '../lib/records'
 import { parseBrazilianMoney } from '../lib/importer'
 
 const maskPhone = (v:string)=>v.replace(/\D/g,'').slice(0,11).replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2')
@@ -12,15 +12,16 @@ function Modal({ title, close, children }: { title:string; close:()=>void; child
   return <div className="modal-layer" role="dialog" aria-modal="true" aria-label={title}><button className="modal-scrim" onClick={close} aria-label="Fechar"/><div className="modal-panel"><div className="modal-title"><div><span>RUAH PARFUMS</span><h2>{title}</h2></div><button onClick={close}><X/></button></div>{children}</div></div>
 }
 
-export function ClientModal({ close, onSaved }: { close:()=>void; onSaved?: (client:{id:string;name:string})=>void }) {
-  const [form,setForm]=useState<ClientInput>({name:'',status:'active'})
-  const [birth,setBirth]=useState(''),[saving,setSaving]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('')
+export function ClientModal({ close, onSaved, clientId, initial }: { close:()=>void; onSaved?: (client:{id:string;name:string})=>void;clientId?:string;initial?:Partial<ClientInput> }) {
+  const [form,setForm]=useState<ClientInput>({name:initial?.name??'',status:initial?.status??'active',...initial})
+  const [birth,setBirth]=useState(initial?.birthDate??''),[saving,setSaving]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('')
   const set=(key:keyof ClientInput,value:string)=>setForm((x)=>({...x,[key]:value}))
   const submit=async(e:FormEvent)=>{e.preventDefault();setError('');if(!form.name.trim())return setError('Informe o nome completo.')
-    setSaving(true);try{const data=await createClient({...form,birthDate:birth});setMessage('Cliente salvo com sucesso.');onSaved?.(data as {id:string;name:string});setTimeout(close,650)}catch(err){setError(err instanceof Error?err.message:'Falha ao salvar.')}finally{setSaving(false)}}
-  return <Modal title="Adicionar cliente" close={close}><form onSubmit={submit} className="record-form">
+    setSaving(true);try{const input={...form,birthDate:birth};const data=clientId?await updateClient(clientId,input):await createClient(input);setMessage('Cliente salvo com sucesso.');onSaved?.(data as {id:string;name:string});setTimeout(close,650)}catch(err){setError(err instanceof Error?err.message:'Falha ao salvar.')}finally{setSaving(false)}}
+  return <Modal title={clientId?'Editar cliente':'Adicionar cliente'} close={close}><form onSubmit={submit} className="record-form">
     <div className="form-grid"><Field label="Nome completo *" value={form.name} onChange={(v)=>set('name',v)} wide/>
       <Field label="Telefone" value={form.phone} onChange={(v)=>set('phone',maskPhone(v))}/><Field label="E-mail" type="email" value={form.email} onChange={(v)=>set('email',v)}/>
+      <Field label="WhatsApp" value={form.whatsappPhone} onChange={(v)=>set('whatsappPhone',maskPhone(v))}/>
       <Field label="Instagram" value={form.instagram} onChange={(v)=>set('instagram',v)}/><Field label="CPF" value={form.cpf} onChange={(v)=>set('cpf',maskCpf(v))}/>
       <DateField id="birth-date" label="Data de nascimento" value={birth} onChange={setBirth}/>
       <Field label="CEP" value={form.postalCode} onChange={(v)=>set('postalCode',maskCep(v))}/>
@@ -33,17 +34,19 @@ export function ClientModal({ close, onSaved }: { close:()=>void; onSaved?: (cli
 }
 
 export function SaleModal({ close }: { close:()=>void }) {
-  const [query,setQuery]=useState(''),[clients,setClients]=useState<{id:string;name:string}[]>([]),[client,setClient]=useState<{id:string;name:string}|null>(null)
+  type ClientOption={id:string;name:string;phone:string|null;whatsapp_phone:string|null;email:string|null;cpf:string|null;postal_code:string|null;address_line:string|null;address_number:string|null;complement:string|null;district:string|null;city:string|null;state:string|null}
+  const [query,setQuery]=useState(''),[clients,setClients]=useState<ClientOption[]>([]),[client,setClient]=useState<ClientOption|null>(null)
   const [date,setDate]=useState(''),[amount,setAmount]=useState(''),[status,setStatus]=useState('paid'),[method,setMethod]=useState('PIX'),[notes,setNotes]=useState('')
-  const [deadline,setDeadline]=useState(''),[shippingStatus,setShippingStatus]=useState(''),[shippedAt,setShippedAt]=useState(''),[paidAt,setPaidAt]=useState('')
+  const [paidAt,setPaidAt]=useState('')
   const [saleType,setSaleType]=useState<'APC'|'SPLIT'>('SPLIT'),[ml,setMl]=useState(''),[perfume,setPerfume]=useState(''),[credit,setCredit]=useState('')
   const [saving,setSaving]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[newClient,setNewClient]=useState(false)
   useEffect(()=>{if(query.trim().length<2||client)return;const timer=setTimeout(()=>searchClients(query).then(setClients).catch(()=>setClients([])),250);return()=>clearTimeout(timer)},[query,client])
   const submit=async(e:FormEvent)=>{e.preventDefault();if(saving)return;const value=parseBrazilianMoney(amount),volume=parseBrazilianMoney(ml),creditValue=credit?parseBrazilianMoney(credit):null;if(!client)return setError('Selecione um cliente.');if(!date)return setError('Informe a data da venda.');if(!perfume.trim())return setError('Informe o perfume.');if(value===null||value<0)return setError('Informe um valor válido.');if(volume===null||volume<0)return setError('Informe um volume em ML válido.');if(credit&&creditValue===null)return setError('Informe um crédito válido.')
-    setSaving(true);setError('');try{await createSale({clientId:client.id,date,amount:value,status,method,notes,perfume,saleType,volumeMl:volume,shippingDeadlineRaw:deadline||shippingStatus,shippingDeadlineDate:deadline,shippedAt,paidAt,creditReferenceAmount:creditValue});setMessage('Venda salva e dashboard atualizado.');setTimeout(close,650)}catch(err){setError(err instanceof Error?err.message:'Falha ao salvar.')}finally{setSaving(false)}}
-  return <>{newClient&&<ClientModal close={()=>setNewClient(false)} onSaved={(c)=>{setClient(c);setQuery(c.name);setNewClient(false)}}/>}<Modal title="Adicionar venda" close={close}><form onSubmit={submit} className="record-form">
+    setSaving(true);setError('');try{await createSale({clientId:client.id,date,amount:value,status,method,notes,perfume,saleType,volumeMl:volume,paidAt,creditReferenceAmount:creditValue});setMessage('Venda salva e estoque reservado somente quando pago.');setTimeout(close,650)}catch(err){setError(err instanceof Error?err.message:'Falha ao salvar.')}finally{setSaving(false)}}
+  return <>{newClient&&<ClientModal close={()=>setNewClient(false)} onSaved={(c)=>{setClient({...c,phone:null,whatsapp_phone:null,email:null,cpf:null,postal_code:null,address_line:null,address_number:null,complement:null,district:null,city:null,state:null});setQuery(c.name);setNewClient(false)}}/>}<Modal title="Adicionar venda" close={close}><form onSubmit={submit} className="record-form">
     <div className="form-grid"><div className="field wide client-search"><label>Cliente *</label><div className="search-control"><Search/><input value={query} placeholder="Busque pelo nome" onChange={(e)=>{setQuery(e.target.value);setClient(null)}}/><button type="button" onClick={()=>setNewClient(true)}><Plus/> Criar cliente</button></div>
       {!client&&clients.length>0&&<div className="client-results">{clients.map((c)=><button type="button" key={c.id} onClick={()=>{setClient(c);setQuery(c.name);setClients([])}}>{c.name}</button>)}</div>}</div>
+      {client&&<div className="client-context wide"><div><strong>Dados do cliente</strong><span>{client.whatsapp_phone||client.phone||'Sem telefone'} · {client.cpf||'CPF não informado'}</span><span>{[client.address_line,client.address_number,client.complement,client.district,client.city,client.state,client.postal_code].filter(Boolean).join(', ')||'Endereço não informado'}</span></div><button type="button" onClick={()=>window.open(`/clientes/${client.id}`,'_blank')}>Editar dados do cliente</button></div>}
       <DateField id="sale-date" label="Data da venda" value={date} onChange={setDate} required error={!date&&error?'Data obrigatória.':''}/>
       <Field label="Perfume *" value={perfume} onChange={setPerfume} wide/>
       <label className="field"><span>Tipo *</span><select value={saleType} onChange={(e)=>setSaleType(e.target.value as 'APC'|'SPLIT')}><option>APC</option><option>SPLIT</option></select></label>
@@ -53,9 +56,6 @@ export function SaleModal({ close }: { close:()=>void }) {
       <label className="field"><span>Forma de pagamento</span><select value={method} onChange={(e)=>setMethod(e.target.value)}><option>PIX</option><option>CARTÃO DE CRÉDITO</option><option>DEPÓSITO</option><option>CRÉDITO E PIX</option><option>OUTRO</option></select></label>
       <DateField id="paid-at" label="Data do pagamento" value={paidAt} onChange={setPaidAt}/>
       <Field label="Crédito (referência)" value={credit} onChange={setCredit} placeholder="R$ 0,00"/>
-      <DateField id="shipping-deadline" label="Prazo de envio" value={deadline} onChange={setDeadline}/>
-      <Field label="Status operacional do envio" value={shippingStatus} onChange={setShippingStatus} placeholder="Ex.: PRONTA ENTREGA"/>
-      <DateField id="shipped-at" label="Data de envio" value={shippedAt} onChange={setShippedAt}/>
       <label className="field wide"><span>Observação</span><textarea value={notes} onChange={(e)=>setNotes(e.target.value)}/></label></div>
       <FormFeedback error={error} message={message}/><FormActions close={close} saving={saving} label="Salvar venda"/></form></Modal></>
 }

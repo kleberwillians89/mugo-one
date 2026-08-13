@@ -12,3 +12,9 @@ vite.config.d.ts
 .vercel
 .env*
 !.env.example
+private_data/
+*.xlsx
+*.xls
+*.dump
+*.sql.gz
+*snapshot*.json

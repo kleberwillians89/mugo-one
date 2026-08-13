@@ -76,6 +76,37 @@ export async function fetchClientPeriodSummaries(period:PeriodValue) {
   return data ?? []
 }
 
+export type Client360 = {
+  client:{id:string;name:string;phone:string|null;whatsapp_phone:string|null;email:string|null;cpf:string|null;cnpj:string|null;instagram:string|null;birth_date:string|null;postal_code:string|null;address_line:string|null;address_number:string|null;complement:string|null;district:string|null;city:string|null;state:string|null;notes:string|null;status:string;source:string;registration_origin:string|null;created_at:string;updated_at:string}
+  commercial:{purchases:number;total_purchased:number;paid:number;pending:number;cancelled:number;average_ticket:number;total_ml:number;first_purchase:string|null;last_purchase:string|null;top_perfume:string|null;top_perfume_value:number|null}
+  waiting:{waiting_ml:number;waiting_products:number}
+}
+
+export type WaitingProduct = {
+  allocation_id:string;sale_id:string;sale_date:string;perfume:string;sale_type:string
+  quantity_ml:number;amount:number;payment_status:string;allocated_at:string;days_waiting:number
+}
+
+export async function fetchClient360(clientId:string) {
+  await authenticatedOrganization()
+  const [{data:profile,error:profileError},{data:history,error:historyError},{data:waiting,error:waitingError},{data:shipments,error:shipmentsError}]=await Promise.all([
+    supabase!.rpc('client_360',{p_client_id:clientId}),
+    supabase!.from('sales').select('id,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
+    supabase!.rpc('client_waiting_products',{p_client_id:clientId}),
+    supabase!.from('shipments').select('id,status,requested_at,carrier,service,shipping_price,tracking_code,posted_at,delivered_at,created_at').eq('client_id',clientId).order('created_at',{ascending:false}),
+  ])
+  const error=profileError||historyError||waitingError||shipmentsError
+  if(error)throw new Error(error.message)
+  return {profile:profile as Client360,history:history??[],waiting:(waiting??[]) as WaitingProduct[],shipments:shipments??[]}
+}
+
+export async function createDraftShipment(clientId:string,allocationIds:string[],notes='') {
+  await currentOrganization()
+  const {data,error}=await supabase!.rpc('create_draft_shipment',{p_client_id:clientId,p_allocation_ids:allocationIds,p_notes:notes||null})
+  if(error)throw new Error(error.message)
+  return data as string
+}
+
 export type CommercialSale = {
   id:string; sale_date:string|null; amount:number; payment_status:string
   payment_method:string|null; paid_at:string|null; original_client:string|null
@@ -83,6 +114,7 @@ export type CommercialSale = {
   volume_ml:number|null; shipping_deadline_raw:string|null;shipping_deadline_date:string|null
   shipping_operational_status:string|null; shipped_at:string|null; notes:string|null;source:string
   clients:{name:string}|null
+  shipment_items?:{shipment_id:string;shipments:{id:string;status:string;carrier:string|null;service:string|null;tracking_code:string|null;posted_at:string|null;delivered_at:string|null}|null}[]
 }
 
 export type SaleFilters = {
@@ -94,7 +126,7 @@ export type SaleFilters = {
 export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) {
   const { organizationId } = await authenticatedOrganization()
   let query=supabase!.from('sales')
-    .select('id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,clients(name)', { count:'exact' })
+    .select('id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,clients(name),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))', { count:'exact' })
     .eq('organization_id', organizationId).is('deleted_at', null)
   if(filters.period)query=query.gte('sale_date',filters.period.start).lte('sale_date',filters.period.end)
   if(filters.paymentStart)query=query.gte('paid_at',filters.paymentStart)
@@ -123,7 +155,7 @@ export async function fetchDeliveryRows(period?:PeriodValue) {
   const {organizationId}=await authenticatedOrganization()
   const result:CommercialSale[]=[]
   for(let from=0;;from+=1000){
-    let query=supabase!.from('sales').select('id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,clients(name)')
+    let query=supabase!.from('sales').select('id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,clients(name),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))')
       .eq('organization_id',organizationId).is('deleted_at',null).range(from,from+999)
     if(period)query=query.gte('sale_date',period.start).lte('sale_date',period.end)
     const {data,error}=await query
@@ -140,6 +172,45 @@ export async function updateShipment(saleId:string,shippedAt:string|null) {
   const {error}=await supabase!.from('sales').update({shipped_at:shippedAt,updated_at:new Date().toISOString()}).eq('id',saleId)
   if(error)throw new Error(error.message)
 }
+
+export type LogisticsSummary={identified_shipments:number;shipped_in_period:number;historical_on_time:number;historical_late:number;average_days_to_ship:number|null;operational_backlog:number;shipments_preparing:number;awaiting_approval:number;labels_released:number;posted:number;delivered:number}
+export async function fetchLogisticsSummary(period:PeriodValue){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.rpc('logistics_operational_summary',{org_id:organizationId,start_date:period.start,end_date:period.end});if(error)throw new Error(error.message);return data as LogisticsSummary}
+
+export type ShipmentQuote={id:string;service_id:string;service_name:string;carrier:string|null;price:number;delivery_days:number|null;delivery_min:number|null;delivery_max:number|null;available:boolean;safe_error:string|null;package:Record<string,unknown>}
+export type OperationalShipment={
+  id:string;organization_id:string;client_id:string;status:string;created_at:string;recipient_name:string;recipient_phone:string|null
+  recipient_document:string|null;recipient_email:string|null;recipient_postal_code:string|null;recipient_address:string|null
+  recipient_number:string|null;recipient_complement:string|null;recipient_district:string|null;recipient_city:string|null;recipient_state:string|null
+  package_weight:number|null;package_height:number|null;package_width:number|null;package_length:number|null;package_format:string|null
+  declared_value:number|null;fiscal_mode:string;selected_quote_id:string|null;carrier:string|null;service:string|null;service_id:string|null
+  shipping_price:number|null;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null
+  tracking_code:string|null;print_url:string|null;label_pdf_url:string|null;integration_error:string|null
+  clients:{name:string}|null;shipment_quotes:ShipmentQuote[];shipment_items:{quantity_ml:number;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
+}
+
+export async function fetchOperationalShipments(){
+  const {organizationId}=await authenticatedOrganization()
+  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(quantity_ml,sales(id,amount,perfume_name_raw,sale_type))').eq('organization_id',organizationId).order('created_at',{ascending:false})
+  if(error)throw new Error(error.message)
+  return (data??[]) as unknown as OperationalShipment[]
+}
+export async function updateShipmentShippingData(shipmentId:string,data:Record<string,unknown>){await currentOrganization();const {data:shipment,error}=await supabase!.rpc('update_shipment_shipping_data',{p_shipment_id:shipmentId,p_data:data});if(error)throw new Error(error.message);return shipment as OperationalShipment}
+export async function refreshShipmentRecipient(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('refresh_shipment_recipient',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
+export async function selectShipmentQuote(shipmentId:string,quoteId:string){await currentOrganization();const {error}=await supabase!.rpc('select_shipment_quote',{p_shipment_id:shipmentId,p_quote_id:quoteId});if(error)throw new Error(error.message)}
+export async function approveShipmentForLabel(shipmentId:string){await currentOrganization();const {error}=await supabase!.rpc('approve_shipment_for_label',{p_shipment_id:shipmentId});if(error)throw new Error(error.message)}
+
+async function invokeShipmentFunction(name:string,shipmentId:string){
+  const {organizationId}=await currentOrganization(),{data,error}=await supabase!.functions.invoke(name,{body:{organization_id:organizationId,shipment_id:shipmentId}})
+  if(error){let message='Falha na integração SuperFrete.';try{const body=await (error as {context?:Response}).context?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
+  return data?.data
+}
+export const quoteShipment=(shipmentId:string)=>invokeShipmentFunction('superfrete-quote',shipmentId)
+export const createSuperFreteLabel=(shipmentId:string)=>invokeShipmentFunction('superfrete-create-label',shipmentId)
+export const syncSuperFreteShipment=(shipmentId:string)=>invokeShipmentFunction('superfrete-sync-shipment',shipmentId)
+
+export type ShippingSettings={organization_id:string;sender_name:string|null;sender_document:string|null;sender_email:string|null;sender_phone:string|null;sender_postal_code:string|null;sender_address:string|null;sender_number:string|null;sender_complement:string|null;sender_district:string|null;sender_city:string|null;sender_state:string|null;default_weight:number|null;default_height:number|null;default_width:number|null;default_length:number|null;default_format:string;calculator_services:string}
+export async function fetchShippingSettings(){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.from('organization_shipping_settings').select('*').eq('organization_id',organizationId).maybeSingle();if(error)throw new Error(error.message);return data as ShippingSettings|null}
+export async function saveShippingSettings(input:Partial<ShippingSettings>){const {organizationId,user}=await currentOrganization();const {error}=await supabase!.from('organization_shipping_settings').upsert({...input,organization_id:organizationId,updated_by:user.id,updated_at:new Date().toISOString()});if(error)throw new Error(error.message)}
 
 export async function askIntelligence(question:string,period:PeriodValue) {
   const {organizationId}=await authenticatedOrganization()
@@ -191,7 +262,7 @@ export async function fetchPerfumeSummaries() {
 }
 
 export type ClientInput = {
-  name: string; phone?: string; email?: string; instagram?: string; cpf?: string
+  name: string; phone?: string; whatsappPhone?:string; email?: string; instagram?: string; cpf?: string;cnpj?:string
   birthDate?: string; postalCode?: string; address?: string; addressNumber?: string
   complement?: string; district?: string; city?: string; state?: string; notes?: string; status: string
 }
@@ -209,14 +280,28 @@ export async function createClient(input: ClientInput) {
   if (possible.length) throw new Error(`Possível duplicidade: já existe “${possible[0].name}”. Revise antes de salvar.`)
   const { data, error } = await supabase!.from('clients').insert({
     organization_id: organizationId, name: input.name.trim(), original_name: input.name.trim(),
-    normalized_name: normalizeClient(input.name), phone: input.phone || null, email: input.email || null,
-    instagram: input.instagram || null, cpf: input.cpf || null, birth_date: input.birthDate || null,
+    normalized_name: normalizeClient(input.name), phone: input.phone || null, whatsapp_phone:input.whatsappPhone||input.phone||null,email: input.email || null,
+    instagram: input.instagram || null, cpf: input.cpf || null,cnpj:input.cnpj||null,birth_date: input.birthDate || null,
     postal_code: input.postalCode || null, address_line: input.address || null,
     address_number: input.addressNumber || null, complement: input.complement || null,
     district: input.district || null, city: input.city || null, state: input.state || null,
     notes: input.notes || null, status: input.status, source: 'manual', created_by: user.id,
   }).select().single()
   if (error) throw new Error(error.message)
+  return data
+}
+
+export async function updateClient(clientId:string,input:ClientInput) {
+  const {organizationId}=await currentOrganization()
+  const {data,error}=await supabase!.from('clients').update({
+    name:input.name.trim(),normalized_name:normalizeClient(input.name),phone:input.phone||null,
+    whatsapp_phone:input.whatsappPhone||input.phone||null,email:input.email||null,instagram:input.instagram||null,
+    cpf:input.cpf||null,cnpj:input.cnpj||null,birth_date:input.birthDate||null,postal_code:input.postalCode||null,
+    address_line:input.address||null,address_number:input.addressNumber||null,complement:input.complement||null,
+    district:input.district||null,city:input.city||null,state:input.state||null,notes:input.notes||null,
+    status:input.status,updated_at:new Date().toISOString(),
+  }).eq('id',clientId).eq('organization_id',organizationId).select().single()
+  if(error)throw new Error(error.message)
   return data
 }
 
@@ -244,7 +329,8 @@ export async function createSale(input: SaleInput) {
     shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,
     shipping_operational_status:input.shippingDeadlineDate?null:input.shippingDeadlineRaw||null,
     shipped_at:input.shippedAt||null,paid_at:input.status==='pending'?null:input.paidAt||null,
-    credit_reference_amount:input.creditReferenceAmount??null,
+    credit_reference_amount:input.creditReferenceAmount??null,inventory_allocation_eligible:true,
+    operational_created_at:new Date().toISOString(),
   }).select().single()
   if (error) throw new Error(error.message)
   return data
@@ -252,13 +338,24 @@ export async function createSale(input: SaleInput) {
 
 export async function searchClients(term: string) {
   const { organizationId } = await currentOrganization()
-  const { data } = await supabase!.from('clients').select('id,name').eq('organization_id', organizationId).ilike('name', `%${term}%`).limit(8)
+  const { data } = await supabase!.from('clients').select('id,name,phone,whatsapp_phone,email,cpf,postal_code,address_line,address_number,complement,district,city,state').eq('organization_id', organizationId).ilike('name', `%${term}%`).limit(8)
   return data ?? []
 }
 
 export type InventorySummary = {
   items:number;available_ml:number;healthy:number;low:number;critical:number
   out_of_stock:number;consumed_ml:number;movements:number
+}
+export type OperationalInventoryRow = {
+  item_id:string;perfume_id:string;perfume:string;physical_ml:number;reserved_ml:number
+  shipping_ml:number;available_ml:number;minimum_ml:number;reconciliation_status:string
+}
+
+export async function fetchOperationalInventory() {
+  const {organizationId}=await authenticatedOrganization()
+  const {data,error}=await supabase!.rpc('inventory_operational_rows',{org_id:organizationId})
+  if(error)throw new Error(error.message)
+  return (data??[]) as OperationalInventoryRow[]
 }
 export type InventoryRow = {
   item_id:string;perfume_id:string;perfume:string;available_ml:number;minimum_ml:number
