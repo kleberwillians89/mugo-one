@@ -432,13 +432,14 @@ function InventoryCreate({close,saved}:{close:()=>void;saved:()=>void}) {
 
 export function App() {
   const [page, setPage] = useState<Page>(pageFromPath())
+  const [routePath,setRoutePath]=useState(location.pathname)
   const [period,setPeriod]=useState<PeriodValue>(defaultPeriod())
   const [menuOpen, setMenuOpen] = useState(false)
-  useEffect(()=>{const change=()=>setPage(pageFromPath());addEventListener('popstate',change);return()=>removeEventListener('popstate',change)},[])
-  const navigate=(next:Page)=>{history.pushState({},'',routes[next]);setPage(next)}
+  useEffect(()=>{const change=()=>{setPage(pageFromPath());setRoutePath(location.pathname)};addEventListener('popstate',change);return()=>removeEventListener('popstate',change)},[])
+  const navigate=(next:Page)=>{history.pushState({},'',routes[next]);setRoutePath(location.pathname);setPage(next)}
   const content = useMemo<ReactNode>(() => {
     if (page === 'Visão Geral') return <Dashboard period={period} setPeriod={setPeriod}/>
-    if (page === 'Clientes') { const clientId=location.pathname.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
+    if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') return <SalesPage period={period} setPeriod={setPeriod}/>
     if (page === 'Entregas') return <DeliveriesPage period={period} setPeriod={setPeriod}/>
     if (page === 'Estoque') return <InventoryPage period={period} setPeriod={setPeriod}/>
@@ -448,6 +449,6 @@ export function App() {
     if (page === 'Insights') return <Insights period={period}/>
     if(page==='Configurações')return <ShippingSettingsPage/>
     return <GenericPage page={page}/>
-  }, [page,period])
+  }, [page,period,routePath])
   return <div className="app-shell"><Sidebar page={page} setPage={navigate} open={menuOpen} close={()=>setMenuOpen(false)}/><main><Header page={page} menu={()=>setMenuOpen(true)}/>{content}<footer className="internal-mugo-signature"><img src="/mugo-logo.png" alt="Mugô"/><span>RUAH Intelligence — desenvolvido pela Mugô</span></footer></main></div>
 }
