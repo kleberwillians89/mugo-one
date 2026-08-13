@@ -1,0 +1,16 @@
+.ui-select {
+  width: 100%;
+  min-height: var(--input-height);
+  border: 1px solid #ded8ce;
+  background: var(--paper);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-3);
+  font-size: var(--fs-base);
+  color: #2f2b26;
+}
+
+.ui-select:focus-visible {
+  outline: none;
+  border-color: var(--gold-deep);
+  box-shadow: var(--focus-ring);
+}

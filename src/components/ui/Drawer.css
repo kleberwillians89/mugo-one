@@ -1,0 +1,32 @@
+.ui-drawer-layer {
+  position: fixed;
+  z-index: var(--z-drawer);
+  inset: 0;
+}
+
+.ui-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: #0008;
+}
+
+.ui-drawer-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: min(var(--drawer-width), 86vw);
+  background: #1b1916;
+  color: white;
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  animation: ui-drawer-in 0.2s ease-out;
+}
+
+.ui-drawer-panel--left { left: 0; }
+.ui-drawer-panel--right { right: 0; }
+
+@keyframes ui-drawer-in {
+  from { transform: translateX(-8px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}

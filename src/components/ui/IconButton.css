@@ -1,0 +1,36 @@
+.ui-icon-btn {
+  position: relative;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: #6c655b;
+  transition: background 0.15s;
+}
+
+.ui-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ui-icon-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.ui-icon-btn:hover:not(:disabled) { background: var(--cream); }
+.ui-icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ui-icon-btn--badge::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  top: 8px;
+  right: 8px;
+}
