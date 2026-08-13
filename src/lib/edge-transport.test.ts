@@ -13,4 +13,5 @@ describe('transporte CORS da inteligência',()=>{
 
 describe('impressão SuperFrete sem nova compra',()=>{
   it('sincroniza somente order/info e testa PDF oficial',()=>{expect(sync).toContain('/api/v0/order/info/');expect(sync).toContain("hostname==='etiqueta.superfrete.com'");expect(sync).toContain("includes('application/pdf')");expect(sync).not.toContain('/api/v0/cart');expect(sync).not.toContain('/api/v0/checkout')})
+  it('não responde sucesso quando a saúde de impressão não foi persistida',()=>{expect(sync).toContain('print_health_persist_failed');expect(sync).toContain(".select('*').single()");expect(sync).toContain('data:updated')})
 })
