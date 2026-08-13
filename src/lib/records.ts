@@ -190,7 +190,7 @@ export type OperationalShipment={
 
 export async function fetchOperationalShipments(){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(quantity_ml,sales(id,amount,perfume_name_raw,sale_type))').eq('organization_id',organizationId).order('created_at',{ascending:false})
+  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(quantity_ml,sales(id,amount,perfume_name_raw,sale_type))').eq('organization_id',organizationId).order('created_at',{ascending:false})
   if(error)throw new Error(error.message)
   return (data??[]) as unknown as OperationalShipment[]
 }

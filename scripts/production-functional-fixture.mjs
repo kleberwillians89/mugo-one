@@ -11,6 +11,7 @@ const request=async(url,options={},headers=serviceHeaders)=>{const response=awai
 const rest=(path,options={},headers)=>request(`${base}/rest/v1${path}`,options,headers)
 const cleanup=async state=>{
   const id=state.ids??{}
+  if(!id.shipment&&id.client){const shipments=await rest(`/shipments?client_id=eq.${id.client}&select=id`);id.shipment=shipments[0]?.id??null}
   if(id.shipment){await rest(`/shipments?id=eq.${id.shipment}`,{method:'PATCH',body:JSON.stringify({selected_quote_id:null})}).catch(()=>{});await rest(`/shipment_events?shipment_id=eq.${id.shipment}`,{method:'DELETE'}).catch(()=>{});await rest(`/integration_runs?entity_id=eq.${id.shipment}`,{method:'DELETE'}).catch(()=>{});await rest(`/shipment_items?shipment_id=eq.${id.shipment}`,{method:'DELETE'}).catch(()=>{});await rest(`/shipment_quotes?shipment_id=eq.${id.shipment}`,{method:'DELETE'}).catch(()=>{});await rest(`/inventory_allocations?shipment_id=eq.${id.shipment}`,{method:'DELETE'}).catch(()=>{});await rest(`/shipments?id=eq.${id.shipment}`,{method:'DELETE'}).catch(()=>{})}
   if(id.sale)await rest(`/inventory_allocations?sale_id=eq.${id.sale}`,{method:'DELETE'}).catch(()=>{})
   if(id.sale)await rest(`/sales?id=eq.${id.sale}`,{method:'DELETE'}).catch(()=>{})
