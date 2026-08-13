@@ -232,13 +232,14 @@ export async function refreshShipmentRecipient(shipmentId:string){await currentO
 export async function selectShipmentQuote(shipmentId:string,quoteId:string){await currentOrganization();const {error}=await supabase!.rpc('select_shipment_quote',{p_shipment_id:shipmentId,p_quote_id:quoteId});if(error)throw new Error(error.message)}
 export async function approveShipmentForLabel(shipmentId:string){await currentOrganization();const {error}=await supabase!.rpc('approve_shipment_for_label',{p_shipment_id:shipmentId});if(error)throw new Error(error.message)}
 
-async function invokeShipmentFunction(name:string,shipmentId:string){
-  const {organizationId}=await currentOrganization(),{data,error}=await supabase!.functions.invoke(name,{body:{organization_id:organizationId,shipment_id:shipmentId}})
-  if(error){const response=(error as {context?:Response}).context;let message='Falha na integração SuperFrete.',code='';try{const body=await response?.clone().json();message=body?.error?.message??message;code=String(body?.error?.code??'')}catch{/* resposta sem JSON */}const status=response?.status?` HTTP ${response.status}.`:'';const reference=response?.headers.get('x-request-id');throw new Error(`${message}${status}${code?` Código: ${code}.`:''}${reference?` Referência: ${reference}.`:''}`)}
+async function invokeShipmentFunction(name:string,shipmentId:string,extra:Record<string,unknown>={}){
+  const {organizationId}=await currentOrganization(),{data,error}=await supabase!.functions.invoke(name,{body:{organization_id:organizationId,shipment_id:shipmentId,...extra}})
+  if(error){const response=(error as {context?:Response}).context;let message='Não foi possível concluir a operação com a SuperFrete.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}const reference=response?.headers.get('x-request-id');throw new Error(`${message}${reference?` Referência: ${reference}.`:''}`)}
   return data?.data
 }
 export const quoteShipment=(shipmentId:string)=>invokeShipmentFunction('superfrete-quote',shipmentId)
-export const createSuperFreteLabel=(shipmentId:string)=>invokeShipmentFunction('superfrete-create-label',shipmentId)
+export const createSuperFreteCart=(shipmentId:string)=>invokeShipmentFunction('superfrete-create-label',shipmentId,{action:'cart'})
+export const checkoutSuperFreteLabel=(shipmentId:string)=>invokeShipmentFunction('superfrete-create-label',shipmentId,{action:'checkout'})
 export const syncSuperFreteShipment=(shipmentId:string)=>invokeShipmentFunction('superfrete-sync-shipment',shipmentId)
 
 export type ShippingSettings={organization_id:string;sender_name:string|null;sender_document:string|null;sender_email:string|null;sender_phone:string|null;sender_postal_code:string|null;sender_address:string|null;sender_number:string|null;sender_complement:string|null;sender_district:string|null;sender_city:string|null;sender_state:string|null;default_weight:number|null;default_height:number|null;default_width:number|null;default_length:number|null;default_format:string;calculator_services:string}

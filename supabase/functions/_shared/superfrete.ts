@@ -1,5 +1,5 @@
 export type SuperFreteConfig = { token:string;baseUrl:string;userAgent:string }
-export {isTimeout,normalizeQuote,numberValue,safeProviderError} from './superfrete-domain.ts'
+export {isTimeout,normalizeQuote,numberValue,providerValidation,safeProviderError,validDocument,validPhone} from './superfrete-domain.ts'
 
 export function superFreteConfig():SuperFreteConfig {
   const token=Deno.env.get('SUPERFRETE_TOKEN')?.trim()
@@ -18,7 +18,7 @@ export async function superFreteRequest(path:string,init:RequestInit,timeoutMs=2
     }})
     const raw=await response.text();let body:unknown=null
     try{body=raw?JSON.parse(raw):null}catch{/* resposta não JSON descartada */}
-    if(!response.ok){const error=new Error(`superfrete_http_${response.status}`) as Error&{status:number};error.status=response.status;throw error}
+    if(!response.ok){const error=new Error(`superfrete_http_${response.status}`) as Error&{status:number;providerBody:unknown};error.status=response.status;error.providerBody=body;throw error}
     return body
   }finally{clearTimeout(timer)}
 }

@@ -20,6 +20,9 @@ export function mapSuperFreteStatus(status:unknown):InternalShipmentState{
 export function checkoutPayload(orderId:string){if(!orderId.trim())throw new Error('order_id_required');return {orders:[orderId]}}
 
 export const numberValue=(value:unknown)=>{const parsed=Number(String(value??0).replace(',','.'));return Number.isFinite(parsed)?parsed:0}
+export const validDocument=(value:unknown)=>{const digits=String(value??'').replace(/\D/g,'');if(![11,14].includes(digits.length)||/^(\d)\1+$/.test(digits))return false;const validate=(base:string,factors:number[])=>{const sum=factors.reduce((total,factor,index)=>total+Number(base[index])*factor,0),digit=sum%11<2?0:11-sum%11;return digit===Number(base[factors.length])};return digits.length===11?validate(digits,[10,9,8,7,6,5,4,3,2])&&validate(digits,[11,10,9,8,7,6,5,4,3,2]):validate(digits,[5,4,3,2,9,8,7,6,5,4,3,2])&&validate(digits,[6,5,4,3,2,9,8,7,6,5,4,3,2])}
+export const validPhone=(value:unknown)=>{const digits=String(value??'').replace(/\D/g,'');return digits.length===10||digits.length===11}
+export function providerValidation(value:unknown){const root=(value&&typeof value==='object'?value:{}) as Record<string,unknown>,errors=root.errors??root.error??root.validation_errors,message=String(root.message??(root.error as Record<string,unknown>|undefined)?.message??'A SuperFrete recusou os dados da operação.');return {message,validation_errors:errors??null}}
 export function normalizeQuote(item:Record<string,unknown>){
   const packages=Array.isArray(item.packages)?item.packages:[],first=(packages[0]||{}) as Record<string,unknown>
   const hasError=Boolean(item.error||item.has_error),price=numberValue(item.price??first.price)

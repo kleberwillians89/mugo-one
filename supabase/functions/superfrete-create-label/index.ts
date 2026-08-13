@@ -1,5 +1,5 @@
 import {audit,context,json} from '../_shared/security.ts'
-import {digits,extractOrderState,numberValue,safeProviderError,superFreteRequest} from '../_shared/superfrete.ts'
+import {digits,extractOrderState,numberValue,providerValidation,safeProviderError,superFreteRequest,validDocument,validPhone} from '../_shared/superfrete.ts'
 import {checkoutPayload,emissionAction} from '../_shared/superfrete-domain.ts'
 
 const uuid=(value:unknown)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value??''))?String(value):''
@@ -9,6 +9,7 @@ Deno.serve(async(req)=>{
   const ctx=await context(req);if('response'in ctx)return ctx.response
   if(!['admin','manager'].includes(String(ctx.role)))return json({error:{code:'forbidden',message:'Somente gestores podem emitir etiquetas.'}},403,req)
   const shipmentId=uuid(ctx.body.shipment_id)
+  const requestedAction=String(ctx.body.action??'cart')
   if(!shipmentId)return json({error:{code:'invalid_shipment',message:'Envio inválido.'}},400,req)
 
   const {data:initial,error:initialError}=await ctx.client.from('shipments').select('id,superfrete_order_id,checkout_status').eq('id',shipmentId).eq('organization_id',ctx.organizationId).single()
@@ -33,14 +34,17 @@ Deno.serve(async(req)=>{
     ])
     const senderRequired=['sender_name','sender_document','sender_email','sender_phone','sender_postal_code','sender_address','sender_number','sender_district','sender_city','sender_state']
     const missingSender=senderRequired.filter(key=>!present((settings as Record<string,unknown>|null)?.[key]))
-    if(error||!shipment||!settings||!items?.length||missingSender.length||digits(settings.sender_postal_code).length!==8){
+    const recipientMissing=[['recipient_name','nome'],['recipient_document','CPF/CNPJ'],['recipient_phone','telefone'],['recipient_postal_code','CEP'],['recipient_address','endereço'],['recipient_number','número'],['recipient_district','bairro'],['recipient_city','cidade'],['recipient_state','UF']].filter(([key])=>!present(shipment?.[key])).map(([,label])=>label)
+    const invalidProduct=Boolean(items?.some((row:Record<string,unknown>)=>numberValue((row.sales as Record<string,unknown>|null)?.amount)<=0))
+    const invalidPackage=!([shipment?.package_weight,shipment?.package_height,shipment?.package_width,shipment?.package_length].every(value=>numberValue(value)>0))
+    if(error||!shipment||!settings||!items?.length||missingSender.length||recipientMissing.length||digits(settings.sender_postal_code).length!==8||digits(shipment?.recipient_postal_code).length!==8||!validDocument(settings?.sender_document)||!validDocument(shipment?.recipient_document)||!validPhone(settings?.sender_phone)||!validPhone(shipment?.recipient_phone)||invalidProduct||invalidPackage||!present(shipment?.service_id)){
       await ctx.client.rpc('mark_superfrete_operation',{p_shipment_id:shipmentId,p_run_id:cartRunId,p_stage:'cart',p_outcome:'failed',p_code:'INCOMPLETE_DATA',p_safe_message:'Dados de remetente, destinatário ou produtos incompletos.'})
-      return json({error:{code:'shipping_data_incomplete',message:'Revise remetente, destinatário e produtos antes da emissão.'},missing_sender:missingSender},422,req)
+      const message=!validDocument(settings?.sender_document)?'CPF/CNPJ do remetente inválido.':!validDocument(shipment?.recipient_document)?'CPF/CNPJ do destinatário inválido.':!validPhone(settings?.sender_phone)?'Telefone do remetente inválido.':!validPhone(shipment?.recipient_phone)?'Telefone do destinatário inválido.':recipientMissing.length?`Complete o cadastro da cliente: ${recipientMissing.join(', ')}.`:missingSender.length?`Complete os dados do remetente: ${missingSender.join(', ')}.`:invalidProduct?'Existe produto sem valor válido.':invalidPackage?'Peso e dimensões precisam ser maiores que zero.':!present(shipment?.service_id)?'Calcule o frete novamente e selecione um serviço.':'Revise CEP, pacote e produtos antes da emissão.'
+      return json({error:{code:'shipping_data_incomplete',message},missing_sender:missingSender,missing_recipient:recipientMissing},422,req)
     }
-    const products=items.map((row:Record<string,unknown>,index:number)=>{
+    const products=items.map((row:Record<string,unknown>)=>{
       const sale=row.sales as Record<string,unknown>,perfume=sale?.perfumes as Record<string,unknown>|null
-      return {sku:String(sale?.id||index+1),description:String(perfume?.full_name_raw||sale?.perfume_name_raw||'Perfume'),quantity:1,
-        weight:Number(shipment.package_weight)/items.length,value:numberValue(sale?.amount)}
+      return {name:String(perfume?.full_name_raw||sale?.perfume_name_raw||'Perfume'),quantity:1,unitary_value:numberValue(sale?.amount)}
     })
     const options:Record<string,unknown>={own_hand:false,receipt:false,insurance_value:Number(shipment.declared_value||0),non_commercial:shipment.fiscal_mode!=='invoice'}
     if(shipment.fiscal_mode==='invoice'&&shipment.invoice_key)options.invoice={key:shipment.invoice_key}
@@ -54,12 +58,14 @@ Deno.serve(async(req)=>{
       products,volumes:[{quantity:1,weight:Number(shipment.package_weight),height:Number(shipment.package_height),width:Number(shipment.package_width),length:Number(shipment.package_length)}],options}
     let cart:Record<string,unknown>
     try{cart=await superFreteRequest('/api/v0/cart',{method:'POST',body:JSON.stringify(cartPayload)},30000) as Record<string,unknown>}
-    catch(cause){const safe=safeProviderError(cause);await ctx.client.rpc('mark_superfrete_operation',{p_shipment_id:shipmentId,p_run_id:cartRunId,p_stage:'cart',p_outcome:safe.uncertain?'uncertain':'failed',p_code:safe.code,p_safe_message:safe.message});return json({error:{code:safe.code,message:safe.message}},safe.httpStatus,req)}
+    catch(cause){const safe=safeProviderError(cause),provider=providerValidation((cause as {providerBody?:unknown})?.providerBody);console.error(JSON.stringify({stage:'cart',upstream_status:(cause as {status?:number})?.status||null,upstream_message:provider.message,validation_errors:provider.validation_errors,payload_shape:{service_id:Number(shipment.service_id),package:{weight:Number(shipment.package_weight),height:Number(shipment.package_height),width:Number(shipment.package_width),length:Number(shipment.package_length)},recipient:{has_name:present(shipment.recipient_name),has_document:validDocument(shipment.recipient_document),has_phone:validPhone(shipment.recipient_phone),has_postal_code:digits(shipment.recipient_postal_code).length===8,has_address:present(shipment.recipient_address),has_number:present(shipment.recipient_number),has_district:present(shipment.recipient_district),has_city:present(shipment.recipient_city),has_state:present(shipment.recipient_state)}}}));await ctx.client.rpc('mark_superfrete_operation',{p_shipment_id:shipmentId,p_run_id:cartRunId,p_stage:'cart',p_outcome:safe.uncertain?'uncertain':'failed',p_code:safe.code,p_safe_message:provider.message});return json({error:{code:'SUPERFRETE_VALIDATION_ERROR',message:provider.message,validation_errors:provider.validation_errors}},(cause as {status?:number})?.status===400?422:safe.httpStatus,req)}
     const cartState=extractOrderState(cart);orderId=String(cart.id||cartState.id||'')
     if(!orderId){await ctx.client.rpc('mark_superfrete_operation',{p_shipment_id:shipmentId,p_run_id:cartRunId,p_stage:'cart',p_outcome:'uncertain',p_code:'CART_ID_MISSING',p_safe_message:'A SuperFrete respondeu, mas o identificador do pedido não pôde ser confirmado.'});return json({error:{code:'reconciliation_required',message:'A resposta do carrinho precisa de reconciliação antes de qualquer nova tentativa.'}},409,req)}
     const {error:completeError}=await ctx.client.rpc('complete_superfrete_cart',{p_shipment_id:shipmentId,p_run_id:cartRunId,p_order_id:orderId,p_protocol:String(cart.protocol||cartState.protocol||''),p_price:numberValue(cart.price||cartState.price)})
     if(completeError){await ctx.client.rpc('mark_superfrete_operation',{p_shipment_id:shipmentId,p_run_id:cartRunId,p_stage:'cart',p_outcome:'uncertain',p_code:'CART_PERSIST_FAILED',p_safe_message:'O carrinho pode ter sido criado, mas não foi possível persistir sua confirmação.'});return json({error:{code:'reconciliation_required',message:'O carrinho pode existir na SuperFrete. Não tente novamente automaticamente.'}},409,req)}
   }
+
+  if(requestedAction!=='checkout')return json({data:{cart_created:true,order_id:orderId,requires_checkout_confirmation:true}},200,req)
 
   const {data:checkoutClaim,error:checkoutClaimError}=await ctx.client.rpc('claim_superfrete_checkout',{p_shipment_id:shipmentId})
   if(checkoutClaimError||!checkoutClaim?.claimed)return json({error:{code:String(checkoutClaim?.reason||'checkout_not_ready'),message:'O checkout não pode ser repetido automaticamente. Sincronize o envio.'}},409,req)
