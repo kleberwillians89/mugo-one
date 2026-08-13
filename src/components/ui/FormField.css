@@ -1,0 +1,25 @@
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-field > label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: #625b52;
+}
+
+.ui-field-required { color: var(--danger); }
+
+.ui-field-hint {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.ui-field-error {
+  font-size: var(--fs-sm);
+  color: var(--danger);
+  font-weight: var(--fw-medium);
+}

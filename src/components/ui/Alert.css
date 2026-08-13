@@ -1,0 +1,17 @@
+.ui-alert {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-base);
+  border: 1px solid transparent;
+}
+
+.ui-alert > div { display: flex; flex-direction: column; gap: 2px; }
+.ui-alert strong { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+
+.ui-alert--info { background: #f4f1eb; color: #5b5346; border-color: var(--line); }
+.ui-alert--warning { background: var(--warning-bg); color: var(--warning); border-color: #ead9ac; }
+.ui-alert--danger { background: var(--danger-bg); color: var(--danger); border-color: #e3c4c1; }
+.ui-alert--success { background: var(--success-bg); color: var(--success); border-color: #cfe4d5; }
