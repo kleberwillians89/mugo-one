@@ -1,0 +1,110 @@
+/*
+  Tokens de design RUAH Intelligence.
+
+  Ordem de carregamento (ver src/main.tsx): tokens.css entra primeiro, depois
+  os arquivos CSS legados (styles.css, enhancements.css, auth.css, mugo.css).
+  Os arquivos legados continuam sendo a fonte de estilos existentes — este
+  arquivo só declara variáveis novas/consolidadas, não substitui nada.
+
+  Breakpoints: o restante do app usa uma escala própria e já em produção
+  (359 / 450 / 560 / 760 / 900 / 1100px em styles.css/enhancements.css).
+  Os componentes NOVOS (src/components/ui/*, Sidebar/Header reformulados)
+  adotam a escala pedida no briefing de UX (768 / 1024px como referência
+  principal, ver --bp-*). As media queries legadas não são reescritas nesta
+  fase para não gerar um diff de alto risco.
+*/
+:root {
+  /* Cor — paleta RUAH existente (preservada de styles.css) */
+  --gold: #b78d2d;
+  --gold-deep: #9f7c2b;
+  --gold-soft: #d7b75e;
+  --ink: #1d1b18;
+  --ink-soft: #26231f;
+  --muted: #7c756a;
+  --line: #e8e3da;
+  --paper: #fff;
+  --cream: #f4efe5;
+
+  /* Cor — semânticas novas (derivadas dos hex já usados em badges/avisos) */
+  --danger: #a5574f;
+  --danger-bg: #f7e8e7;
+  --success: #4f785e;
+  --success-bg: #e9f2ec;
+  --warning: #906b19;
+  --warning-bg: #fbf1da;
+  --focus-ring: 0 0 0 3px rgba(183, 141, 45, 0.22);
+
+  /* Tipografia */
+  --font-body: 'DM Sans', sans-serif;
+  --font-ui: 'Manrope', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  --fs-xs: 9px;
+  --fs-sm: 11px;
+  --fs-base: 13px;
+  --fs-md: 15px;
+  --fs-lg: 19px;
+  --fs-xl: 25px;
+  --fs-2xl: 32px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --lh-tight: 1.25;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.7;
+
+  /* Espaçamento — base 4px */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Raio de borda */
+  --radius-sm: 4px;
+  --radius-md: 7px;
+  --radius-lg: 9px;
+  --radius-xl: 12px;
+  --radius-full: 999px;
+
+  /* Sombra */
+  --shadow-sm: 0 4px 14px rgba(43, 33, 19, 0.04);
+  --shadow-md: 0 15px 35px rgba(48, 39, 19, 0.14);
+  --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.3);
+
+  /* Tamanhos — alvo de toque mínimo 44x44px */
+  --button-height: 44px;
+  --button-height-sm: 38px;
+  --input-height: 44px;
+  --touch-target: 44px;
+  --container-width: 1500px;
+  --modal-width: 760px;
+  --drawer-width: 280px;
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 76px;
+  --header-height: 91px;
+  --header-height-mobile: 74px;
+
+  /* Camadas (z-index) */
+  --z-header: 10;
+  --z-sidebar: 20;
+  --z-scrim: 19;
+  --z-drawer: 25;
+  --z-modal: 100;
+  --z-toast: 110;
+
+  /* Breakpoints de referência para componentes novos (uso documental —
+     media queries em CSS não conseguem ler var(), então estes valores
+     servem de contrato para código novo e para os scripts de screenshot
+     responsivo de uma fase futura). */
+  --bp-xs: 375px;
+  --bp-sm: 390px;
+  --bp-md: 430px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+  --bp-wide: 1280px;
+  --bp-xwide: 1440px;
+}
