@@ -8,7 +8,7 @@ const sync=readFileSync(new URL('../../supabase/functions/superfrete-sync-shipme
 describe('transporte CORS da inteligência',()=>{
   it('autoriza o domínio oficial e todos os headers do cliente Supabase',()=>{expect(security).toContain("'https://crm.ruahparfums.com.br'");expect(security).toContain('authorization, apikey, content-type, x-client-info')})
   it('OPTIONS encerra antes de autenticação e consultas',()=>{expect(security.indexOf("req.method === 'OPTIONS'")).toBeLessThan(security.indexOf("req.headers.get('authorization')"))})
-  it.each([200,400,401,500])('respostas %i usam o helper JSON com CORS',status=>{expect(security).toContain("...(req ? corsHeaders(req) : {})");expect(intelligence).toContain('const respond = (body: unknown, status = 200) => json(body, status, req)')})
+  it.each([200,400,401,500])('respostas %i usam o helper JSON com CORS',()=>{expect(security).toContain("...(req ? corsHeaders(req) : {})");expect(intelligence).toContain('const respond = (body: unknown, status = 200) => json(body, status, req)')})
 })
 
 describe('impressão SuperFrete sem nova compra',()=>{
