@@ -1,0 +1,82 @@
+.ficha-head {
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-2);
+}
+
+.ficha-eyebrow {
+  display: block;
+  font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
+  letter-spacing: 2px;
+  color: var(--gold-deep);
+  margin-bottom: var(--space-2);
+}
+
+.ficha-client {
+  font: var(--fw-medium) var(--fs-2xl) var(--font-serif);
+  margin: 0 0 var(--space-1);
+  color: var(--ink);
+}
+
+.ficha-product {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+  font-size: var(--fs-md);
+}
+
+.ficha-price-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ficha-price-row strong {
+  font: var(--fw-semibold) var(--fs-xl) var(--font-ui);
+  color: var(--ink);
+}
+
+.ficha-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ficha-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.confirm-question {
+  display: block;
+  font: var(--fw-semibold) var(--fs-md) var(--font-ui);
+  margin: var(--space-3) 0;
+}
+
+.confirm-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  cursor: pointer;
+}
+
+.confirm-checkbox input {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  accent-color: var(--gold);
+}
+
+.confirm-checkbox span {
+  font-size: var(--fs-base);
+  color: var(--ink-soft);
+}
+
+@media (max-width: 700px) {
+  .ficha-columns { grid-template-columns: 1fr; }
+  .ficha-client { font-size: var(--fs-xl); }
+}

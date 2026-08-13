@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, Boxes, Check, FileText, ShoppingBag, X } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { brl, shortDate } from '../lib/format'
 import { operationalLabel, statusLabel } from '../lib/presentation'
 import {
   CommercialSale, confirmLegacyProductCustody, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
 } from '../lib/records'
-import { Metric } from '../components/shared/Metric'
+import { DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton } from '../components/ui'
+import './SaleDetailsPage.css'
 
 export function SaleDetailsPage({saleId}:{saleId:string}){
   const [sale,setSale]=useState<CommercialSale|null>(null),[error,setError]=useState(''),[preparing,setPreparing]=useState(false),[confirming,setConfirming]=useState(false),[confirmed,setConfirmed]=useState(false),[location,setLocation]=useState(''),[saving,setSaving]=useState(false)
@@ -19,5 +20,94 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
   const confirmCustody=async()=>{if(!confirmed)return;setSaving(true);setError('');try{await confirmLegacyProductCustody(sale.id,location,verificationNote);setConfirming(false);setConfirmed(false);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar o produto.')}finally{setSaving(false)}}
   const release=async()=>{if(!allocation)return;setSaving(true);try{await releaseLegacyProductCustody(allocation.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível remover a confirmação.')}finally{setSaving(false)}}
   const canConfirm=!allocation&&!shipment&&!sale.shipped_at&&Boolean(sale.client_id&&sale.perfume_id&&sale.volume_ml&&sale.volume_ml>0)
-  return <div className="page sale-360">{confirming&&<div className="modal-layer"><button className="modal-scrim" aria-label="Fechar" onClick={()=>setConfirming(false)}/><div className="modal-panel"><div className="modal-title"><div><span>CONFIRMAÇÃO HUMANA</span><h2>Confirmar produto em custódia</h2></div><button onClick={()=>setConfirming(false)}><X/></button></div><div className="record-form"><div className="client-panel"><dl><dt>Cliente</dt><dd>{sale.clients?.name||sale.original_client||'—'}</dd><dt>Perfume</dt><dd>{sale.perfume_name_raw||'—'}</dd><dt>Tipo / ML</dt><dd>{sale.sale_type||'—'} · {sale.volume_ml} ml</dd><dt>Venda</dt><dd>{brl(Number(sale.amount))}</dd><dt>Data</dt><dd>{sale.sale_date?shortDate(sale.sale_date):'—'}</dd></dl></div><strong>Você conferiu fisicamente este produto?</strong><label className="selection-row"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)}/><span>Confirmei que este produto está fisicamente em posse da RUAH e pertence a este cliente.</span></label><label className="field"><span>Localização / caixa</span><input value={location} onChange={event=>setLocation(event.target.value)} placeholder="Ex.: Caixa Érica, Prateleira 2"/></label><label className="field"><span>Observação</span><textarea value={verificationNote} onChange={event=>setVerificationNote(event.target.value)}/></label><div className="notice"><span>Esta confirmação não altera o estoque operacional.</span></div><div className="form-actions"><button onClick={()=>setConfirming(false)}>Cancelar</button><button className="primary" disabled={!confirmed||saving} onClick={confirmCustody}>{saving?'Confirmando…':'CONFIRMAR PRODUTO EM CUSTÓDIA'}</button></div></div></div></div>}<button className="back-link" onClick={()=>history.back()}>← Voltar para vendas</button><div className="page-lead"><div><span className="eyebrow">VENDA 360</span><h2>{sale.clients?.name??sale.original_client??'Venda'}</h2><p>{sale.id}</p></div><div className="page-actions">{canConfirm&&<button className="primary" onClick={()=>setConfirming(true)}>CONFIRMAR PRODUTO EM CUSTÓDIA</button>}{allocation?.status==='reserved'&&<button className="primary" disabled={preparing} onClick={prepare}>{preparing?'Preparando…':'PREPARAR ENVIO'}</button>}{shipment&&<a className="button-link" href={`/entregas/${shipment.id}`}>Abrir Envio 360</a>}</div></div><section className="metrics"><Metric label="Valor" value={brl(Number(sale.amount))} detail={sale.sale_date?shortDate(sale.sale_date):'Sem data'} icon={ShoppingBag}/><Metric label="Pagamento" value={statusLabel[sale.payment_status]||sale.payment_status} detail={sale.paid_at?shortDate(sale.paid_at):'Sem baixa'} icon={Check}/><Metric label="Crédito" value={brl(Number(sale.credit_reference_amount||0))} detail={sale.payment_method||'Forma não informada'} icon={FileText}/><Metric label="Estoque" value={allocation?`${Number(allocation.quantity_ml).toLocaleString('pt-BR')} ml`:'Nenhuma operação'} detail={allocation?.stock_managed?'Estoque operacional':allocation?'Conferido manualmente':'Nenhuma operação de estoque vinculada'} icon={Boxes}/></section><section className="client-grid"><article className="card client-panel"><h3>Cliente</h3><dl><dt>Nome</dt><dd>{sale.clients?.name||'—'}</dd><dt>Telefone</dt><dd>{sale.clients?.phone||sale.clients?.whatsapp_phone||'—'}</dd><dt>E-mail</dt><dd>{sale.clients?.email||'—'}</dd><dt>Documento</dt><dd>{sale.clients?.cpf||sale.clients?.cnpj||'—'}</dd><dt>Endereço</dt><dd>{[sale.clients?.address_line,sale.clients?.address_number,sale.clients?.city,sale.clients?.state].filter(Boolean).join(', ')||'—'}</dd></dl></article><article className="card client-panel"><h3>Comercial e financeiro</h3><dl><dt>Perfume</dt><dd>{sale.perfume_name_raw||'—'}</dd><dt>Tipo / volume</dt><dd>{sale.sale_type||'—'} · {sale.volume_ml??'—'} ml</dd><dt>Origem</dt><dd>{sale.source==='spreadsheet'?'Importação':'Manual'}</dd><dt>Observações</dt><dd>{sale.notes||'—'}</dd><dt>Prazo histórico</dt><dd>{sale.shipping_deadline_date?shortDate(sale.shipping_deadline_date):sale.shipping_deadline_raw||'—'}</dd><dt>Envio histórico</dt><dd>{sale.shipped_at?shortDate(sale.shipped_at):'—'}</dd></dl></article><article className="card client-panel"><h3>Logística</h3><dl><dt>Allocation</dt><dd>{allocation?.status?operationalLabel(allocation.status):'Nenhuma operação de estoque vinculada'}</dd><dt>Origem</dt><dd>{allocation?.stock_managed?'ESTOQUE OPERACIONAL':allocation?'CONFERIDO MANUALMENTE':'—'}</dd><dt>Confirmado em</dt><dd>{allocation?.verified_at?shortDate(allocation.verified_at):'—'}</dd><dt>Localização</dt><dd>{allocation?.storage_location||'—'}</dd><dt>Shipment</dt><dd>{shipment?.id||'Ainda não preparado'}</dd><dt>Status</dt><dd>{shipment?.status?operationalLabel(shipment.status):sale.shipping_operational_status?operationalLabel(sale.shipping_operational_status):'—'}</dd><dt>SuperFrete</dt><dd>{shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'}</dd><dt>Rastreio</dt><dd>{shipment?.tracking_code||'—'}</dd></dl>{allocation?.allocation_source==='legacy_manual_verified'&&allocation.status==='reserved'&&!allocation.shipment_id&&<button disabled={saving} onClick={release}>REMOVER CONFIRMAÇÃO</button>}</article></section></div>
+  const clientName=sale.clients?.name??sale.original_client??'Venda'
+
+  return <div className="page sale-360 sale-ficha">
+    <Modal open={confirming} onClose={()=>setConfirming(false)} eyebrow="CONFIRMAÇÃO HUMANA" title="Confirmar produto em custódia">
+      <DefinitionGroup title="Resumo" items={[
+        {label:'Cliente',value:sale.clients?.name||sale.original_client||'—'},
+        {label:'Perfume',value:sale.perfume_name_raw||'—'},
+        {label:'ML',value:sale.volume_ml?`${sale.volume_ml} ml`:'—'},
+        {label:'Venda',value:brl(Number(sale.amount))},
+      ]}/>
+      <Divider/>
+      <strong className="confirm-question">Você conferiu fisicamente este produto?</strong>
+      <label className="confirm-checkbox">
+        <input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)}/>
+        <span>Confirmei que este produto está fisicamente em posse da RUAH e pertence a este cliente.</span>
+      </label>
+      <label className="field"><span>Caixa / localização</span><input value={location} onChange={event=>setLocation(event.target.value)} placeholder="Ex.: Caixa Érica, Prateleira 2"/></label>
+      <label className="field"><span>Observação</span><textarea value={verificationNote} onChange={event=>setVerificationNote(event.target.value)}/></label>
+      <div className="notice"><span>Esta confirmação não altera o estoque operacional.</span></div>
+      <div className="form-actions">
+        <SecondaryButton onClick={()=>setConfirming(false)}>Cancelar</SecondaryButton>
+        <PrimaryButton disabled={!confirmed} loading={saving} onClick={confirmCustody}>Confirmar produto</PrimaryButton>
+      </div>
+    </Modal>
+
+    <button className="back-link" onClick={()=>history.back()}>← Voltar para vendas</button>
+
+    <header className="ficha-head">
+      <span className="ficha-eyebrow">VENDA</span>
+      <h1 className="ficha-client">{clientName}</h1>
+      <p className="ficha-product">{sale.perfume_name_raw||'Perfume não informado'}{sale.volume_ml?` · ${sale.volume_ml} ml`:''}{sale.sale_type?` · ${sale.sale_type}`:''}</p>
+      <div className="ficha-price-row">
+        <strong>{brl(Number(sale.amount))}</strong>
+        <span className={`badge ${sale.payment_status}`}>{statusLabel[sale.payment_status]||sale.payment_status}</span>
+      </div>
+      <div className="ficha-actions">
+        {sale.client_id&&<SecondaryButton onClick={()=>{history.pushState({},'',`/clientes/${sale.client_id}`);dispatchEvent(new PopStateEvent('popstate'))}}>Ver cliente</SecondaryButton>}
+        {canConfirm&&<PrimaryButton onClick={()=>setConfirming(true)}>Confirmar produto</PrimaryButton>}
+        {allocation?.status==='reserved'&&<PrimaryButton loading={preparing} onClick={prepare}>Preparar envio</PrimaryButton>}
+        {shipment&&<a className="button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>}
+      </div>
+    </header>
+
+    {error&&<div className="notice"><AlertTriangle/><span>{error}</span></div>}
+
+    <Divider label="Cliente"/>
+    <DefinitionGroup title="Contato" items={[
+      {label:'Nome',value:sale.clients?.name||'—'},
+      {label:'Telefone',value:sale.clients?.phone||sale.clients?.whatsapp_phone||'—'},
+      {label:'E-mail',value:sale.clients?.email||'—'},
+      {label:'Documento',value:sale.clients?.cpf||sale.clients?.cnpj||'—'},
+      {label:'Endereço',value:[sale.clients?.address_line,sale.clients?.address_number,sale.clients?.city,sale.clients?.state].filter(Boolean).join(', ')||'—'},
+    ]}/>
+
+    <Divider label="Produto e pagamento"/>
+    <section className="ficha-columns">
+      <DefinitionGroup title="Produto" items={[
+        {label:'Perfume',value:sale.perfume_name_raw||'—'},
+        {label:'Tipo / volume',value:`${sale.sale_type||'—'} · ${sale.volume_ml??'—'} ml`},
+        {label:'Origem',value:sale.source==='spreadsheet'?'Importação':'Manual'},
+        {label:'Observações',value:sale.notes||'—'},
+      ]}/>
+      <DefinitionGroup title="Pagamento" items={[
+        {label:'Valor',value:brl(Number(sale.amount))},
+        {label:'Status',value:statusLabel[sale.payment_status]||sale.payment_status},
+        {label:'Crédito',value:brl(Number(sale.credit_reference_amount||0))},
+        {label:'Forma',value:sale.payment_method||'Não informada'},
+        {label:'Data',value:sale.paid_at?shortDate(sale.paid_at):'Sem baixa'},
+      ]}/>
+    </section>
+
+    <Divider label="Custódia e estoque"/>
+    <DefinitionGroup title="Estoque" items={[
+      {label:'Allocation',value:allocation?.status?operationalLabel(allocation.status):'Nenhuma operação de estoque vinculada'},
+      {label:'Origem',value:allocation?.stock_managed?'Estoque operacional':allocation?'Conferido manualmente':'—'},
+      {label:'Quantidade',value:allocation?`${Number(allocation.quantity_ml).toLocaleString('pt-BR')} ml`:'—'},
+      {label:'Confirmado em',value:allocation?.verified_at?shortDate(allocation.verified_at):'—'},
+      {label:'Localização',value:allocation?.storage_location||'—'},
+    ]} action={allocation?.allocation_source==='legacy_manual_verified'&&allocation.status==='reserved'&&!allocation.shipment_id?<SecondaryButton loading={saving} onClick={release}>Remover confirmação</SecondaryButton>:undefined}/>
+
+    <Divider label="Logística"/>
+    <DefinitionGroup title="Envio" items={[
+      {label:'Shipment',value:shipment?.id||'Ainda não preparado'},
+      {label:'Status',value:shipment?.status?operationalLabel(shipment.status):sale.shipping_operational_status?operationalLabel(sale.shipping_operational_status):'—'},
+      {label:'Transportadora',value:shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'},
+      {label:'Rastreio',value:shipment?.tracking_code||'—'},
+      {label:'Prazo histórico',value:sale.shipping_deadline_date?shortDate(sale.shipping_deadline_date):sale.shipping_deadline_raw||'—'},
+      {label:'Envio histórico',value:sale.shipped_at?shortDate(sale.shipped_at):'—'},
+    ]}/>
+  </div>
 }
