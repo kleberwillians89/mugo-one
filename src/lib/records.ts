@@ -368,6 +368,7 @@ export async function createSale(input: SaleInput) {
   if (error) throw new Error(error.message)
   return data
 }
+export async function parseSaleAssistant(text:string){const {data,error}=await supabase!.functions.invoke('parse-sale-assistant',{body:{text}});if(error)throw new Error('Não foi possível interpretar a anotação agora.');if(data?.error)throw new Error(data.error.message);return data.data as {fields:Record<string,unknown>;client_matches:Array<Record<string,unknown>>;perfume_matches:Array<{id:string;name:string;available_ml:number}>}}
 
 export async function searchClients(term: string) {
   const { organizationId } = await currentOrganization()

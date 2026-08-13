@@ -13,6 +13,8 @@ Deno.serve(async(req)=>{
 
   const {data:initial,error:initialError}=await ctx.client.from('shipments').select('id,superfrete_order_id,checkout_status').eq('id',shipmentId).eq('organization_id',ctx.organizationId).single()
   if(initialError||!initial)return json({error:{code:'shipment_not_found',message:'Envio não encontrado.'}},404,req)
+  const {data:conference}=await ctx.client.from('shipment_items').select('checked_at,divergence_note').eq('shipment_id',shipmentId).is('removed_at',null)
+  if(!conference?.length||conference.some(item=>!item.checked_at||present(item.divergence_note)))return json({error:{code:'conference_incomplete',message:'Conferência incompleta. Confira todos os itens e resolva as divergências antes da emissão.'}},409,req)
   const initialAction=emissionAction(initial.superfrete_order_id,initial.checkout_status)
   if(initialAction==='blocked_uncertain'||initialAction==='sync_existing'){
     return json({error:{code:'reconciliation_required',message:'Já existe um pedido SuperFrete. Sincronize o envio; o carrinho não será repetido.'}},409,req)

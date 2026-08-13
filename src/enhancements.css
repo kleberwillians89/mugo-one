@@ -162,3 +162,7 @@ button,a,input,select,textarea{touch-action:manipulation}
 }
 .client-name-link{appearance:none;border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-decoration-color:#bf9636;text-underline-offset:3px;cursor:pointer}
 .client-name-link:hover{color:#9f7c2b}
+@media print {
+  .sidebar,.topbar,.back-link,.page-actions,.client-grid,.shipment-products,.internal-mugo-signature,.conference-list select{display:none!important}
+  main,.page{margin:0!important;padding:0!important}.conference-list{box-shadow:none!important;border:0!important}.conference-list table{font-size:12pt}.conference-list input{appearance:none}.conference-list input:checked::after{content:'✓';font-size:16pt}
+}
