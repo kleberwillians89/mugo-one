@@ -3,3 +3,5 @@ const labels:Record<string,string>={
 }
 export const operationalLabel=(value:unknown)=>{const key=String(value??'').trim();return labels[key]??key.replaceAll('_',' ').replace(/^./,letter=>letter.toUpperCase())}
 export const friendlyIntegrationError=(value:unknown)=>{const text=String(value??'').trim();if(!text)return'';if(/SUPERFRETE|HTTP[_ ]?\d|^[A-Z0-9_]+$/.test(text))return'Não foi possível concluir a operação com a transportadora. Revise os dados e tente novamente.';return text}
+
+export const statusLabel: Record<string, string> = { paid: 'Pago', pending: 'Aguardando', cancelled: 'Cancelado', unknown: 'Desconhecido' }

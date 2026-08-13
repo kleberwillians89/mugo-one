@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 
 export type PeriodValue = { start:string; end:string; label:string }
 export type PeriodPreset = 'today'|'yesterday'|'7d'|'30d'|'month'|'previous_month'|'quarter'|'year'|'all'|'custom'
@@ -19,3 +19,9 @@ export function presetPeriod(preset:PeriodPreset,now=new Date()):PeriodValue {
   return {start:localIso(start),end:localIso(end),label:labels[preset]}
 }
 export const defaultPeriod=()=>presetPeriod('month')
+
+export function previousPeriod(period:PeriodValue):PeriodValue {
+  const start=parseISO(period.start),end=parseISO(period.end),days=Math.max(1,Math.round((end.getTime()-start.getTime())/86400000)+1)
+  const previousEnd=subDays(start,1),previousStart=subDays(previousEnd,days-1)
+  return {start:format(previousStart,'yyyy-MM-dd'),end:format(previousEnd,'yyyy-MM-dd'),label:'Período anterior'}
+}

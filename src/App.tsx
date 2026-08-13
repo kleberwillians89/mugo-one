@@ -1,38 +1,27 @@
 import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bell, Bot, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, CircleHelp,
-  Boxes, Clock3, Download, FileSpreadsheet, FileText, Home, Import, Lightbulb, LoaderCircle, Menu,
+  Boxes, Clock3, Download, FileSpreadsheet, FileText, Home, LoaderCircle, Menu,
   MoreHorizontal, Plus, RotateCcw, Search, Settings, ShoppingBag, SlidersHorizontal, Sparkles, TrendingUp,
-  Truck, UploadCloud, UserRound, UsersRound, X, AlertTriangle, ArrowUpRight,
+  Truck, UploadCloud, UserRound, X, AlertTriangle, ArrowUpRight,
 } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { format, parseISO, subDays } from 'date-fns'
+import { format } from 'date-fns'
 import { brl, integer, shortDate } from './lib/format'
 import { ImportPreview, ParsedSale, readWorkbook } from './lib/importer'
 import { ClientModal, SaleModal } from './components/RecordModals'
 import { PeriodFilter } from './components/PeriodFilter'
 import { NewShipmentModal, OperationalShipments, ShipmentDetailsPage, ShippingSettingsPage } from './components/ShipmentOperations'
-import { defaultPeriod, PeriodValue } from './lib/period'
-import { operationalLabel } from './lib/presentation'
+import { defaultPeriod, PeriodValue, previousPeriod } from './lib/period'
+import { operationalLabel, statusLabel } from './lib/presentation'
+import { exportCsv } from './lib/csv'
+import { todayIso, deliveryState, deliveryLabels, deliveryLabel } from './lib/delivery'
+import { Page, navigation, routes, pageFromPath } from './routing'
 import {
   CommercialSale, PeriodSummary, SaleFilters,
   adjustInventory, askIntelligence, confirmLegacyProductCustody, createDraftShipment, createInventoryItem, fetchClient360, fetchClientPeriodSummaries, fetchDeliveryRows, fetchSale360, releaseLegacyProductCustody,
   fetchInventory, fetchLogisticsSummary, fetchOperationalInventory, fetchPeriodSummary, fetchSalesPage, inventoryPerfumes, InventoryRow, InventorySummary, LogisticsSummary, OperationalInventoryRow, updateShipment,
 } from './lib/records'
-
-type Page = 'Visão Geral'|'Clientes'|'Vendas'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Configurações'
-const navigation: { label: Page; icon: typeof Home }[] = [
-  { label: 'Visão Geral', icon: Home }, { label: 'Clientes', icon: UsersRound },
-  { label: 'Vendas', icon: ShoppingBag }, { label: 'Entregas', icon: Truck },
-  { label: 'Estoque', icon: Boxes },
-  { label: 'Relatórios', icon: FileText }, { label: 'Importação', icon: Import },
-  { label: 'IA', icon: Sparkles }, { label: 'Insights', icon: Lightbulb },
-  { label: 'Configurações', icon: Settings },
-]
-const routes:Record<Page,string>={'Visão Geral':'/','Clientes':'/clientes','Vendas':'/vendas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Configurações':'/configuracoes'}
-const pageFromPath=()=>location.pathname.startsWith('/clientes/')?'Clientes':location.pathname.startsWith('/vendas/')?'Vendas':location.pathname.startsWith('/entregas/')?'Entregas':Object.entries(routes).find(([,path])=>path===location.pathname)?.[0] as Page||'Visão Geral'
-
-const statusLabel: Record<string, string> = { paid: 'Pago', pending: 'Aguardando', cancelled: 'Cancelado', unknown: 'Desconhecido' }
 
 function Sidebar({ page, setPage, open, close }: { page: Page; setPage: (p: Page) => void; open: boolean; close: () => void }) {
   return <>
@@ -320,8 +309,6 @@ function ClientDetailsPage({clientId}:{clientId:string}) {
   </div>
 }
 
-const exportCsv=(name:string,rows:Record<string,unknown>[])=>{const keys=Object.keys(rows[0]??{});const escape=(value:unknown)=>`"${String(value??'').replaceAll('"','""')}"`;const csv=[keys.map(escape).join(';'),...rows.map((row)=>keys.map((key)=>escape(row[key])).join(';'))].join('\n');const url=URL.createObjectURL(new Blob([`\uFEFF${csv}`],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();URL.revokeObjectURL(url)}
-
 function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [modal,setModal]=useState(false)
   const [sales,setSales]=useState<CommercialSale[]>([])
@@ -381,16 +368,6 @@ function SaleDetailsPage({saleId}:{saleId:string}){
   return <div className="page sale-360">{confirming&&<div className="modal-layer"><button className="modal-scrim" aria-label="Fechar" onClick={()=>setConfirming(false)}/><div className="modal-panel"><div className="modal-title"><div><span>CONFIRMAÇÃO HUMANA</span><h2>Confirmar produto em custódia</h2></div><button onClick={()=>setConfirming(false)}><X/></button></div><div className="record-form"><div className="client-panel"><dl><dt>Cliente</dt><dd>{sale.clients?.name||sale.original_client||'—'}</dd><dt>Perfume</dt><dd>{sale.perfume_name_raw||'—'}</dd><dt>Tipo / ML</dt><dd>{sale.sale_type||'—'} · {sale.volume_ml} ml</dd><dt>Venda</dt><dd>{brl(Number(sale.amount))}</dd><dt>Data</dt><dd>{sale.sale_date?shortDate(sale.sale_date):'—'}</dd></dl></div><strong>Você conferiu fisicamente este produto?</strong><label className="selection-row"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)}/><span>Confirmei que este produto está fisicamente em posse da RUAH e pertence a este cliente.</span></label><label className="field"><span>Localização / caixa</span><input value={location} onChange={event=>setLocation(event.target.value)} placeholder="Ex.: Caixa Érica, Prateleira 2"/></label><label className="field"><span>Observação</span><textarea value={verificationNote} onChange={event=>setVerificationNote(event.target.value)}/></label><div className="notice"><span>Esta confirmação não altera o estoque operacional.</span></div><div className="form-actions"><button onClick={()=>setConfirming(false)}>Cancelar</button><button className="primary" disabled={!confirmed||saving} onClick={confirmCustody}>{saving?'Confirmando…':'CONFIRMAR PRODUTO EM CUSTÓDIA'}</button></div></div></div></div>}<button className="back-link" onClick={()=>history.back()}>← Voltar para vendas</button><div className="page-lead"><div><span className="eyebrow">VENDA 360</span><h2>{sale.clients?.name??sale.original_client??'Venda'}</h2><p>{sale.id}</p></div><div className="page-actions">{canConfirm&&<button className="primary" onClick={()=>setConfirming(true)}>CONFIRMAR PRODUTO EM CUSTÓDIA</button>}{allocation?.status==='reserved'&&<button className="primary" disabled={preparing} onClick={prepare}>{preparing?'Preparando…':'PREPARAR ENVIO'}</button>}{shipment&&<a className="button-link" href={`/entregas/${shipment.id}`}>Abrir Envio 360</a>}</div></div><section className="metrics"><Metric label="Valor" value={brl(Number(sale.amount))} detail={sale.sale_date?shortDate(sale.sale_date):'Sem data'} icon={ShoppingBag}/><Metric label="Pagamento" value={statusLabel[sale.payment_status]||sale.payment_status} detail={sale.paid_at?shortDate(sale.paid_at):'Sem baixa'} icon={Check}/><Metric label="Crédito" value={brl(Number(sale.credit_reference_amount||0))} detail={sale.payment_method||'Forma não informada'} icon={FileText}/><Metric label="Estoque" value={allocation?`${Number(allocation.quantity_ml).toLocaleString('pt-BR')} ml`:'Nenhuma operação'} detail={allocation?.stock_managed?'Estoque operacional':allocation?'Conferido manualmente':'Nenhuma operação de estoque vinculada'} icon={Boxes}/></section><section className="client-grid"><article className="card client-panel"><h3>Cliente</h3><dl><dt>Nome</dt><dd>{sale.clients?.name||'—'}</dd><dt>Telefone</dt><dd>{sale.clients?.phone||sale.clients?.whatsapp_phone||'—'}</dd><dt>E-mail</dt><dd>{sale.clients?.email||'—'}</dd><dt>Documento</dt><dd>{sale.clients?.cpf||sale.clients?.cnpj||'—'}</dd><dt>Endereço</dt><dd>{[sale.clients?.address_line,sale.clients?.address_number,sale.clients?.city,sale.clients?.state].filter(Boolean).join(', ')||'—'}</dd></dl></article><article className="card client-panel"><h3>Comercial e financeiro</h3><dl><dt>Perfume</dt><dd>{sale.perfume_name_raw||'—'}</dd><dt>Tipo / volume</dt><dd>{sale.sale_type||'—'} · {sale.volume_ml??'—'} ml</dd><dt>Origem</dt><dd>{sale.source==='spreadsheet'?'Importação':'Manual'}</dd><dt>Observações</dt><dd>{sale.notes||'—'}</dd><dt>Prazo histórico</dt><dd>{sale.shipping_deadline_date?shortDate(sale.shipping_deadline_date):sale.shipping_deadline_raw||'—'}</dd><dt>Envio histórico</dt><dd>{sale.shipped_at?shortDate(sale.shipped_at):'—'}</dd></dl></article><article className="card client-panel"><h3>Logística</h3><dl><dt>Allocation</dt><dd>{allocation?.status?operationalLabel(allocation.status):'Nenhuma operação de estoque vinculada'}</dd><dt>Origem</dt><dd>{allocation?.stock_managed?'ESTOQUE OPERACIONAL':allocation?'CONFERIDO MANUALMENTE':'—'}</dd><dt>Confirmado em</dt><dd>{allocation?.verified_at?shortDate(allocation.verified_at):'—'}</dd><dt>Localização</dt><dd>{allocation?.storage_location||'—'}</dd><dt>Shipment</dt><dd>{shipment?.id||'Ainda não preparado'}</dd><dt>Status</dt><dd>{shipment?.status?operationalLabel(shipment.status):sale.shipping_operational_status?operationalLabel(sale.shipping_operational_status):'—'}</dd><dt>SuperFrete</dt><dd>{shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'}</dd><dt>Rastreio</dt><dd>{shipment?.tracking_code||'—'}</dd></dl>{allocation?.allocation_source==='legacy_manual_verified'&&allocation.status==='reserved'&&!allocation.shipment_id&&<button disabled={saving} onClick={release}>REMOVER CONFIRMAÇÃO</button>}</article></section></div>
 }
 
-const todayIso=()=>format(new Date(),'yyyy-MM-dd')
-function deliveryState(sale:CommercialSale) {
-  if(sale.shipped_at&&sale.shipping_deadline_date)return sale.shipped_at<=sale.shipping_deadline_date?'shipped_on_time':'shipped_late'
-  if(sale.shipped_at)return 'shipped'
-  if(sale.shipping_deadline_date)return sale.shipping_deadline_date<todayIso()?'overdue':'awaiting_shipment'
-  return 'no_deadline'
-}
-const deliveryLabels:Record<string,string>={awaiting_shipment:'Aguardando envio',overdue:'Envio atrasado',shipped_on_time:'Enviado no prazo',shipped_late:'Enviado com atraso',shipped:'Enviado',no_deadline:'Sem prazo'}
-const deliveryLabel=(sale:CommercialSale)=>deliveryLabels[deliveryState(sale)]
-
 function DeliveriesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [rows,setRows]=useState<CommercialSale[]>([]),[filter,setFilter]=useState(''),[search,setSearch]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(true)
   const [newShipment,setNewShipment]=useState(false),[historical,setHistorical]=useState<CommercialSale|null>(null),[historicalDate,setHistoricalDate]=useState(todayIso())
@@ -409,11 +386,6 @@ function DeliveriesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:
   </div>
 }
 
-function previousPeriod(period:PeriodValue):PeriodValue {
-  const start=parseISO(period.start),end=parseISO(period.end),days=Math.max(1,Math.round((end.getTime()-start.getTime())/86400000)+1)
-  const previousEnd=subDays(start,1),previousStart=subDays(previousEnd,days-1)
-  return {start:format(previousStart,'yyyy-MM-dd'),end:format(previousEnd,'yyyy-MM-dd'),label:'Período anterior'}
-}
 function ReportsPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [current,setCurrent]=useState<PeriodSummary|null>(null),[previous,setPrevious]=useState<PeriodSummary|null>(null)
   useEffect(()=>{Promise.all([fetchPeriodSummary(period),fetchPeriodSummary(previousPeriod(period))]).then(([a,b])=>{setCurrent(a);setPrevious(b)})},[period])
