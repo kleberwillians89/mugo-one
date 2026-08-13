@@ -85,6 +85,7 @@ export type Client360 = {
 export type WaitingProduct = {
   allocation_id:string;sale_id:string;sale_date:string;perfume:string;sale_type:string
   quantity_ml:number;amount:number;payment_status:string;allocated_at:string;days_waiting:number
+  allocation_source:string;stock_managed:boolean;verified_at:string|null;verified_by:string|null;storage_location:string|null
 }
 
 export async function fetchClient360(clientId:string) {
@@ -92,7 +93,7 @@ export async function fetchClient360(clientId:string) {
   const [{data:profile,error:profileError},{data:history,error:historyError},{data:waiting,error:waitingError},{data:shipments,error:shipmentsError}]=await Promise.all([
     supabase!.rpc('client_360',{p_client_id:clientId}),
     supabase!.from('sales').select('id,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
-    supabase!.rpc('client_waiting_products',{p_client_id:clientId}),
+    supabase!.rpc('client_waiting_products_v2',{p_client_id:clientId}),
     supabase!.from('shipments').select('id,status,requested_at,carrier,service,shipping_price,tracking_code,posted_at,delivered_at,created_at,shipment_items(sale_id,quantity_ml,sales(perfume_name_raw))').eq('client_id',clientId).order('created_at',{ascending:false}),
   ])
   const error=profileError||historyError||waitingError||shipmentsError
@@ -108,14 +109,14 @@ export async function createDraftShipment(clientId:string,allocationIds:string[]
 }
 
 export type CommercialSale = {
-  id:string; client_id:string|null; sale_date:string|null; amount:number; payment_status:string
+  id:string; client_id:string|null; perfume_id?:string|null; sale_date:string|null; amount:number; payment_status:string
   payment_method:string|null; paid_at:string|null; original_client:string|null
   perfume_name_raw:string|null; bottle_identifier:string|null; sale_type:string|null
   volume_ml:number|null; shipping_deadline_raw:string|null;shipping_deadline_date:string|null
   shipping_operational_status:string|null; shipped_at:string|null; notes:string|null;source:string
   credit_reference_amount?:number|null;inventory_allocation_eligible?:boolean
   clients:{name:string;phone?:string|null;whatsapp_phone?:string|null;email?:string|null;cpf?:string|null;cnpj?:string|null;postal_code?:string|null;address_line?:string|null;address_number?:string|null;complement?:string|null;district?:string|null;city?:string|null;state?:string|null}|null
-  inventory_allocations?:{id:string;status:string;quantity_ml:number;shipment_id:string|null;inventory_items:{id:string;current_ml:number}|null}[]
+  inventory_allocations?:{id:string;status:string;quantity_ml:number;shipment_id:string|null;allocation_source:string;stock_managed:boolean;verified_at:string|null;verified_by:string|null;verification_note:string|null;storage_location:string|null;inventory_items:{id:string;physical_ml:number;available_ml:number}|null}[]
   shipment_items?:{shipment_id:string;shipments:{id:string;status:string;carrier:string|null;service:string|null;tracking_code:string|null;posted_at:string|null;delivered_at:string|null}|null}[]
 }
 
@@ -155,15 +156,22 @@ export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) 
 
 export async function fetchSale360(saleId:string){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('sales').select('id,client_id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,credit_reference_amount,inventory_allocation_eligible,clients(name,phone,whatsapp_phone,email,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state),inventory_allocations(id,status,quantity_ml,shipment_id,inventory_items(id,current_ml)),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('organization_id',organizationId).eq('id',saleId).is('deleted_at',null).single()
+  const {data,error}=await supabase!.from('sales').select('id,client_id,perfume_id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,credit_reference_amount,inventory_allocation_eligible,clients(name,phone,whatsapp_phone,email,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state)').eq('organization_id',organizationId).eq('id',saleId).is('deleted_at',null).single()
   if(error)throw new Error(error.message)
-  return data as unknown as CommercialSale
+  const [allocations,shipments]=await Promise.allSettled([
+    supabase!.from('inventory_allocations').select('id,status,quantity_ml,shipment_id,allocation_source,stock_managed,verified_at,verified_by,verification_note,storage_location,inventory_items(id,physical_ml,available_ml)').eq('sale_id',saleId),
+    supabase!.from('shipment_items').select('shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at)').eq('sale_id',saleId).is('removed_at',null),
+  ])
+  return {...data,inventory_allocations:allocations.status==='fulfilled'&&!allocations.value.error?allocations.value.data??[]:[],shipment_items:shipments.status==='fulfilled'&&!shipments.value.error?shipments.value.data??[]:[]} as unknown as CommercialSale
 }
 
-export type ReservedAllocation={id:string;client_id:string;sale_id:string;quantity_ml:number;allocated_at:string;clients:{name:string}|null;sales:{sale_date:string|null;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}
+export async function confirmLegacyProductCustody(saleId:string,storageLocation:string,note:string){await currentOrganization();const {data,error}=await supabase!.rpc('confirm_legacy_product_custody',{p_sale_id:saleId,p_storage_location:storageLocation||null,p_verification_note:note||null});if(error)throw new Error(error.message);return data}
+export async function releaseLegacyProductCustody(allocationId:string){await currentOrganization();const {data,error}=await supabase!.rpc('release_legacy_product_custody',{p_allocation_id:allocationId});if(error)throw new Error(error.message);return data}
+
+export type ReservedAllocation={id:string;client_id:string;sale_id:string;quantity_ml:number;allocated_at:string;allocation_source:string;stock_managed:boolean;storage_location:string|null;clients:{name:string}|null;sales:{sale_date:string|null;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}
 export async function fetchReservedAllocations(){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('inventory_allocations').select('id,client_id,sale_id,quantity_ml,allocated_at,clients(name),sales(sale_date,amount,perfume_name_raw,sale_type)').eq('organization_id',organizationId).eq('status','reserved').order('allocated_at',{ascending:true})
+  const {data,error}=await supabase!.from('inventory_allocations').select('id,client_id,sale_id,quantity_ml,allocated_at,allocation_source,stock_managed,storage_location,clients(name),sales(sale_date,amount,perfume_name_raw,sale_type)').eq('organization_id',organizationId).eq('status','reserved').order('allocated_at',{ascending:true})
   if(error)throw new Error(error.message)
   return (data??[]) as unknown as ReservedAllocation[]
 }
@@ -202,22 +210,23 @@ export type OperationalShipment={
   declared_value:number|null;fiscal_mode:string;selected_quote_id:string|null;carrier:string|null;service:string|null;service_id:string|null
   shipping_price:number|null;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null
   tracking_code:string|null;print_url:string|null;label_pdf_url:string|null;integration_error:string|null
-  clients:{name:string}|null;shipment_quotes:ShipmentQuote[];shipment_items:{quantity_ml:number;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
+  clients:{name:string}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
   shipment_events?:{id:number;event_type:string;from_status:string|null;to_status:string|null;metadata:Record<string,unknown>;created_at:string}[]
 }
 
 export async function fetchOperationalShipments(){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(quantity_ml,sales(id,amount,perfume_name_raw,sale_type))').eq('organization_id',organizationId).order('created_at',{ascending:false})
+  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,inventory_allocations(allocation_source,stock_managed),sales(id,amount,perfume_name_raw,sale_type))').eq('organization_id',organizationId).order('created_at',{ascending:false})
   if(error)throw new Error(error.message)
   return (data??[]) as unknown as OperationalShipment[]
 }
 export async function fetchShipment360(shipmentId:string){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(quantity_ml,sales(id,amount,perfume_name_raw,sale_type)),shipment_events(id,event_type,from_status,to_status,metadata,created_at)').eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
+  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,inventory_allocations(allocation_source,stock_managed),sales(id,amount,perfume_name_raw,sale_type)),shipment_events(id,event_type,from_status,to_status,metadata,created_at)').eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
   if(error)throw new Error(error.message)
   return data as unknown as OperationalShipment
 }
+export async function updateShipmentItemCheck(shipmentId:string,allocationId:string,separated:boolean,checked:boolean,divergenceNote:string){await currentOrganization();const {error}=await supabase!.rpc('update_shipment_item_check',{p_shipment_id:shipmentId,p_allocation_id:allocationId,p_separated:separated,p_checked:checked,p_divergence_note:divergenceNote||null});if(error)throw new Error(error.message)}
 export async function updateShipmentShippingData(shipmentId:string,data:Record<string,unknown>){await currentOrganization();const {data:shipment,error}=await supabase!.rpc('update_shipment_shipping_data',{p_shipment_id:shipmentId,p_data:data});if(error)throw new Error(error.message);return shipment as OperationalShipment}
 export async function refreshShipmentRecipient(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('refresh_shipment_recipient',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
 export async function selectShipmentQuote(shipmentId:string,quoteId:string){await currentOrganization();const {error}=await supabase!.rpc('select_shipment_quote',{p_shipment_id:shipmentId,p_quote_id:quoteId});if(error)throw new Error(error.message)}

@@ -4,6 +4,8 @@ import { analyzeIncrementalRows,classifyIncrementalSale,incrementalSaleSignature
 import { normalizeBrazilianPhone,normalizeCpf,normalizePostalCode,normalizeState } from './normalization'
 
 const migration=readFileSync(new URL('../../supabase/migrations/202608130001_operational_foundation.sql',import.meta.url),'utf8')
+const custodyMigration=readFileSync(new URL('../../supabase/migrations/202608130008_legacy_custody_bridge.sql',import.meta.url),'utf8')
+const recordsSource=readFileSync(new URL('./records.ts',import.meta.url),'utf8')
 
 describe('caracterização e fundação operacional',()=>{
   it('documenta que o trigger histórico também atingia pending',()=>{
@@ -55,5 +57,16 @@ describe('caracterização e fundação operacional',()=>{
     const sale={client:'ANA',date:'2026-08-01',perfume:'A',type:'SPLIT',ml:5,amount:100,paymentStatus:'paid'}
     expect(classifyIncrementalSale(sale,[])).toBe('new_safe')
     expect(classifyIncrementalSale(sale,[sale])).toBe('existing_exact')
+  })
+  it('Venda 360 usa somente colunas canônicas do estoque',()=>{
+    expect(recordsSource).not.toContain('current_ml')
+    expect(recordsSource).toContain('physical_ml,available_ml')
+  })
+  it('custódia histórica é manual, auditada e não movimenta estoque físico',()=>{
+    expect(custodyMigration).toContain("'legacy_manual_verified',false")
+    expect(custodyMigration).toContain("'legacy_custody_confirmed'")
+    expect(custodyMigration).toContain('if r.stock_managed then')
+    expect(custodyMigration).toContain("status='released'")
+    expect(custodyMigration).not.toContain("allocation_source='legacy_manual_verified' then\n      update public.inventory_items")
   })
 })
