@@ -11,6 +11,48 @@ import { brl, shortDate } from "../lib/format";
 import { operationalLabel } from "../lib/presentation";
 import { getLabelUiState, shipmentHumanState } from "../lib/superfrete";
 
+/**
+ * Presentation-only mapping from shipment state to a specific "próximo
+ * passo" label for the hero banner — never the generic "CONTINUAR
+ * OPERAÇÃO". The button always opens the same editor (`onEdit`, unchanged);
+ * this only chooses truthful copy for what the operator will find there.
+ * When conference is still pending, the checklist is already visible right
+ * below on the same page, so no button is shown at all (nothing to "open").
+ */
+function nextStep(shipment: OperationalShipment): { description: string; button: string | null } {
+  const conferred =
+    shipment.shipment_items.length > 0 &&
+    shipment.shipment_items.every((i) => i.checked_at && !i.divergence_note);
+  if (!conferred)
+    return {
+      description: "Separe e confira os itens abaixo antes de seguir para o frete.",
+      button: null,
+    };
+  if (!shipment.selected_quote_id)
+    return {
+      description: "Informe o destinatário e calcule as opções de frete.",
+      button: "CALCULAR FRETE",
+    };
+  if (shipment.status === "awaiting_customer_approval")
+    return {
+      description: "O frete foi selecionado e aguarda a aprovação da cliente.",
+      button: "REVISAR FRETE",
+    };
+  const labelAction = getLabelUiState(shipment).primaryAction;
+  if (labelAction === "checkout")
+    return {
+      description: "O pedido foi criado na SuperFrete; confirme a compra da etiqueta.",
+      button: "CONFIRMAR COMPRA",
+    };
+  if (labelAction === "print")
+    return { description: "O arquivo oficial está pronto para impressão.", button: "IMPRIMIR ETIQUETA" };
+  if (labelAction === "sync")
+    return { description: "A SuperFrete ainda está preparando o arquivo da etiqueta.", button: "ATUALIZAR ETIQUETA" };
+  if (labelAction === "create_label")
+    return { description: "Aprove o frete selecionado para liberar a etiqueta.", button: "CONFIRMAR FRETE" };
+  return { description: "A operação atual está preservada. Continue pela ação indicada.", button: "REVISAR ENVIO" };
+}
+
 type Item = OperationalShipment["shipment_items"][number];
 type Props = {
   shipment: OperationalShipment;
@@ -114,6 +156,13 @@ export function ShipmentJourney({
   const active = progressIndex(shipment);
   return (
     <nav className="shipment-journey" aria-label="Progresso do envio">
+      <div className="shipment-journey-compact" aria-hidden="true">
+        <span>ETAPA {active + 1} DE {stages.length}</span>
+        <strong>{stages[active]}</strong>
+        <div className="shipment-journey-bar">
+          <i style={{ width: `${((active + 1) / stages.length) * 100}%` }} />
+        </div>
+      </div>
       {stages.map((stage, index) => (
         <div
           key={stage}
@@ -174,13 +223,13 @@ export function ShipmentHeader({
         <div>
           <span>PRÓXIMO PASSO</span>
           <strong>{humanStatus(shipment)}</strong>
-          <small>
-            A operação atual está preservada. Continue pela ação indicada.
-          </small>
+          <small>{nextStep(shipment).description}</small>
         </div>
-        <button className="primary" onClick={onEdit}>
-          CONTINUAR OPERAÇÃO <ChevronRight />
-        </button>
+        {nextStep(shipment).button && (
+          <button className="primary" onClick={onEdit}>
+            {nextStep(shipment).button} <ChevronRight />
+          </button>
+        )}
       </div>
     </>
   );
@@ -209,19 +258,19 @@ export function ShipmentChecklist({
       <div className="checklist-totals">
         <div>
           <strong>{items.length}</strong>
-          <span>itens</span>
+          <span>{items.length === 1 ? "item" : "itens"}</span>
         </div>
         <div>
           <strong>{separated}</strong>
-          <span>separados</span>
+          <span>{separated === 1 ? "separado" : "separados"}</span>
         </div>
         <div>
           <strong>{checked}</strong>
-          <span>conferidos</span>
+          <span>{checked === 1 ? "conferido" : "conferidos"}</span>
         </div>
         <div className={pending ? "pending" : ""}>
           <strong>{pending}</strong>
-          <span>pendentes</span>
+          <span>{pending === 1 ? "pendente" : "pendentes"}</span>
         </div>
       </div>
       {divergent.length > 0 && (
