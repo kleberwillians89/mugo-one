@@ -7,9 +7,10 @@ type BaseProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   loading?: boolean
   fullWidth?: boolean
   icon?: ReactNode
+  size?: 'small'|'default'|'large'
 }
 
-function BaseButton({ variant, children, loading, fullWidth, icon, disabled, className = '', ...rest }: BaseProps & { variant: 'primary' | 'secondary' | 'danger' }) {
+function BaseButton({ variant, children, loading, fullWidth, icon, size='default', disabled, className = '', ...rest }: BaseProps & { variant: 'primary' | 'secondary' | 'tertiary' | 'danger' | 'ghost' }) {
   const blocked = disabled || loading
   return (
     <button
@@ -17,7 +18,7 @@ function BaseButton({ variant, children, loading, fullWidth, icon, disabled, cla
       type={rest.type ?? 'button'}
       disabled={blocked}
       aria-busy={loading || undefined}
-      className={`ui-btn ui-btn--${variant} ${fullWidth ? 'ui-btn--full' : ''} ${className}`.trim()}
+      className={`ui-btn ui-btn--${variant} ui-btn--${size} ${fullWidth ? 'ui-btn--full' : ''} ${className}`.trim()}
     >
       {loading ? <LoaderCircle className="ui-btn-spin" size={16} /> : icon}
       <span>{children}</span>
@@ -36,3 +37,5 @@ export function SecondaryButton(props: BaseProps) {
 export function DangerButton(props: BaseProps) {
   return <BaseButton {...props} variant="danger" />
 }
+export function TertiaryButton(props: BaseProps) { return <BaseButton {...props} variant="tertiary" /> }
+export function GhostButton(props: BaseProps) { return <BaseButton {...props} variant="ghost" /> }

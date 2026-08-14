@@ -1,4 +1,4 @@
-export { PrimaryButton, SecondaryButton, DangerButton } from './Button'
+export { PrimaryButton, SecondaryButton, TertiaryButton, DangerButton, GhostButton } from './Button'
 export { IconButton } from './IconButton'
 export { Card } from './Card'
 export { StatusBadge } from './StatusBadge'

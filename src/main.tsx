@@ -6,6 +6,7 @@ import './styles.css'
 import './enhancements.css'
 import './auth.css'
 import './mugo.css'
+import './styles/rebrand-v2.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><AuthRoot /></StrictMode>,

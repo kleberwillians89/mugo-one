@@ -3,7 +3,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: var(--button-height);
+  min-height: var(--button-height);
   min-width: var(--touch-target);
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
@@ -12,7 +12,12 @@
   font-weight: var(--fw-semibold);
   border: 1px solid transparent;
   transition: filter 0.15s, opacity 0.15s;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
+  cursor: pointer;
 }
+.ui-btn svg{width:16px;height:16px;flex:0 0 16px;stroke-width:1.8}.ui-btn--small{min-height:var(--button-height-sm);padding-inline:var(--space-3)}.ui-btn--large{min-height:var(--button-height-lg);padding-inline:var(--space-6)}
 
 .ui-btn:focus-visible {
   outline: none;
@@ -33,6 +38,7 @@
   border-color: var(--line);
 }
 .ui-btn--secondary:hover:not(:disabled) { background: var(--cream); }
+.ui-btn--tertiary{background:transparent;color:var(--gold-deep);border-color:transparent}.ui-btn--tertiary:hover:not(:disabled){background:#b58a3210}.ui-btn--ghost{background:transparent;color:var(--ink-soft);border-color:transparent}.ui-btn--ghost:hover:not(:disabled){background:var(--cream)}
 
 .ui-btn--danger {
   background: var(--danger-bg);

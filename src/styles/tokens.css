@@ -15,18 +15,18 @@
 */
 :root {
   /* Cor — paleta RUAH existente (preservada de styles.css) */
-  --gold: #b78d2d;
-  --gold-deep: #9f7c2b;
-  --gold-soft: #d7b75e;
-  --ink: #1d1b18;
-  --ink-soft: #26231f;
-  --muted: #7c756a;
-  --line: #e8e3da;
-  --paper: #fff;
-  --cream: #f4efe5;
-  --hairline: #e3ddd0;
-  --paper-warm: #f8f5ee;
-  --ink-inverse: #f4efe5;
+  --gold: #b58a32;
+  --gold-deep: #80601f;
+  --gold-soft: #dbc176;
+  --ink: #181713;
+  --ink-soft: #302d27;
+  --muted: #6f685e;
+  --line: #ded7ca;
+  --paper: #fffefb;
+  --cream: #f2ede3;
+  --hairline: #e7e0d5;
+  --paper-warm: #f7f3eb;
+  --ink-inverse: #f8f3e8;
 
   /* Cor — semânticas novas (derivadas dos hex já usados em badges/avisos) */
   --danger: #a5574f;
@@ -66,12 +66,14 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
 
   /* Raio de borda */
   --radius-sm: 4px;
-  --radius-md: 7px;
-  --radius-lg: 9px;
-  --radius-xl: 12px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
   --radius-full: 999px;
 
   /* Sombra */
@@ -81,10 +83,11 @@
 
   /* Tamanhos — alvo de toque mínimo 44x44px */
   --button-height: 44px;
-  --button-height-sm: 38px;
+  --button-height-sm: 40px;
+  --button-height-lg: 48px;
   --input-height: 44px;
   --touch-target: 44px;
-  --container-width: 1500px;
+  --container-width: 1440px;
   --modal-width: 760px;
   --drawer-width: 280px;
   --sidebar-width: 248px;
