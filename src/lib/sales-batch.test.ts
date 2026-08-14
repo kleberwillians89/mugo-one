@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest'
-import {classifyClientMatches,countSaleCandidateLines,isTabularSalesBatch,missingShippingFields,parseDaviSalesBatch} from '../../supabase/functions/_shared/sales-batch-domain'
+import {classifyClientMatches,countSaleCandidateLines,isTabularSalesBatch,missingShippingFields,normalizePerfumeName,parseDaviSalesBatch,perfumeIdentity} from '../../supabase/functions/_shared/sales-batch-domain'
 
 const example=`Fève Nectar — Place de la Rêverie
 (Frasco 1)
@@ -45,8 +45,14 @@ describe('texto tabular copiado de planilha',()=>{
   it('detecta TSV antes do parser livre',()=>expect(isTabularSalesBatch(feve.join('\n'))).toBe(true))
   it('reconhece as oito vendas Fève, datas M/D/YYYY e totais reais',()=>{const parsed=parseDaviSalesBatch(feve.join('\n'));expect(parsed.source_format).toBe('tsv');expect(parsed.sales).toHaveLength(8);expect(parsed.totals).toMatchObject({sales:8,volume_ml:50,amount:2458});expect(parsed.sales[0]).toMatchObject({sale_date:'2026-08-13',shipping_deadline_date:'2026-09-04',payment_status_raw:'PAGO',payment_method_raw:'PIX'})})
   it('agrupa múltiplos perfumes sem deduplicar clientes repetidos',()=>{const parsed=parseDaviSalesBatch([...feve,row('LUCIANA ALVES','SPLIT',4,'BLOCKADE - MIND GAMES','R$ 200,00'),row('ANA PAULA','SPLIT',2,'BLONDE AMBER - CLIVE CHRISTIAN','R$ 99,90')].join('\n'));expect(parsed.groups?.map(group=>group.perfume)).toEqual(['BLOCKADE - MIND GAMES','BLONDE AMBER - CLIVE CHRISTIAN','FÈVE NECTAR - PLACE DE LA RÊVERIE']);expect(parsed.sales).toHaveLength(10)})
+  it('preserva identidade, marca e frasco separadamente',()=>{const parsed=parseDaviSalesBatch(row('BEATRIZ','APC',50,'BLOCKADE - MIND GAMES (FRASCO 2)','R$ 2.000,00'));expect(parsed.groups?.[0]).toMatchObject({raw_perfume_name:'BLOCKADE - MIND GAMES (FRASCO 2)',display_name:'BLOCKADE - MIND GAMES',normalized_perfume_name:'blockade mind games',brand:'MIND GAMES',bottle_number:2})})
   it('ignora disponibilidade comercial e tabs finais',()=>{const parsed=parseDaviSalesBatch([...feve,row('DISPONÍVEL PARA VENDA','SPLIT',11,'QUILOMBO - FUEGUIA 1833','R$ 447,90')].join('\n'));expect(parsed.sales).toHaveLength(8);expect(parsed.availability_rows).toBe(1)})
   it('ignora cabeçalho e linha sem campos mínimos',()=>{const parsed=parseDaviSalesBatch(['CLIENTE\tVENDA\tPRAZO\t\tTIPO\tML\tPERFUME\tVALOR',...feve,'TOTAL\t\t\t\t\t50\t\tR$ 2.458,00'].join('\n'));expect(parsed.sales).toHaveLength(8)})
+})
+
+describe('normalização segura de perfumes',()=>{
+  it.each([['FÈVE NECTAR - PLACE DE LA RÊVERIE','Fève Nectar — Place de la Rêverie'],['THAYS - FUEGUIA 1833','thays  —  fueguia 1833'],['BLOCKADE - MIND GAMES (FRASCO 2)','blockade mind games']])('equipara %s', (left,right)=>expect(normalizePerfumeName(left)).toBe(normalizePerfumeName(right)))
+  it('não perde o nome reconhecido',()=>expect(perfumeIdentity('  CÈDRE  FIGALIA - ATELIER MATERI  ')).toMatchObject({raw_perfume_name:'CÈDRE FIGALIA - ATELIER MATERI',display_name:'CÈDRE FIGALIA - ATELIER MATERI',brand:'ATELIER MATERI'}))
 })
 
 describe('enriquecimento determinístico de clientes',()=>{
