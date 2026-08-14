@@ -1,0 +1,48 @@
+.sales-toolbar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.sales-toolbar .ui-search { flex: 1 1 260px; }
+
+.sales-toolbar select {
+  height: var(--input-height);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  padding: 0 var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+
+.sales-filters-drawer {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--ink-inverse);
+}
+
+.sales-filters-drawer h3 {
+  font: var(--fw-semibold) var(--fs-lg) var(--font-ui);
+  margin: 0;
+}
+
+.sales-filters-drawer .field input,
+.sales-filters-drawer .field select {
+  color: var(--ink);
+}
+
+.sales-filters-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 700px) {
+  .sales-toolbar { flex-direction: column; align-items: stretch; }
+}
