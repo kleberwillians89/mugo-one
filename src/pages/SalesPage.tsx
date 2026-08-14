@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Download, Filter, Plus, X } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { AlertTriangle, Download, Filter, Plus, Sparkles, X } from 'lucide-react'
 import { brl, integer, shortDate } from '../lib/format'
 import { SaleModal } from '../components/RecordModals'
 import { PeriodFilter } from '../components/PeriodFilter'
@@ -9,10 +9,12 @@ import { exportCsv } from '../lib/csv'
 import { deliveryLabel } from '../lib/delivery'
 import { CommercialSale, SaleFilters, fetchSalesPage } from '../lib/records'
 import { Drawer, PageHeader, PrimaryButton, SearchInput, SecondaryButton, Table } from '../components/ui'
+import { AiSalesBatchImport } from '../components/AiSalesBatchImport'
 import './SalesPage.css'
 
 export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [modal,setModal]=useState(false)
+  const [aiImport,setAiImport]=useState(false)
   const [sales,setSales]=useState<CommercialSale[]>([])
   const [count,setCount]=useState(0)
   const [page,setPage]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState('')
@@ -23,14 +25,17 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const setFilter=(key:keyof SaleFilters,value:string)=>{setPage(0);setFilters((current)=>({...current,[key]:value||undefined}))}
   const activeFilterCount=Object.entries(filters).filter(([key,value])=>key!=='period'&&key!=='sort'&&key!=='search'&&value!==undefined&&value!=='').length
   const clearFilters=()=>{setPage(0);setFilters({period,sort:'sale_date_desc'})}
-  useEffect(()=>{fetchSalesPage({...filters,period},page,50).then((result)=>{setSales(result.rows);setCount(result.count)}).catch(()=>setError('Não foi possível consultar as vendas.')).finally(()=>setLoading(false))},[filters,page,period])
+  const refresh=useCallback(()=>fetchSalesPage({...filters,period},page,50).then((result)=>{setSales(result.rows);setCount(result.count)}).catch(()=>setError('Não foi possível consultar as vendas.')).finally(()=>setLoading(false)),[filters,page,period])
+  useEffect(()=>{refresh()},[refresh])
   const total=sales.reduce((sum,sale)=>sum+Number(sale.amount),0)
 
   return <div className="page">
-    {modal&&<SaleModal close={()=>setModal(false)}/>}
+    {modal&&<SaleModal close={()=>setModal(false)}/>} 
+    {aiImport&&<AiSalesBatchImport close={()=>setAiImport(false)} completed={()=>{setLoading(true);refresh()}}/>}
     {details&&<SaleDetails sale={details} close={()=>setDetails(null)}/>}
     <PageHeader title="Vendas" description="Consulta, edição e exportação dos registros reais." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
+      <SecondaryButton icon={<Sparkles size={16}/>} onClick={()=>setAiImport(true)}>Importar lista com IA</SecondaryButton>
       <SecondaryButton icon={<Download size={16}/>} onClick={()=>exportCsv('vendas-ruah.csv',sales as unknown as Record<string,unknown>[])}>Exportar</SecondaryButton>
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setModal(true)}>Nova venda</PrimaryButton>
     </>}/>
