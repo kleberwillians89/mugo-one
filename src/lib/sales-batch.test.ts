@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest'
-import {classifyClientMatches,countSaleCandidateLines,missingShippingFields,parseDaviSalesBatch} from '../../supabase/functions/_shared/sales-batch-domain'
+import {classifyClientMatches,countSaleCandidateLines,isTabularSalesBatch,missingShippingFields,parseDaviSalesBatch} from '../../supabase/functions/_shared/sales-batch-domain'
 
 const example=`Fève Nectar — Place de la Rêverie
 (Frasco 1)
@@ -37,6 +37,16 @@ describe('formatos reais de WhatsApp',()=>{
   it('remove markdown, bullets, NBSP e caracteres invisíveis sem alterar o nome',()=>{const parsed=parseDaviSalesBatch(`${header}🚨 *03\u00a0ml:\u200b José da Silva* 🚨\n_05ml: Ana Paula D'Ávila_`);expect(parsed.sales.map(x=>x.client_name)).toEqual(['José da Silva',"Ana Paula D'Ávila"])})
   it('não converte tabela de preço em venda',()=>{const parsed=parseDaviSalesBatch(`${header}03ml: R$ 149,70\nAPC: R$ 1.222,50`);expect(parsed.sales).toHaveLength(0);expect(countSaleCandidateLines(`${header}03ml: R$ 149,70\nAPC: R$ 1.222,50`)).toBe(0)})
   it('conta candidatas sem registrar conteúdo sensível',()=>expect(countSaleCandidateLines('🔗 https://exemplo.com\n*03ml: Duda Lazzarini*\nAPC : Fernanda VT')).toBe(2))
+})
+
+describe('texto tabular copiado de planilha',()=>{
+  const row=(client:string,type:string,ml:number,perfume:string,value:string,status='',method='',paid='')=>[client,'8/13/2026','9/4/2026','',type,String(ml),perfume,value,status,method,paid,''].join('\t')
+  const feve=[row('TATIANA CARVALHO','APC',25,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 1.222,50','PAGO','PIX','8/13/2026'),row('LUCIANA ALVES','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70'),row('MARIANA ZTB','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70','AGUARDANDO'),row('MELANI NUNES','SPLIT',5,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 243,50'),row('CLAUDIA FERNANDA','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70'),row('FERNANDA VT','SPLIT',5,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 243,50'),row('ENDRIGO RODRIGUES','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70'),row('ERICA FREITAS','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70')]
+  it('detecta TSV antes do parser livre',()=>expect(isTabularSalesBatch(feve.join('\n'))).toBe(true))
+  it('reconhece as oito vendas Fève, datas M/D/YYYY e totais reais',()=>{const parsed=parseDaviSalesBatch(feve.join('\n'));expect(parsed.source_format).toBe('tsv');expect(parsed.sales).toHaveLength(8);expect(parsed.totals).toMatchObject({sales:8,volume_ml:50,amount:2458});expect(parsed.sales[0]).toMatchObject({sale_date:'2026-08-13',shipping_deadline_date:'2026-09-04',payment_status_raw:'PAGO',payment_method_raw:'PIX'})})
+  it('agrupa múltiplos perfumes sem deduplicar clientes repetidos',()=>{const parsed=parseDaviSalesBatch([...feve,row('LUCIANA ALVES','SPLIT',4,'BLOCKADE - MIND GAMES','R$ 200,00'),row('ANA PAULA','SPLIT',2,'BLONDE AMBER - CLIVE CHRISTIAN','R$ 99,90')].join('\n'));expect(parsed.groups?.map(group=>group.perfume)).toEqual(['BLOCKADE - MIND GAMES','BLONDE AMBER - CLIVE CHRISTIAN','FÈVE NECTAR - PLACE DE LA RÊVERIE']);expect(parsed.sales).toHaveLength(10)})
+  it('ignora disponibilidade comercial e tabs finais',()=>{const parsed=parseDaviSalesBatch([...feve,row('DISPONÍVEL PARA VENDA','SPLIT',11,'QUILOMBO - FUEGUIA 1833','R$ 447,90')].join('\n'));expect(parsed.sales).toHaveLength(8);expect(parsed.availability_rows).toBe(1)})
+  it('ignora cabeçalho e linha sem campos mínimos',()=>{const parsed=parseDaviSalesBatch(['CLIENTE\tVENDA\tPRAZO\t\tTIPO\tML\tPERFUME\tVALOR',...feve,'TOTAL\t\t\t\t\t50\t\tR$ 2.458,00'].join('\n'));expect(parsed.sales).toHaveLength(8)})
 })
 
 describe('enriquecimento determinístico de clientes',()=>{
