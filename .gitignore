@@ -21,3 +21,4 @@ private_data/
 test-results/
 playwright-report/
 tests/screenshots/
+.claude/

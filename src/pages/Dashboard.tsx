@@ -4,13 +4,15 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, Res
 import { brl, integer, shortDate } from '../lib/format'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
-import { PeriodSummary, fetchPeriodSummary } from '../lib/records'
+import { DashboardActivityItem, PeriodSummary, fetchDashboardActivity, fetchPeriodSummary } from '../lib/records'
 import { Metric } from '../components/shared/Metric'
 
 export function Dashboard({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [live,setLive]=useState<PeriodSummary|null>(null)
   const [loadError,setLoadError]=useState('')
+  const [operations,setOperations]=useState<{activity:DashboardActivityItem[];attention:DashboardActivityItem[]}>({activity:[],attention:[]})
   useEffect(()=>{fetchPeriodSummary(period).then(setLive).catch(()=>setLoadError('Não foi possível consultar o Supabase.'))},[period])
+  useEffect(()=>{fetchDashboardActivity().then(setOperations).catch(()=>{})},[])
   const hasData = Boolean(live?.sales)
   const paid = Number(live?.paid ?? 0)
   const pending = Number(live?.pending ?? 0)
@@ -39,6 +41,7 @@ export function Dashboard({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
       <div><span>Entregas pendentes</span><strong>{integer(Number(live!.deliveries_pending))}</strong></div>
       <div><span>Entregas atrasadas</span><strong>{integer(Number(live!.deliveries_overdue))}</strong></div>
     </section>}
+    <section className="operations-activity card" aria-labelledby="activity-title"><header><span>OPERAÇÃO</span><h3 id="activity-title">Atividade e atenção</h3></header><div className="operations-columns"><div><h4>ATENÇÃO</h4>{operations.attention.length?operations.attention.map(item=><a key={item.id} href={item.href}><AlertTriangle/><span>{item.message}</span><ArrowUpRight/></a>):<p>Nenhuma pendência operacional identificada.</p>}</div><div><h4>HOJE</h4>{operations.activity.length?operations.activity.map(item=><a key={item.id} href={item.href}><time>{item.created_at?new Date(item.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</time><span>{item.message}</span></a>):<p>Nenhuma atividade auditável registrada hoje.</p>}</div></div></section>
     <section className="dashboard-grid">
       <div className="card chart-card">
         <div className="card-title"><div><h3>Evolução de faturamento</h3><p>Receita mensal da base validada</p></div><span className="live-dot">DADOS REAIS</span></div>

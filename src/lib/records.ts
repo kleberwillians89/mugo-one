@@ -53,6 +53,34 @@ export async function fetchPeriodSummary(period:PeriodValue) {
   return data as PeriodSummary
 }
 
+export type DashboardActivityItem={id:string;kind:'activity'|'attention';message:string;created_at:string|null;href:string}
+export async function fetchDashboardActivity(){
+  const {organizationId}=await authenticatedOrganization(),start=new Date();start.setHours(0,0,0,0)
+  const [sales,events,clients,shipments,stock]=await Promise.all([
+    supabase!.from('sales').select('created_by,created_at').eq('organization_id',organizationId).gte('created_at',start.toISOString()).is('deleted_at',null),
+    supabase!.from('shipment_events').select('id,shipment_id,event_type,actor_id,created_at').eq('organization_id',organizationId).in('event_type',['conference_assumed','conference_completed']).order('created_at',{ascending:false}).limit(5),
+    supabase!.from('clients').select('id,cpf,cnpj,phone,whatsapp_phone,postal_code,address_line,address_number,district,city,state').eq('organization_id',organizationId).is('deleted_at',null),
+    supabase!.from('shipments').select('id,status,superfrete_order_id,print_available,conference_owner_user_id').eq('organization_id',organizationId),
+    supabase!.rpc('inventory_operational_rows',{org_id:organizationId}),
+  ])
+  const activeShipments=(shipments.data??[]).filter(s=>!['delivered','cancelled'].includes(s.status))
+  const actorIds=[...new Set([...(sales.data??[]).map(x=>x.created_by),...(events.data??[]).map(x=>x.actor_id)].filter(Boolean))] as string[]
+  const profiles=actorIds.length?await supabase!.from('profiles').select('id,full_name').in('id',actorIds):{data:[]}
+  const names=new Map((profiles.data??[]).map(x=>[x.id,x.full_name||'Usuário RUAH'])),grouped=new Map<string,{count:number;last:string}>()
+  for(const sale of sales.data??[]){const key=sale.created_by||'unknown',current=grouped.get(key);grouped.set(key,{count:(current?.count??0)+1,last:current?.last&&current.last>sale.created_at?current.last:sale.created_at})}
+  const activity:DashboardActivityItem[]=[...grouped].map(([actor,value])=>({id:`sales-${actor}`,kind:'activity',message:`${names.get(actor)?`${names.get(actor)} registrou`:'Foram registradas'} ${value.count} ${value.count===1?'venda':'vendas'} hoje`,created_at:value.last,href:'/vendas'}))
+  for(const event of events.data??[]){const owner=names.get(event.actor_id)||'Usuário RUAH';activity.push({id:`event-${event.id}`,kind:'activity',message:`${owner} ${event.event_type==='conference_completed'?'concluiu':'assumiu'} a conferência do Envio #${event.shipment_id.slice(0,8).toUpperCase()}`,created_at:event.created_at,href:`/entregas/${event.shipment_id}`})}
+  const incomplete=(clients.data??[]).filter(c=>![c.cpf||c.cnpj,c.phone||c.whatsapp_phone,c.postal_code,c.address_line,c.address_number,c.district,c.city,c.state].every(Boolean)).length
+  const values:[[number,string,string],[number,string,string],[number,string,string],[number,string,string]]=[
+    [incomplete,'cadastro precisa completar dados para envio','cadastros precisam completar dados para envio'],
+    [activeShipments.filter(s=>!s.conference_owner_user_id).length,'envio aguarda conferência','envios aguardam conferência'],
+    [activeShipments.filter(s=>s.superfrete_order_id&&!s.print_available).length,'etiqueta aguarda arquivo para impressão','etiquetas aguardam arquivo para impressão'],
+    [((stock.data??[]) as OperationalInventoryRow[]).filter(x=>Number(x.available_ml)<=Number(x.minimum_ml)).length,'perfume está com estoque baixo','perfumes estão com estoque baixo']]
+  const hrefs=['/clientes','/entregas','/entregas','/estoque']
+  const attention=values.map(([count,singular,plural],index)=>count?{id:`attention-${index}`,kind:'attention' as const,message:`${count} ${count===1?singular:plural}`,created_at:null,href:hrefs[index]}:null).filter(Boolean) as DashboardActivityItem[]
+  return {activity:activity.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,6),attention}
+}
+
 export type ClientCommercialSummary = {
   client_id:string; client:string; total_purchased:number; paid:number; pending:number
   cancelled:number; review:number; item_count:number; average_ticket:number
@@ -211,7 +239,8 @@ export type OperationalShipment={
   shipping_price:number|null;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null
   tracking_code:string|null;print_url:string|null;label_pdf_url:string|null;integration_error:string|null
   print_available:boolean;print_http_status:number|null;print_content_type:string|null;print_checked_at:string|null
-  clients:{name:string}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
+  conference_owner_user_id:string|null;conference_owner_name_snapshot:string|null;conference_started_at:string|null;conference_completed_at:string|null
+  clients:{name:string;updated_at?:string;phone?:string|null;whatsapp_phone?:string|null;cpf?:string|null;cnpj?:string|null;postal_code?:string|null;address_line?:string|null;address_number?:string|null;complement?:string|null;district?:string|null;city?:string|null;state?:string|null}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
   shipment_events?:{id:number;event_type:string;from_status:string|null;to_status:string|null;metadata:Record<string,unknown>;created_at:string}[]
 }
 
@@ -223,11 +252,12 @@ export async function fetchOperationalShipments(){
 }
 export async function fetchShipment360(shipmentId:string){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,inventory_allocations(allocation_source,stock_managed),sales(id,amount,perfume_name_raw,sale_type)),shipment_events(id,event_type,from_status,to_status,metadata,created_at)').eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
+  const {data,error}=await supabase!.from('shipments').select('*,clients(name,updated_at,phone,whatsapp_phone,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,inventory_allocations(allocation_source,stock_managed),sales(id,amount,perfume_name_raw,sale_type)),shipment_events(id,event_type,from_status,to_status,metadata,created_at)').eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
   if(error)throw new Error(error.message)
   return data as unknown as OperationalShipment
 }
 export async function updateShipmentItemCheck(shipmentId:string,allocationId:string,separated:boolean,checked:boolean,divergenceNote:string){await currentOrganization();const {error}=await supabase!.rpc('update_shipment_item_check',{p_shipment_id:shipmentId,p_allocation_id:allocationId,p_separated:separated,p_checked:checked,p_divergence_note:divergenceNote||null});if(error)throw new Error(error.message)}
+export async function assumeShipmentConference(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('assume_shipment_conference',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
 export async function updateShipmentShippingData(shipmentId:string,data:Record<string,unknown>){await currentOrganization();const {data:shipment,error}=await supabase!.rpc('update_shipment_shipping_data',{p_shipment_id:shipmentId,p_data:data});if(error)throw new Error(error.message);return shipment as OperationalShipment}
 export async function refreshShipmentRecipient(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('refresh_shipment_recipient',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
 export async function selectShipmentQuote(shipmentId:string,quoteId:string){await currentOrganization();const {error}=await supabase!.rpc('select_shipment_quote',{p_shipment_id:shipmentId,p_quote_id:quoteId});if(error)throw new Error(error.message)}
@@ -373,9 +403,9 @@ export async function createSale(input: SaleInput) {
 export async function parseSaleAssistant(text:string){const {data,error}=await supabase!.functions.invoke('parse-sale-assistant',{body:{text}});if(error)throw new Error('Não foi possível interpretar a anotação agora.');if(data?.error)throw new Error(data.error.message);return data.data as {fields:Record<string,unknown>;client_matches:Array<Record<string,unknown>>;perfume_matches:Array<{id:string;name:string;available_ml:number}>}}
 
 export type AiSalesBatchSale={client_name:string;sale_type:'APC'|'SPLIT';volume_ml:number;amount:number;client_match_status:'found'|'new'|'review';client_id:string|null;client:Record<string,unknown>|null;suggestions:{id:string;name:string;missing_shipping_fields:string[]}[];missing_shipping_fields:string[];possible_duplicate:boolean}
-export type AiSalesBatchPreview={perfume:string;bottle_number:number|null;original_volume_ml:number|null;quote_per_ml:number|null;recrimping_fee:number|null;apc_volume_ml:number|null;apc_extra:number|null;deadline_raw:string|null;deadline_day_month:string|null;shipping_deadline_date:string|null;business_days:number|null;announced_balance_ml:number|null;sale_date:string;fingerprint:string;duplicate_batch:Record<string,unknown>|null;perfume_match_status:'found'|'review'|'new';perfume_id:string|null;perfume_matches:{id:string;full_name_raw:string}[];inventory:Record<string,unknown>|null;sales:AiSalesBatchSale[];totals:{sales:number;volume_ml:number;amount:number;calculated_balance_ml:number|null;volume_consistent:boolean};summary:{clients:number;found:number;new:number;review:number;shipping_ready:number;shipping_incomplete:number};raw_text:string}
+export type AiSalesBatchPreview={perfume:string;bottle_number:number|null;original_volume_ml:number|null;quote_per_ml:number|null;recrimping_fee:number|null;apc_volume_ml:number|null;apc_extra:number|null;deadline_raw:string|null;deadline_day_month:string|null;shipping_deadline_date:string|null;business_days:number|null;announced_balance_ml:number|null;sale_date:string;fingerprint:string;duplicate_batch:Record<string,unknown>|null;perfume_match_status:'found'|'review'|'new';perfume_id:string|null;inventory_item_id:string|null;perfume_matches:{id:string;full_name_raw:string}[];inventory:Record<string,unknown>|null;sales:AiSalesBatchSale[];totals:{sales:number;volume_ml:number;amount:number;calculated_balance_ml:number|null;volume_consistent:boolean};summary:{clients:number;found:number;new:number;review:number;shipping_ready:number;shipping_incomplete:number};raw_text:string}
 export async function parseSalesBatch(text:string,saleDate:string){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.functions.invoke('parse-sales-batch',{body:{organization_id:organizationId,text,sale_date:saleDate}});if(error){let message='Não foi possível analisar esta lista. Tente novamente.';try{const body=await (error as {context?:Response}).context?.clone().json(),code=String(body?.error?.code??'');if(code==='unauthorized')message='Sua sessão expirou. Entre novamente.';else if(['invalid_org','no_organization','organization_required','forbidden','organization_lookup_failed'].includes(code))message='Não foi possível identificar sua empresa. Atualize a página e tente novamente.'}catch{/* resposta não JSON */}throw new Error(message)}return data.data as AiSalesBatchPreview}
-export async function confirmAiSalesBatch(preview:AiSalesBatchPreview){const {organizationId}=await currentOrganization();const {data,error}=await supabase!.rpc('confirm_ai_sales_batch',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_batch:preview});if(error)throw new Error(error.message);return data as {batch_id:string;sales_created:number;clients_created:number;shipping_incomplete:number;idempotent:boolean}}
+export async function confirmAiSalesBatch(preview:AiSalesBatchPreview){const {organizationId}=await currentOrganization();if(!preview.inventory_item_id)throw new Error('Selecione um item real do estoque.');const validation=await supabase!.rpc('validate_ai_batch_inventory',{p_organization_id:organizationId,p_inventory_item_id:preview.inventory_item_id});if(validation.error)throw new Error(validation.error.message);const secured={...preview,perfume_id:validation.data};const {data,error}=await supabase!.rpc('confirm_ai_sales_batch',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_batch:secured});if(error)throw new Error(error.message);return data as {batch_id:string;sales_created:number;clients_created:number;shipping_incomplete:number;idempotent:boolean}}
 
 export async function searchClients(term: string) {
   const { organizationId } = await currentOrganization()

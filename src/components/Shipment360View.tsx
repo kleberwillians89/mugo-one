@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { OperationalShipment } from "../lib/records";
 import { brl, shortDate } from "../lib/format";
-import { operationalLabel } from "../lib/presentation";
+import { friendlyIntegrationError, operationalLabel } from "../lib/presentation";
 import { getLabelUiState, shipmentHumanState } from "../lib/superfrete";
 
 /**
@@ -65,6 +65,8 @@ type Props = {
   busy: string;
   feedback: string;
   isAdmin: boolean;
+  currentUserId: string;
+  onAssumeConference: () => void;
   onChange: (item: Item, kind: "separated" | "checked", value: boolean) => void;
   onDivergence: (item: Item, value: string) => void;
 };
@@ -236,11 +238,17 @@ export function ShipmentHeader({
 }
 
 export function ShipmentChecklist({
+  shipment,
   items,
+  currentUserId,
+  onAssumeConference,
   onChange,
   onDivergence,
 }: {
+  shipment: OperationalShipment;
   items: Item[];
+  currentUserId: string;
+  onAssumeConference: () => void;
   onChange: Props["onChange"];
   onDivergence: Props["onDivergence"];
 }) {
@@ -272,6 +280,10 @@ export function ShipmentChecklist({
           <strong>{pending}</strong>
           <span>{pending === 1 ? "pendente" : "pendentes"}</span>
         </div>
+      </div>
+      <div className="conference-owner">
+        <span>RESPONSÁVEL PELA CONFERÊNCIA</span>
+        {shipment.conference_owner_user_id ? <><strong>{shipment.conference_owner_name_snapshot || "Usuário RUAH"}</strong><small>{shipment.conference_completed_at ? `Conferência concluída em ${new Date(shipment.conference_completed_at).toLocaleString('pt-BR')}` : `Assumiu em ${new Date(shipment.conference_started_at!).toLocaleString('pt-BR')}`}</small><em>🔒 Responsável confirmado</em>{shipment.conference_owner_user_id!==currentUserId&&<p>Conferência em andamento por {shipment.conference_owner_name_snapshot}. Você pode visualizar, mas não alterar.</p>}</> : <><strong>Nenhum responsável definido.</strong><button className="primary" onClick={onAssumeConference}>ASSUMIR CONFERÊNCIA</button></>}
       </div>
       {divergent.length > 0 && (
         <div className="divergence-callout">
@@ -305,6 +317,7 @@ export function ShipmentChecklist({
               </span>
             </div>
             <button
+              disabled={shipment.conference_owner_user_id!==currentUserId}
               className={`check-action ${item.separated_at ? "complete" : ""}`}
               aria-pressed={Boolean(item.separated_at)}
               onClick={() => onChange(item, "separated", !item.separated_at)}
@@ -313,6 +326,7 @@ export function ShipmentChecklist({
               {item.separated_at ? "SEPARADO" : "MARCAR SEPARADO"}
             </button>
             <button
+              disabled={shipment.conference_owner_user_id!==currentUserId}
               className={`check-action ${item.checked_at ? "complete" : ""}`}
               aria-pressed={Boolean(item.checked_at)}
               onClick={() => onChange(item, "checked", !item.checked_at)}
@@ -323,6 +337,7 @@ export function ShipmentChecklist({
             <label className="divergence-select">
               <span>Divergência</span>
               <select
+                disabled={shipment.conference_owner_user_id!==currentUserId}
                 aria-label={`Divergência de ${item.sales?.perfume_name_raw || "produto"}`}
                 value={item.divergence_note || ""}
                 onChange={(e) => onDivergence(item, e.target.value)}
@@ -539,7 +554,7 @@ export function ShipmentLabelCenter({
             <strong>
               {prepared
                 ? "Pronto para imprimir"
-                : "Sendo preparado pela SuperFrete"}
+                : shipment.integration_error ? friendlyIntegrationError(shipment.integration_error) : "Sendo preparado pela SuperFrete"}
             </strong>
             <small>
               {prepared
@@ -753,7 +768,10 @@ export function Shipment360View(props: Props) {
         <ShipmentHeader shipment={props.shipment} onEdit={props.onEdit} />
         <ShipmentJourney shipment={props.shipment} />
         <ShipmentChecklist
+          shipment={props.shipment}
           items={props.items}
+          currentUserId={props.currentUserId}
+          onAssumeConference={props.onAssumeConference}
           onChange={props.onChange}
           onDivergence={props.onDivergence}
         />

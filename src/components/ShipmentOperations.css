@@ -80,3 +80,5 @@
 
 .new-shipment-steps .current { color: var(--ink); font-weight: var(--fw-semibold); }
 .new-shipment-steps .done { color: var(--gold-deep); }
+.conference-owner{display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin:18px 0;padding:18px;border:1px solid #d9ccb2;background:#fbf7ee}.conference-owner>span{font-size:9px;font-weight:700;letter-spacing:.12em;color:#8a6b24}.conference-owner strong{font-size:14px}.conference-owner small,.conference-owner p{color:#766f65;font-size:11px;margin:0}.conference-owner em{font-style:normal;font-size:10px;color:#477058}.conference-owner button{margin-top:5px}.check-action:disabled,.divergence-select select:disabled{cursor:not-allowed;opacity:.55}
+.shipping-required-intro{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #d8ccb4;background:#fbf7ee}.shipping-required-intro strong{font-size:10px;letter-spacing:.1em;color:#80611e}.shipping-required-intro span{font-size:11px;color:#665f55}
