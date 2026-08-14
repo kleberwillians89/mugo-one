@@ -5,7 +5,7 @@ const sha256=async(value:string)=>[...new Uint8Array(await crypto.subtle.digest(
 const deadlineDate=(dayMonth:string|null,saleDate:string)=>{if(!dayMonth)return null;const [day,month]=dayMonth.split('/').map(Number),base=new Date(`${saleDate}T12:00:00Z`),year=base.getUTCFullYear();let candidate=new Date(Date.UTC(year,month-1,day));if(candidate.getTime()<base.getTime()-31*86400000)candidate=new Date(Date.UTC(year+1,month-1,day));return Number.isNaN(candidate.getTime())?null:candidate.toISOString().slice(0,10)}
 
 Deno.serve(async req=>{
-  const ctx=await context(req);if('response'in ctx)return ctx.response
+  const ctx=await context(req,{allowSingleOrganizationFallback:true});if('response'in ctx)return ctx.response
   if(ctx.role==='viewer')return json({error:{code:'forbidden',message:'Perfil sem permissão para preparar importações.'}},403,req)
   const text=String(ctx.body.text??'').trim().slice(0,20000),saleDate=String(ctx.body.sale_date??'')
   if(!text||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(saleDate))return json({error:{code:'invalid_payload',message:'Mensagem e data das vendas são obrigatórias.'}},400,req)
