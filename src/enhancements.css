@@ -15,7 +15,7 @@
   .coverage>div:nth-child(odd){border-left:0}
   .coverage>div:nth-child(4){border-left:1px solid var(--line)}
 }
-.clients-table{overflow:hidden}
+.clients-table{overflow:hidden}.clients-table td{white-space:normal;overflow-wrap:anywhere;max-width:260px}.clients-table th{white-space:nowrap}
 .clients-caption{display:flex;align-items:center;justify-content:space-between;padding:17px 19px}
 .clients-caption>div{display:flex;flex-direction:column;gap:4px}
 .clients-caption strong{font:600 13px 'Manrope'}

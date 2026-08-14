@@ -7,7 +7,6 @@
 .ui-table {
   width: 100%;
   border-collapse: collapse;
-  white-space: nowrap;
 }
 
 .ui-table th {
@@ -18,6 +17,7 @@
   letter-spacing: 0.5px;
   text-transform: uppercase;
   padding: var(--space-3) var(--space-4);
+  white-space: nowrap;
 }
 
 .ui-table td {
@@ -25,6 +25,8 @@
   color: #655e55;
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid #efebe5;
+  max-width: 260px;
+  overflow-wrap: anywhere;
 }
 
 .ui-table-row--clickable { cursor: pointer; }
