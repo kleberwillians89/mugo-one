@@ -546,25 +546,29 @@ export function ShipmentLabelCenter({
 
       <div className="label-atelier-footer">
         <div className="label-file-state">
-          <i className={prepared ? "ready" : "waiting"}>
+          <i className={prepared ? "ready" : state.isCancelled ? "" : "waiting"}>
             {prepared ? <Check /> : null}
           </i>
           <div>
-            <span>ARQUIVO PARA IMPRESSÃO</span>
+            <span>{state.isCancelled ? "ETIQUETA CANCELADA" : "ARQUIVO PARA IMPRESSÃO"}</span>
             <strong>
-              {prepared
+              {state.isCancelled
+                ? "Não disponível para impressão"
+                : prepared
                 ? "Pronto para imprimir"
                 : shipment.integration_error ? friendlyIntegrationError(shipment.integration_error) : "Sendo preparado pela SuperFrete"}
             </strong>
             <small>
-              {prepared
+              {state.isCancelled
+                ? "Esta etiqueta foi cancelada na SuperFrete e não está disponível para impressão."
+                : prepared
                 ? "O documento oficial está disponível."
                 : "A impressão será liberada assim que o arquivo for concluído."}
             </small>
           </div>
         </div>
 
-        {shipment.integration_error && (
+        {shipment.integration_error && !state.isCancelled && (
           <div className="label-error">
             <AlertTriangle />
             <span>
@@ -619,7 +623,7 @@ export function ShipmentLabelCenter({
                   : "ATUALIZAR ETIQUETA"}
             </button>
           )}
-          {!state.canPrint && (
+          {!state.canPrint && !state.isCancelled && (
             <button
               type="button"
               className="label-disabled"
