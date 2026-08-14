@@ -7,19 +7,19 @@
   display: block;
   font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
   letter-spacing: 2px;
-  color: var(--gold-deep);
+  color: var(--surface-text-accent);
   margin-bottom: var(--space-2);
 }
 
 .dossier-name {
   font: var(--fw-medium) var(--fs-3xl) var(--font-serif);
   margin: 0 0 var(--space-1);
-  color: var(--ink);
+  color: var(--surface-text-primary);
 }
 
 .dossier-since {
   margin: 0 0 var(--space-4);
-  color: var(--muted);
+  color: var(--surface-text-secondary);
   font-size: var(--fs-base);
 }
 
@@ -33,12 +33,12 @@
 .dossier-stats strong {
   display: block;
   font: var(--fw-semibold) var(--fs-xl) var(--font-ui);
-  color: var(--ink);
+  color: var(--surface-text-primary);
 }
 
 .dossier-stats span {
   font-size: var(--fs-sm);
-  color: var(--muted);
+  color: var(--surface-text-secondary);
 }
 
 .dossier-actions {

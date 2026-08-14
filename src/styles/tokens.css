@@ -27,6 +27,11 @@
   --hairline: #e7e0d5;
   --paper-warm: #f7f3eb;
   --ink-inverse: #f8f3e8;
+  --surface-bg: var(--paper);
+  --surface-text-primary: var(--ink);
+  --surface-text-secondary: var(--muted);
+  --surface-text-accent: var(--gold-deep);
+  --surface-border: var(--line);
 
   /* Cor — semânticas novas (derivadas dos hex já usados em badges/avisos) */
   --danger: #a5574f;

@@ -81,10 +81,10 @@
 html,body,#root{max-width:100%;overflow-x:hidden}
 button,a,input,select,textarea{touch-action:manipulation}
 @media(max-width:760px){
-  header{gap:8px}
-  header>div:nth-child(2){min-width:0}
-  header h1{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  header p{display:none}
+  .app-shell>main>header{gap:8px}
+  .app-shell>main>header>div:nth-child(2){min-width:0}
+  .app-shell>main>header h1{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-shell>main>header p{display:none}
   .header-actions{gap:5px}
   .header-actions .avatar{width:34px;height:34px}
   .page{width:100%;padding:20px 12px 34px}

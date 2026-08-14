@@ -54,4 +54,11 @@
 
 .ui-btn-spin { animation: ui-spin 0.8s linear infinite; }
 
+/* Buttons keep their meaning when placed on a dark editorial surface. */
+.surface-dark .ui-btn--primary{background:var(--surface-text-accent);color:#181713;border-color:var(--surface-text-accent)}
+.surface-dark .ui-btn--secondary{background:transparent;color:var(--surface-text-primary);border-color:#8f8167}
+.surface-dark .ui-btn--secondary:hover:not(:disabled){background:#ffffff12;border-color:var(--surface-text-accent)}
+.surface-dark .ui-btn--tertiary,.surface-dark .ui-btn--ghost{background:transparent;color:var(--surface-text-primary);border-color:transparent}
+.surface-dark .ui-btn--tertiary:hover:not(:disabled),.surface-dark .ui-btn--ghost:hover:not(:disabled){background:#ffffff12}
+
 @keyframes ui-spin { to { transform: rotate(360deg); } }

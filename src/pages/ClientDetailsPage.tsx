@@ -70,18 +70,18 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
 
     <button className="back-link" onClick={()=>{history.pushState({},'','/clientes');dispatchEvent(new PopStateEvent('popstate'))}}>← Voltar para clientes</button>
 
-    <header className="dossier-head">
+    <header className="dossier-head surface-dark">
       <span className="dossier-eyebrow">CLIENTE</span>
-      <h1 className="dossier-name">{client.name}</h1>
-      <p className="dossier-since">{commercial.first_purchase?`Cliente desde ${monthYearLabel(commercial.first_purchase)}`:'Ainda sem compras registradas'}</p>
+      <h1 className="dossier-name" data-surface-role="primary">{client.name}</h1>
+      <p className="dossier-since" data-surface-role="secondary">{commercial.first_purchase?`Cliente desde ${monthYearLabel(commercial.first_purchase)}`:'Ainda sem compras registradas'}</p>
       <div className="dossier-stats">
-        <div><strong>{integer(Number(commercial.purchases))}</strong><span>compras</span></div>
-        <div><strong>{brl(Number(commercial.total_purchased))}</strong><span>comprados</span></div>
-        <div><strong>{Number(commercial.total_ml).toLocaleString('pt-BR')}</strong><span>ml</span></div>
+        <div><strong data-surface-role="metric">{integer(Number(commercial.purchases))}</strong><span>compras</span></div>
+        <div><strong data-surface-role="metric">{brl(Number(commercial.total_purchased))}</strong><span>comprados</span></div>
+        <div><strong data-surface-role="metric">{Number(commercial.total_ml).toLocaleString('pt-BR')}</strong><span>ml</span></div>
       </div>
       <div className="dossier-actions">
         <SecondaryButton onClick={()=>setEditing(true)}>Editar cadastro</SecondaryButton>
-        <span className="badge paid">{client.status}</span>
+        <span className="badge paid">{operationalLabel(client.status)}</span>
       </div>
     </header>
 

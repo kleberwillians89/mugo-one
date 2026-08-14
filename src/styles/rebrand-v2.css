@@ -25,3 +25,10 @@ input,select,textarea{max-width:100%;color:var(--ink)}.field input,.field select
 
 /* Contratos de contraste para superfícies editoriais escuras. */
 .ai-batch-assistant>header{background:#181713;color:var(--ink-inverse)}.ai-batch-assistant>header h2,.label-atelier-head h2{color:var(--ink-inverse)}.ai-batch-assistant>header>button{color:var(--ink-inverse);border-color:#71695b}.ai-batch-assistant>header>button:hover{background:#ffffff12;border-color:#a09788}.label-atelier-head p{color:#b8b0a3}
+
+/* Surface contract: operational data never inherits light-surface ink on charcoal. */
+.surface-dark{--surface-bg:#191814;--surface-text-primary:#f8f3e8;--surface-text-secondary:#c8c0b3;--surface-text-accent:#dbc176;--surface-border:#514a3e;background:var(--surface-bg);color:var(--surface-text-primary)}
+.surface-accent{--surface-bg:#e5c66e;--surface-text-primary:#211d16;--surface-text-secondary:#5f5031;--surface-text-accent:#5c4618;--surface-border:#b89b4c;background:var(--surface-bg);color:var(--surface-text-primary)}
+.surface-dark [data-surface-role="primary"],.surface-dark [data-surface-role="metric"]{color:var(--surface-text-primary)!important;opacity:1}.surface-dark [data-surface-role="secondary"]{color:var(--surface-text-secondary)!important;opacity:1}.surface-dark [data-surface-role="action"]{color:var(--surface-text-primary)}
+.surface-dark .badge.paid{background:#dbc176;color:#211d16;border:1px solid #ead696}.surface-dark :is(.dossier-stats,.ficha-price-row) strong{font-variant-numeric:tabular-nums;color:var(--surface-text-primary)}.surface-dark :is(.dossier-stats span,.ficha-product,.dossier-since){color:var(--surface-text-secondary)}
+.shipment-premium-head.surface-dark .shipment-title h1{color:var(--surface-text-primary)!important}.shipment-premium-head.surface-dark .shipment-title p,.shipment-premium-head.surface-dark .shipment-status strong{color:var(--surface-text-secondary)}.shipment-premium-head.surface-dark .shipment-status span,.shipment-premium-head.surface-dark .shipment-title>span{color:var(--surface-text-accent)}

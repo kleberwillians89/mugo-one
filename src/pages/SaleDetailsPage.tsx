@@ -47,12 +47,12 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
 
     <button className="back-link" onClick={()=>history.back()}>← Voltar para vendas</button>
 
-    <header className="ficha-head">
+    <header className="ficha-head surface-dark">
       <span className="ficha-eyebrow">VENDA</span>
-      <h1 className="ficha-client">{clientName}</h1>
-      <p className="ficha-product">{sale.perfume_name_raw||'Perfume não informado'}{sale.volume_ml?` · ${sale.volume_ml} ml`:''}{sale.sale_type?` · ${sale.sale_type}`:''}</p>
+      <h1 className="ficha-client" data-surface-role="primary">{clientName}</h1>
+      <p className="ficha-product" data-surface-role="secondary">{sale.perfume_name_raw||'Perfume não informado'}{sale.volume_ml?` · ${sale.volume_ml} ml`:''}{sale.sale_type?` · ${sale.sale_type}`:''}</p>
       <div className="ficha-price-row">
-        <strong>{brl(Number(sale.amount))}</strong>
+        <strong data-surface-role="metric">{brl(Number(sale.amount))}</strong>
         <span className={`badge ${sale.payment_status}`}>{statusLabel[sale.payment_status]||sale.payment_status}</span>
       </div>
       <div className="ficha-actions">

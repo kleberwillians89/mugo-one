@@ -207,19 +207,19 @@ export function ShipmentHeader({
 }) {
   return (
     <>
-      <header className="shipment-premium-head">
+      <header className="shipment-premium-head surface-dark">
         <RuahBrand />
         <div className="shipment-title">
           <span>ENVIO 360</span>
-          <h1>{shipment.recipient_name}</h1>
-          <p>
+          <h1 data-surface-role="primary">{shipment.recipient_name}</h1>
+          <p data-surface-role="secondary">
             Envio #{shipment.id.slice(0, 8).toUpperCase()} <i />{" "}
             {shortDate(shipment.created_at)}
           </p>
         </div>
         <ShipmentStatus shipment={shipment} />
       </header>
-      <div className="next-action">
+      <div className="next-action surface-accent">
         <div>
           <span>PRÓXIMO PASSO</span>
           <strong>{humanStatus(shipment)}</strong>
@@ -459,13 +459,13 @@ export function ShipmentLabelCenter({
     ),
     prepared = state.canPrint;
   return (
-    <section className="label-atelier" aria-labelledby="label-center-title">
-      <header className="label-atelier-head">
+    <section className="label-atelier surface-dark" aria-labelledby="label-center-title">
+      <header className="label-atelier-head surface-dark">
         <RuahBrand />
         <div>
           <span>ETIQUETA DE ENVIO</span>
           <p>Envio #{shipment.id.slice(0, 8).toUpperCase()}</p>
-          <h2 id="label-center-title">{shipment.recipient_name}</h2>
+          <h2 id="label-center-title" data-surface-role="primary">{shipment.recipient_name}</h2>
         </div>
         <strong>{state.title}</strong>
       </header>
