@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowUpRight, ChartNoAxesCombined, Check, Clock3, ShoppingBag, Sparkles, TrendingUp, X } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, ChartNoAxesCombined, Clock3, ShoppingBag, Sparkles, TrendingUp, X } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { brl, integer, shortDate } from '../lib/format'
 import { PeriodFilter } from '../components/PeriodFilter'
@@ -18,19 +18,18 @@ export function Dashboard({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const total = paid + pending + cancelled
   const paymentData = live?.payment_methods??[]
   const colors = ['#bf9636', '#332f29', '#817768', '#ded6c8', '#9f7c2b']
-  return <div className="page">
-    <div className="page-lead">
-      <div><h2>Visão geral das vendas</h2><p>Acompanhe os principais números da RUAH.</p></div>
+  return <div className="page dashboard-page">
+    <div className="page-lead dashboard-lead">
+      <div><span className="dashboard-eyebrow">HOJE NA RUAH</span><h2>Visão executiva</h2><p>Uma leitura precisa do comercial, dos recebimentos e da operação.</p></div>
       <PeriodFilter value={period} onApply={setPeriod}/>
     </div>
     {loadError && <div className="notice"><AlertTriangle size={18} /><span>{loadError}</span></div>}
+    <section className="executive-hero" aria-label="Resumo executivo"><div className="executive-primary"><span>VENDAS NO PERÍODO</span><strong>{hasData?brl(Number(live!.total)):'—'}</strong><small>{hasData?`${integer(Number(live!.sales))} relações comerciais`:'Aguardando dados reais'}</small></div><div className="executive-secondary"><div><span>RECEBIDO</span><strong>{hasData?brl(paid):'—'}</strong></div><div><span>PENDENTE</span><strong>{hasData?brl(pending):'—'}</strong></div><div><span>ATENÇÃO OPERACIONAL</span><strong>{hasData?integer(Number(live!.deliveries_pending)+Number(live!.deliveries_overdue)):'—'}</strong><small>entregas pendentes + atrasadas</small></div></div></section>
     <section className="metrics">
       <Metric label="Vendas realizadas" value={hasData ? integer(Number(live!.sales)) : '—'} detail={period.label} icon={ShoppingBag} />
-      <Metric label="Valor total" value={hasData ? brl(Number(live!.total)) : '—'} detail={hasData ? 'Todos os status' : 'Sem dados sincronizados'} icon={TrendingUp} />
-      <Metric label="Valor pago" value={hasData ? brl(paid) : '—'} detail={hasData ? `${integer(Number(live!.paid_count))} pagamentos` : 'Aguardando importação'} icon={Check} tone="dark" />
-      <Metric label="Aguardando pagamento" value={hasData ? brl(pending) : '—'} detail={hasData ? `${integer(Number(live!.pending_count))} vendas` : 'Aguardando importação'} icon={Clock3} tone="sand" />
-      <Metric label="Cancelado" value={hasData ? brl(cancelled) : '—'} detail={hasData ? 'Fora do faturamento' : 'Aguardando importação'} icon={X} tone="cream" />
-      <Metric label="Status em revisão" value={hasData ? brl(Number(live!.review)) : '—'} detail={hasData ? `${integer(Number(live!.review_count))} registros` : 'Aguardando importação'} icon={AlertTriangle} tone="cream" />
+      <Metric label="Ticket médio" value={hasData ? brl(Number(live!.average_ticket)) : '—'} detail="Valor por relação" icon={TrendingUp} />
+      <Metric label="Cancelado" value={hasData ? brl(cancelled) : '—'} detail={hasData ? 'Fora do faturamento' : 'Aguardando dados'} icon={X} tone="cream" />
+      <Metric label="Em revisão" value={hasData ? brl(Number(live!.review)) : '—'} detail={hasData ? `${integer(Number(live!.review_count))} registros` : 'Aguardando dados'} icon={Clock3} tone="sand" />
     </section>
     {hasData && <section className="coverage card">
       <div><span>Ticket médio</span><strong>{brl(Number(live!.average_ticket))}</strong></div>
