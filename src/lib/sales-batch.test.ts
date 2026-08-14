@@ -47,6 +47,21 @@ describe('texto tabular copiado de planilha',()=>{
   it('agrupa múltiplos perfumes sem deduplicar clientes repetidos',()=>{const parsed=parseDaviSalesBatch([...feve,row('LUCIANA ALVES','SPLIT',4,'BLOCKADE - MIND GAMES','R$ 200,00'),row('ANA PAULA','SPLIT',2,'BLONDE AMBER - CLIVE CHRISTIAN','R$ 99,90')].join('\n'));expect(parsed.groups?.map(group=>group.perfume)).toEqual(['BLOCKADE - MIND GAMES','BLONDE AMBER - CLIVE CHRISTIAN','FÈVE NECTAR - PLACE DE LA RÊVERIE']);expect(parsed.sales).toHaveLength(10)})
   it('preserva identidade, marca e frasco separadamente',()=>{const parsed=parseDaviSalesBatch(row('BEATRIZ','APC',50,'BLOCKADE - MIND GAMES (FRASCO 2)','R$ 2.000,00'));expect(parsed.groups?.[0]).toMatchObject({raw_perfume_name:'BLOCKADE - MIND GAMES (FRASCO 2)',display_name:'BLOCKADE - MIND GAMES',normalized_perfume_name:'blockade mind games',brand:'MIND GAMES',bottle_number:2})})
   it('ignora disponibilidade comercial e tabs finais',()=>{const parsed=parseDaviSalesBatch([...feve,row('DISPONÍVEL PARA VENDA','SPLIT',11,'QUILOMBO - FUEGUIA 1833','R$ 447,90')].join('\n'));expect(parsed.sales).toHaveLength(8);expect(parsed.availability_rows).toBe(1)})
+  it('não cria cliente nem venda para "disponível para venda", mas preserva ml e valor reais para o resumo',()=>{
+    const parsed=parseDaviSalesBatch([...feve,row('DISPONÍVEL PARA VENDA','SPLIT',11,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 447,90')].join('\n'))
+    expect(parsed.sales.some(s=>s.client_name==='DISPONÍVEL PARA VENDA')).toBe(false)
+    expect(parsed.availability_ml).toBe(11);expect(parsed.availability_amount).toBe(447.9)
+    const feveGroup=parsed.groups?.find(g=>g.perfume==='FÈVE NECTAR - PLACE DE LA RÊVERIE')
+    expect(feveGroup).toMatchObject({availability_rows:1,availability_ml:11,availability_amount:447.9,totals:{sales:8,volume_ml:50,amount:2458}})
+  })
+  it('soma disponibilidade comercial real: 162 vendas + saldo separado bate com a lista completa',()=>{
+    const rows=Array.from({length:162},(_,i)=>row(`CLIENTE ${i+1}`,i%2===0?'SPLIT':'APC',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE',(256.22).toFixed(2).replace('.',',')))
+    const parsed=parseDaviSalesBatch([...rows,row('DISPONÍVEL PARA VENDA','SPLIT',37,'FÈVE NECTAR - PLACE DE LA RÊVERIE','1185,30')].join('\n'))
+    expect(parsed.sales).toHaveLength(162)
+    expect(parsed.availability_ml).toBe(37);expect(parsed.availability_amount).toBe(1185.3)
+    const grossTotal=Math.round((parsed.totals.amount+(parsed.availability_amount??0))*100)/100
+    expect(grossTotal).toBe(Math.round((parsed.totals.amount+1185.3)*100)/100)
+  })
   it('ignora cabeçalho e linha sem campos mínimos',()=>{const parsed=parseDaviSalesBatch(['CLIENTE\tVENDA\tPRAZO\t\tTIPO\tML\tPERFUME\tVALOR',...feve,'TOTAL\t\t\t\t\t50\t\tR$ 2.458,00'].join('\n'));expect(parsed.sales).toHaveLength(8)})
 })
 
