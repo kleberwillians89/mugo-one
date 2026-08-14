@@ -407,13 +407,50 @@ export type AiSalesBatchGroup={perfume:string;raw_perfume_name:string;normalized
 export type AiSalesBatchPreview={source_format?:'whatsapp'|'tsv';groups?:AiSalesBatchGroup[];availability_rows?:number;availability_ml?:number;availability_amount?:number;perfume:string;raw_perfume_name?:string;normalized_perfume_name?:string;display_name?:string;brand?:string|null;bottle_number:number|null;original_volume_ml:number|null;quote_per_ml:number|null;recrimping_fee:number|null;apc_volume_ml:number|null;apc_extra:number|null;deadline_raw:string|null;deadline_day_month:string|null;shipping_deadline_date:string|null;business_days:number|null;announced_balance_ml:number|null;sale_date:string;fingerprint:string;duplicate_batch:Record<string,unknown>|null;perfume_match_status:'found'|'review'|'new';perfume_id:string|null;inventory_item_id:string|null;perfume_matches:{id:string;full_name_raw:string}[];inventory:Record<string,unknown>|null;sales:AiSalesBatchSale[];totals:{sales:number;volume_ml:number;amount:number;calculated_balance_ml:number|null;volume_consistent:boolean};summary:{clients:number;found:number;new:number;review:number;shipping_ready:number;shipping_incomplete:number};raw_text:string}
 export type AiSalesBatchMultiResult={batch_id:string;sales_created:number;clients_created:number;clients_existing:number;perfumes_processed:number;perfumes_matched:number;inventory_items_bootstrapped:number;total_ml_sold:number;total_amount_sold:number;commercial_remaining_ml:number;commercial_remaining_amount:number;shipping_incomplete:number;paid_source_count:number;awaiting_source_count:number;unstated_payment_count:number;idempotent:boolean}
 export async function parseSalesBatch(text:string,saleDate:string){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.functions.invoke('parse-sales-batch',{body:{organization_id:organizationId,text,sale_date:saleDate}});if(error){let message='Não foi possível analisar esta lista. Tente novamente.';try{const body=await (error as {context?:Response}).context?.clone().json(),code=String(body?.error?.code??'');if(code==='unauthorized')message='Sua sessão expirou. Entre novamente.';else if(code==='sales_unrecognized')message='Encontramos possíveis vendas, mas algumas linhas precisam de revisão.';else if(code==='sales_missing')message='Nenhuma linha de venda foi reconhecida. Confira o formato da lista.';else if(['invalid_org','no_organization','organization_required','forbidden','organization_lookup_failed'].includes(code))message='Não foi possível identificar sua empresa. Atualize a página e tente novamente.'}catch{/* resposta não JSON */}throw new Error(message)}return data.data as AiSalesBatchPreview}
-export async function confirmAiSalesBatch(preview:AiSalesBatchPreview){const {organizationId}=await currentOrganization();if(!preview.inventory_item_id)throw new Error('Selecione um item real do estoque.');const validation=await supabase!.rpc('validate_ai_batch_inventory',{p_organization_id:organizationId,p_inventory_item_id:preview.inventory_item_id});if(validation.error)throw new Error(validation.error.message);const secured={...preview,perfume_id:validation.data};const {data,error}=await supabase!.rpc('confirm_ai_sales_batch',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_batch:secured});if(error)throw new Error(error.message);return data as {batch_id:string;sales_created:number;clients_created:number;shipping_incomplete:number;idempotent:boolean}}
-export async function bootstrapAiBatchInventory(input:{fingerprint:string;rawPerfumeName:string;brand:string|null;bottleNumber:number|null;referenceDate:string;sales:AiSalesBatchSale[]}){const {organizationId}=await currentOrganization();const {data,error}=await supabase!.rpc('bootstrap_ai_batch_inventory',{p_organization_id:organizationId,p_fingerprint:input.fingerprint,p_raw_perfume_name:input.rawPerfumeName,p_brand:input.brand,p_bottle_number:input.bottleNumber,p_reference_date:input.referenceDate,p_sales:input.sales});if(error)throw new Error(error.message);return data as {inventory_item_id:string;perfume_id:string;created:boolean;idempotent:boolean;bootstrap_ml:number;reconciliation_status:string}}
+// Known business-rule errors raised by the AI import RPCs get a message the
+// operator can act on. Anything else (an unexpected/technical database
+// error — e.g. a missing-function error from a misconfigured extension
+// schema) NEVER reaches the operator verbatim: it falls back to a generic,
+// safe message, and the raw detail goes to console.error only, for support.
+const AI_IMPORT_ERROR_MESSAGES: Record<string,string> = {
+  perfume_resolution_ambiguous: 'Encontramos mais de um cadastro para este perfume. Escolha o registro correto antes de continuar.',
+  inventory_resolution_ambiguous: 'Encontramos mais de um item de estoque compatível. Selecione manualmente o item correto.',
+  perfume_selection_incompatible: 'A seleção de perfume não é válida para este lote. Atualize a análise e tente novamente.',
+  invalid_perfume_selection: 'A seleção de perfume não é válida para este lote. Atualize a análise e tente novamente.',
+  multi_perfume_batch_not_supported: 'Esta lista tem mais de um perfume e precisa ser confirmada pelo fluxo de importação em lote.',
+  client_resolution_required: 'Confirme quem é o cliente de cada venda antes de continuar.',
+  client_resolution_ambiguous: 'Encontramos mais de um cliente com esse nome. Selecione manualmente o cliente correto.',
+  invalid_client: 'Não foi possível vincular um dos clientes desta lista. Atualize a análise e tente novamente.',
+  inventory_resolution_required: 'Resolva o perfume no estoque de todos os grupos antes de continuar.',
+  sales_required: 'Nenhuma venda válida foi encontrada nesta lista.',
+  groups_required: 'Nenhum grupo de perfume válido foi encontrado nesta lista.',
+  forbidden: 'Seu perfil não tem permissão para confirmar esta importação.',
+}
+function friendlyAiImportError(raw:string):Error{
+  const code=Object.keys(AI_IMPORT_ERROR_MESSAGES).find(key=>raw.includes(key))
+  if(code)return new Error(AI_IMPORT_ERROR_MESSAGES[code])
+  console.error('ai_import_technical_error',raw)
+  return new Error('Não foi possível concluir a importação. Nenhuma venda foi criada.')
+}
+export async function confirmAiSalesBatch(preview:AiSalesBatchPreview){const {organizationId}=await currentOrganization();if(!preview.inventory_item_id)throw new Error('Selecione um item real do estoque.');const validation=await supabase!.rpc('validate_ai_batch_inventory',{p_organization_id:organizationId,p_inventory_item_id:preview.inventory_item_id});if(validation.error)throw friendlyAiImportError(validation.error.message);const secured={...preview,perfume_id:validation.data};const {data,error}=await supabase!.rpc('confirm_ai_sales_batch',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_batch:secured});if(error)throw friendlyAiImportError(error.message);return data as {batch_id:string;sales_created:number;clients_created:number;shipping_incomplete:number;idempotent:boolean}}
+export type PerfumeResolutionCandidate={perfume_id:string;name:string;brand:string|null;bottle_identifier:string|null;inventory_item_id:string|null;reconciliation_status:string|null}
+export type BootstrapAiBatchInventoryResult={resolution_status:'resolved'|'idempotent'|'ambiguous';inventory_item_id:string|null;perfume_id:string|null;created:boolean;idempotent:boolean;bootstrap_ml:number;reconciliation_status?:string;candidates?:PerfumeResolutionCandidate[]}
+export async function bootstrapAiBatchInventory(input:{fingerprint:string;rawPerfumeName:string;brand:string|null;bottleNumber:number|null;referenceDate:string;sales:AiSalesBatchSale[];selectedPerfumeId?:string|null}){
+  const {organizationId}=await currentOrganization()
+  const base={p_organization_id:organizationId,p_fingerprint:input.fingerprint,p_raw_perfume_name:input.rawPerfumeName,p_brand:input.brand,p_bottle_number:input.bottleNumber,p_reference_date:input.referenceDate,p_sales:input.sales}
+  // Two distinctly-named RPCs, never an overload of one another: PostgREST
+  // must never have to disambiguate between candidate function signatures.
+  const {data,error}=input.selectedPerfumeId
+    ?await supabase!.rpc('bootstrap_ai_batch_inventory_resolved',{...base,p_selected_perfume_id:input.selectedPerfumeId})
+    :await supabase!.rpc('bootstrap_ai_batch_inventory',base)
+  if(error)throw friendlyAiImportError(error.message)
+  return data as BootstrapAiBatchInventoryResult
+}
 export async function confirmAiSalesBatchMulti(preview:AiSalesBatchPreview){
   const {organizationId}=await currentOrganization()
   const groups=(preview.groups??[]).map(group=>({perfume:group.perfume,display_name:group.display_name,inventory_item_id:group.inventory_item_id,availability_ml:group.availability_ml??0,availability_amount:group.availability_amount??0,sales:group.sales}))
   const {data,error}=await supabase!.rpc('confirm_ai_sales_batch_multi',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_sale_date:preview.sale_date,p_shipping_deadline_date:preview.shipping_deadline_date,p_deadline_raw:preview.deadline_raw,p_groups:groups})
-  if(error)throw new Error(error.message)
+  if(error)throw friendlyAiImportError(error.message)
   return data as AiSalesBatchMultiResult
 }
 export async function summarizeAiBatchImport(aggregates:AiSalesBatchMultiResult|Record<string,unknown>){
