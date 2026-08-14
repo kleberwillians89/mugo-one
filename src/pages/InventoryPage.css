@@ -1,0 +1,9 @@
+.stock-available {
+  font: var(--fw-semibold) var(--fs-md) var(--font-ui);
+  color: var(--ink);
+}
+
+.stock-actions {
+  display: flex;
+  gap: var(--space-2);
+}
