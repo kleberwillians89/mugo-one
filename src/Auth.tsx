@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react'
-import { Eye, EyeOff, LoaderCircle, LockKeyhole, LogOut, Mail, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import { App } from './App'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -79,5 +79,5 @@ export function AuthRoot() {
   if(path==='/auth/callback')return <CallbackPage/>
   if(path==='/definir-senha')return <PasswordPage first/>
   if(path==='/atualizar-senha')return <PasswordPage/>
-  return <><App/><button className="logout-fab" onClick={async()=>{await supabase?.auth.signOut();go('/login')}}><LogOut/> Sair</button></>
+  return <App/>
 }
