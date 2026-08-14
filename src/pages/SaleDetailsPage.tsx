@@ -5,7 +5,8 @@ import { operationalLabel, statusLabel } from '../lib/presentation'
 import {
   CommercialSale, confirmLegacyProductCustody, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
 } from '../lib/records'
-import { DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton } from '../components/ui'
+import { missingShippingClientFields } from '../lib/client-completeness'
+import { Alert, DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton } from '../components/ui'
 import './SaleDetailsPage.css'
 
 export function SaleDetailsPage({saleId}:{saleId:string}){
@@ -16,7 +17,9 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
   if(error)return <div className="page"><div className="notice"><AlertTriangle/><span>{error}</span></div></div>
   if(!sale)return <div className="page"><div className="empty card"><h3>Carregando Venda 360…</h3></div></div>
   const allocation=sale.inventory_allocations?.find(item=>['reserved','shipping','shipped'].includes(item.status)),shipment=sale.shipment_items?.[0]?.shipments
-  const prepare=async()=>{if(!sale.client_id||!allocation)return;setPreparing(true);setError('');try{const id=await createDraftShipment(sale.client_id,[allocation.id]);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
+  const missingFields=sale.clients?missingShippingClientFields(sale.clients):[]
+  const goToClient=()=>{if(!sale.client_id)return;history.pushState({},'',`/clientes/${sale.client_id}`);dispatchEvent(new PopStateEvent('popstate'))}
+  const prepare=async()=>{if(!sale.client_id||!allocation||missingFields.length>0)return;setPreparing(true);setError('');try{const id=await createDraftShipment(sale.client_id,[allocation.id]);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
   const confirmCustody=async()=>{if(!confirmed)return;setSaving(true);setError('');try{await confirmLegacyProductCustody(sale.id,location,verificationNote);setConfirming(false);setConfirmed(false);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar o produto.')}finally{setSaving(false)}}
   const release=async()=>{if(!allocation)return;setSaving(true);try{await releaseLegacyProductCustody(allocation.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível remover a confirmação.')}finally{setSaving(false)}}
   const canConfirm=!allocation&&!shipment&&!sale.shipped_at&&Boolean(sale.client_id&&sale.perfume_id&&sale.volume_ml&&sale.volume_ml>0)
@@ -56,9 +59,9 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
         <span className={`badge ${sale.payment_status}`}>{statusLabel[sale.payment_status]||sale.payment_status}</span>
       </div>
       <div className="ficha-actions">
-        {sale.client_id&&<SecondaryButton onClick={()=>{history.pushState({},'',`/clientes/${sale.client_id}`);dispatchEvent(new PopStateEvent('popstate'))}}>Ver cliente</SecondaryButton>}
+        {sale.client_id&&<SecondaryButton onClick={goToClient}>Ver cliente</SecondaryButton>}
         {canConfirm&&<PrimaryButton onClick={()=>setConfirming(true)}>Confirmar produto</PrimaryButton>}
-        {allocation?.status==='reserved'&&<PrimaryButton loading={preparing} onClick={prepare}>Preparar envio</PrimaryButton>}
+        {allocation?.status==='reserved'&&<PrimaryButton disabled={missingFields.length>0} loading={preparing} onClick={prepare}>Preparar envio</PrimaryButton>}
         {shipment&&<a className="button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>}
       </div>
     </header>
@@ -73,6 +76,9 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
       {label:'Documento',value:sale.clients?.cpf||sale.clients?.cnpj||'—'},
       {label:'Endereço',value:[sale.clients?.address_line,sale.clients?.address_number,sale.clients?.city,sale.clients?.state].filter(Boolean).join(', ')||'—'},
     ]}/>
+    {missingFields.length>0&&<Alert tone="warning" title="DADOS DE ENVIO INCOMPLETOS">
+      Faltam: {missingFields.join(' · ')}. <SecondaryButton onClick={goToClient}>Completar cadastro do cliente</SecondaryButton>
+    </Alert>}
 
     <Divider label="Produto e pagamento"/>
     <section className="ficha-columns">

@@ -4,6 +4,7 @@ import { brl, monthYearLabel, shortDate, integer } from '../lib/format'
 import { ClientModal } from '../components/RecordModals'
 import { operationalLabel, statusLabel } from '../lib/presentation'
 import { createDraftShipment, fetchClient360 } from '../lib/records'
+import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Drawer, EmptyState, Modal, PrimaryButton, SecondaryButton, SectionHeader, Stepper } from '../components/ui'
 import './ClientDetailsPage.css'
 
@@ -36,19 +37,13 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     (!historyShipping||(historyShipping==='shipped'?Boolean(sale.shipped_at):!sale.shipped_at))&&
     (!historyStart||String(sale.sale_date??'')>=historyStart)&&(!historyEnd||String(sale.sale_date??'')<=historyEnd))
   const editInitial={name:client.name,phone:client.phone??'',whatsappPhone:client.whatsapp_phone??'',email:client.email??'',instagram:client.instagram??'',cpf:client.cpf??'',cnpj:client.cnpj??'',birthDate:client.birth_date??'',postalCode:client.postal_code??'',address:client.address_line??'',addressNumber:client.address_number??'',complement:client.complement??'',district:client.district??'',city:client.city??'',state:client.state??'',notes:client.notes??'',status:client.status}
-  const prepare=async()=>{if(!selected.length)return;setPreparing(true);setError('');try{const shipmentId=await createDraftShipment(clientId,selected);setSelected([]);const refreshed=await fetchClient360(clientId);setData(refreshed);alert(`Envio preparado: ${shipmentId.slice(0,8)}`)}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
+  const prepare=async()=>{if(!selected.length||missingFields.length)return;setPreparing(true);setError('');try{const shipmentId=await createDraftShipment(clientId,selected);setSelected([]);const refreshed=await fetchClient360(clientId);setData(refreshed);alert(`Envio preparado: ${shipmentId.slice(0,8)}`)}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
 
   const waitingSorted=[...data.waiting].sort((a,b)=>a.perfume.localeCompare(b.perfume,'pt-BR'))
   const currentShipments=data.shipments.filter((s)=>!['delivered','cancelled'].includes(String(s.status)))
   const historicalShipments=data.shipments.filter((s)=>['delivered','cancelled'].includes(String(s.status)))
 
-  const missingFields=[
-    !client.cpf&&!client.cnpj&&'CPF',
-    !client.phone&&!client.whatsapp_phone&&'Telefone',
-    !client.postal_code&&'CEP',
-    !client.address_line&&'Endereço',
-    !client.district&&'Bairro',
-  ].filter(Boolean) as string[]
+  const missingFields=missingShippingClientFields(client)
 
   const activeHistoryFilterCount=[historyPayment,historyType,historyShipping,historyStart,historyEnd].filter(Boolean).length
   const clearHistoryFilters=()=>{setHistoryPayment('');setHistoryType('');setHistoryShipping('');setHistoryStart('');setHistoryEnd('')}
@@ -85,8 +80,8 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
       </div>
     </header>
 
-    {missingFields.length>0&&<Alert tone="warning" title="Cadastro de envio incompleto">
-      Faltam: {missingFields.join(', ')}. <SecondaryButton onClick={()=>setEditing(true)}>Completar cadastro</SecondaryButton>
+    {missingFields.length>0&&<Alert tone="warning" title="CADASTRO DE ENVIO INCOMPLETO">
+      Antes de preparar um envio para este cliente, complete os dados abaixo: {missingFields.map(field=>`• ${field}`).join('  ')}. <SecondaryButton onClick={()=>setEditing(true)}>Completar cadastro</SecondaryButton>
     </Alert>}
 
     <Divider label="Dados da cliente"/>
@@ -133,8 +128,11 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
 
     <Divider label="Produtos aguardando envio"/>
     <SectionHeader title={`${integer(waitingSorted.length)} ${waitingSorted.length===1?'produto':'produtos'} na RUAH`} description="Selecione as compras que devem sair juntas em um único envio." action={
-      waitingSorted.length>0?<PrimaryButton disabled={!selected.length||preparing} loading={preparing} onClick={prepare}>{selected.length?`Preparar envio com ${selected.length} ${selected.length===1?'produto':'produtos'}`:'Preparar envio'}</PrimaryButton>:undefined
+      waitingSorted.length>0?<PrimaryButton disabled={!selected.length||preparing||missingFields.length>0} loading={preparing} onClick={prepare}>{selected.length?`Preparar envio com ${selected.length} ${selected.length===1?'produto':'produtos'}`:'Preparar envio'}</PrimaryButton>:undefined
     }/>
+    {waitingSorted.length>0&&selected.length>0&&missingFields.length>0&&<Alert tone="warning" title="NÃO É POSSÍVEL CRIAR O ENVIO AINDA">
+      Complete os dados do cliente: {missingFields.map(field=>`• ${field}`).join('  ')}. <SecondaryButton onClick={()=>setEditing(true)}>Completar cadastro</SecondaryButton>
+    </Alert>}
     {waitingSorted.length===0?<EmptyState icon={Boxes} title="Nenhum produto confirmado para envio" description="Confirme o produto em custódia na Venda 360 correspondente para que ele apareça aqui, pronto para ser incluído em um envio."/>:
     <div className="card clients-table"><div className="table-wrap"><table><thead><tr><th>Nº</th><th></th><th>Venda</th><th>Perfume</th><th>Tipo</th><th>ML</th><th>Valor</th><th>Origem</th><th>Guardado há</th></tr></thead><tbody>{waitingSorted.map((item,index)=><tr key={item.allocation_id}><td className="row-number">{String(index+1).padStart(2,'0')}</td><td><input type="checkbox" checked={selected.includes(item.allocation_id)} onChange={(event)=>setSelected((current)=>event.target.checked?[...current,item.allocation_id]:current.filter((id)=>id!==item.allocation_id))}/></td><td>{shortDate(item.sale_date)}</td><td><strong>{item.perfume}</strong></td><td>{item.sale_type}</td><td>{Number(item.quantity_ml).toLocaleString('pt-BR')} ML</td><td>{brl(Number(item.amount))}</td><td><span className={`badge ${item.stock_managed?'paid':'pending'}`}>{item.stock_managed?'ESTOQUE OPERACIONAL':'CONFERIDO MANUALMENTE'}</span>{item.storage_location&&<small>{item.storage_location}</small>}</td><td>{item.days_waiting} dias</td></tr>)}</tbody></table></div></div>}
 

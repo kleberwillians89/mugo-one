@@ -1,19 +1,15 @@
 import {useMemo,useRef,useState} from 'react'
 import {AlertTriangle,Check,Loader2,Plus,Sparkles,X} from 'lucide-react'
-import {brl,integer} from '../lib/format'
+import {brl,countedLabel,integer} from '../lib/format'
 import {normalizeInventoryPerfumeName,reconcileInventoryGroup} from '../lib/ai-inventory'
+import {AiImportSummary,buildAiImportSummarySentences} from '../lib/ai-import-summary'
 import {AiSalesBatchGroup,AiSalesBatchMultiResult,AiSalesBatchPreview,bootstrapAiBatchInventory,confirmAiSalesBatch,confirmAiSalesBatchMulti,fetchOperationalInventory,OperationalInventoryRow,parseSalesBatch,PerfumeResolutionCandidate,summarizeAiBatchImport} from '../lib/records'
 
 const today=()=>new Date().toISOString().slice(0,10)
 const missingFields=['CPF','telefone','CEP','endereço','número','bairro','cidade','UF']
 
 type Blocker={text:string;target?:string}
-type Summary={
-  sales_created:number;clients_created:number;clients_existing:number
-  perfumes_processed:number;perfumes_matched:number;inventory_items_bootstrapped:number
-  total_ml_sold:number;total_amount_sold:number;commercial_remaining_ml:number;commercial_remaining_amount:number
-  shipping_incomplete:number;paid_source_count:number;awaiting_source_count:number;unstated_payment_count:number;idempotent:boolean
-}
+type Summary=AiImportSummary
 
 function toSummary(preview:AiSalesBatchPreview,multi:AiSalesBatchMultiResult|null,single:{sales_created:number;clients_created:number;shipping_incomplete:number;idempotent?:boolean}|null):Summary{
   if(multi)return multi
@@ -71,7 +67,7 @@ export function AiSalesBatchImport({close,completed}:{close:()=>void;completed:(
       const built=multi?toSummary(preview,outcome as AiSalesBatchMultiResult,null):toSummary(preview,null,outcome as {sales_created:number;clients_created:number;shipping_incomplete:number;idempotent?:boolean})
       setSummary(built);setPhase('summary');completed()
       setAiPending(true)
-      summarizeAiBatchImport(built).then(text=>setAiText(text)).finally(()=>setAiPending(false))
+      summarizeAiBatchImport(buildAiImportSummarySentences(built)).then(text=>setAiText(text)).finally(()=>setAiPending(false))
     }catch(reason){setConfirmError(reason instanceof Error?reason.message:'Não foi possível concluir a importação.');setPhase('failed')}
     finally{setBusy('')}
   }
@@ -94,8 +90,8 @@ export function AiSalesBatchImport({close,completed}:{close:()=>void;completed:(
 
   return <div className="ai-batch-layer"><div className="ai-batch-scroll" ref={scrollRef}><section className="ai-batch-assistant"><header><div><span>RUAH · ASSISTENTE OPERACIONAL</span><h2><Sparkles/> Importar lista com IA</h2><p>A IA interpreta. Você revisa. O CRM só grava depois da confirmação.</p></div><button aria-label="Fechar" onClick={close}><X/></button></header>
 
-  {phase==='summary'&&summary?<div className="ai-batch-result"><Check/><span>IMPORTAÇÃO CONCLUÍDA</span><h3>{integer(summary.sales_created)} vendas registradas</h3><p>{brl(summary.total_amount_sold)} em vendas · {integer(summary.total_ml_sold)} ml vendidos{summary.idempotent?' · lote já havia sido importado':''}</p>
-    {summary.commercial_remaining_ml>0&&<p className="batch-summary-note">{integer(summary.commercial_remaining_ml)} ml permaneceram marcados como disponíveis para venda, equivalentes a {brl(summary.commercial_remaining_amount)}. Total bruto da lista analisada: {brl(grossTotal)}.</p>}
+  {phase==='summary'&&summary?<div className="ai-batch-result"><Check/><span>IMPORTAÇÃO CONCLUÍDA</span><h3>{countedLabel(summary.sales_created,'venda registrada','vendas registradas')}</h3><p>{brl(summary.total_amount_sold)} em vendas · {countedLabel(summary.total_ml_sold,'ml vendido','ml vendidos')}{summary.idempotent?' · lote já havia sido importado':''}</p>
+    {summary.commercial_remaining_ml>0&&<p className="batch-summary-note">{countedLabel(summary.commercial_remaining_ml,'ml permaneceu marcado','ml permaneceram marcados')} como disponíveis para venda, equivalentes a {brl(summary.commercial_remaining_amount)}. Total bruto da lista analisada: {brl(grossTotal)}.</p>}
     <dl className="batch-summary-grid">
       <div><dt>Clientes já existentes</dt><dd>{integer(summary.clients_existing)}</dd></div>
       <div><dt>Novos clientes criados</dt><dd>{integer(summary.clients_created)}</dd></div>
@@ -104,13 +100,13 @@ export function AiSalesBatchImport({close,completed}:{close:()=>void;completed:(
       <div><dt>Já existentes no estoque</dt><dd>{integer(summary.perfumes_matched)}</dd></div>
       <div><dt>Criados a partir das vendas</dt><dd>{integer(summary.inventory_items_bootstrapped)}</dd></div>
     </dl>
-    <p className="batch-summary-note">Na lista original: {integer(summary.paid_source_count)} pagas · {integer(summary.awaiting_source_count)} aguardando · {integer(summary.unstated_payment_count)} sem status informado. Os status originais foram preservados para revisão. As vendas importadas entraram como pendentes conforme a regra atual do CRM.</p>
-    {anyBootstrapped&&<div className="batch-bootstrap-warning"><AlertTriangle/> {integer(summary.inventory_items_bootstrapped)} perfume(s) foram registrados a partir das vendas e precisam de conferência física antes de liberar estoque operacional.</div>}
-    {aiPending?<p className="batch-summary-ai batch-summary-ai-loading"><Loader2 className="spin"/> Preparando resumo…</p>:aiText&&<div className="batch-summary-ai"><span>RESUMO RUAH</span><p>{aiText}</p></div>}
+    {(summary.paid_source_count>0||summary.awaiting_source_count>0||summary.unstated_payment_count>0)&&<p className="batch-summary-note">Na lista original: {integer(summary.paid_source_count)} pagas · {integer(summary.awaiting_source_count)} aguardando · {integer(summary.unstated_payment_count)} sem status informado. Os status originais foram preservados para revisão. As vendas importadas entraram como pendentes conforme a regra atual do CRM.</p>}
+    {anyBootstrapped&&<div className="batch-bootstrap-warning"><AlertTriangle/> {countedLabel(summary.inventory_items_bootstrapped,'perfume foi registrado','perfumes foram registrados')} a partir das vendas e precisam de conferência física antes de liberar estoque operacional.</div>}
+    {aiPending?<p className="batch-summary-ai batch-summary-ai-loading"><Loader2 className="spin"/> Preparando resumo…</p>:<div className="batch-summary-ai"><span>RESUMO RUAH</span><p>{aiText??buildAiImportSummarySentences(summary).join(' ')}</p></div>}
     <div className="batch-summary-actions">
       <button className="primary" onClick={close}>VER VENDAS IMPORTADAS</button>
-      {summary.shipping_incomplete>0&&<button onClick={close}>VER CLIENTES INCOMPLETOS</button>}
-      {anyBootstrapped&&<button onClick={close}>VER ESTOQUE A CONFERIR</button>}
+      {summary.shipping_incomplete>0&&<button onClick={()=>{history.pushState({},'','/clientes');dispatchEvent(new PopStateEvent('popstate'));close()}}>VER CLIENTES INCOMPLETOS</button>}
+      {anyBootstrapped&&<button onClick={()=>{history.pushState({},'','/estoque');dispatchEvent(new PopStateEvent('popstate'));close()}}>VER ESTOQUE A CONFERIR</button>}
       <button onClick={close}>CONCLUIR</button>
     </div>
   </div>:phase==='processing'?<div className="ai-batch-result"><Loader2 className="spin"/><span>IMPORTANDO VENDAS</span><h3>Registrando clientes, perfumes e vendas.</h3><p>Não feche esta janela.</p></div>:phase==='failed'?<div className="ai-batch-result"><AlertTriangle/><span>NENHUMA VENDA FOI CRIADA</span><h3>Não foi possível concluir a importação</h3><p>Motivo: {confirmError}</p><p className="batch-summary-note">Como o write é atômico, nenhuma parte deste lote foi gravada.</p><button className="primary" onClick={retry}>TENTAR NOVAMENTE</button></div>:!preview?<div className="ai-batch-input"><label><span>DATA DAS VENDAS</span><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><small>Pré-preenchida com hoje. Ajuste antes de analisar.</small></label><label><span>MENSAGEM DO DAVI</span><textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Cole aqui a publicação completa…"/></label><div className="ai-batch-safety">Analisar não cria vendas, clientes, reservas, envios ou etiquetas.</div><button className="primary" disabled={!text.trim()||!!busy} onClick={analyze}>{busy?'ANALISANDO…':'ANALISAR LISTA'}</button></div>:<div className="ai-batch-preview">

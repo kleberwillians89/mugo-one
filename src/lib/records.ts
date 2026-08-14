@@ -453,10 +453,14 @@ export async function confirmAiSalesBatchMulti(preview:AiSalesBatchPreview){
   if(error)throw friendlyAiImportError(error.message)
   return data as AiSalesBatchMultiResult
 }
-export async function summarizeAiBatchImport(aggregates:AiSalesBatchMultiResult|Record<string,unknown>){
+// Sends only pre-formatted, human-readable Portuguese sentences — never raw
+// field names or a JSON blob of aggregates — so the model has nothing
+// code-shaped available to echo back into its paraphrase.
+export async function summarizeAiBatchImport(sentences:string[]){
+  if(!sentences.length)return null
   try{
     const {organizationId}=await currentOrganization()
-    const {data,error}=await supabase!.functions.invoke('summarize-ai-batch-import',{body:{organization_id:organizationId,aggregates}})
+    const {data,error}=await supabase!.functions.invoke('summarize-ai-batch-import',{body:{organization_id:organizationId,sentences}})
     if(error||data?.error)return null
     return String(data?.data?.summary??'')||null
   }catch{return null}

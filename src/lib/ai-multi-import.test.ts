@@ -71,12 +71,13 @@ describe('resumo final: números vêm do banco, IA só escreve o texto',()=>{
     expect(recordsSource).toMatch(/summarizeAiBatchImport[\s\S]*?catch\{return null\}/)
   })
   it('componente mostra o fallback determinístico mesmo quando a IA ainda não respondeu',()=>{
-    expect(componentSource).toContain("aiText&&<div className=\"batch-summary-ai\"")
+    expect(componentSource).toContain("aiText??buildAiImportSummarySentences(summary).join(' ')")
     expect(componentSource).toContain('IMPORTAÇÃO CONCLUÍDA')
   })
   it('resumo separa vendas reais do saldo comercial ("disponível para venda")',()=>{
     expect(componentSource).toContain('commercial_remaining_ml')
-    expect(componentSource).toContain('permaneceram marcados como disponíveis para venda')
+    expect(componentSource).toContain('ml permaneceram marcados')
+    expect(componentSource).toContain('como disponíveis para venda')
     expect(componentSource).toContain('grossTotal')
   })
   it('botão multiperfume não fica mais bloqueado por padrão',()=>{
