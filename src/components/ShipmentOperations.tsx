@@ -1,24 +1,61 @@
 import {useEffect,useMemo,useState} from 'react'
-import {AlertTriangle,Check,Copy,ExternalLink,PackageCheck,RefreshCw,Truck,X} from 'lucide-react'
+import {AlertTriangle,Copy,ExternalLink,RefreshCw,Truck,X} from 'lucide-react'
 import {brl,shortDate} from '../lib/format'
 import {approveShipmentForLabel,authenticatedOrganization,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
-import {canBuyLabel,canQuoteShipment,missingLabelFields,missingQuoteFields,shipmentStatusLabels} from '../lib/superfrete'
+import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,shipmentStatusLabels} from '../lib/superfrete'
 import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
 import {Shipment360View} from './Shipment360View'
+import {Divider, EmptyState, Modal} from './ui'
+import './ShipmentOperations.css'
+
+const nextActionCopy:Record<string,string>={create_label:'Criar etiqueta',checkout:'Confirmar compra',sync:'Atualizar etiqueta',print:'Imprimir etiqueta',track:'Acompanhar rastreio',none:'Sem ação pendente'}
 
 const emptySettings:Partial<ShippingSettings>={default_format:'box',calculator_services:'1,2,17,3,31'}
 const shipmentKeys=['recipient_name','recipient_phone','recipient_document','recipient_email','recipient_postal_code','recipient_address','recipient_number','recipient_complement','recipient_district','recipient_city','recipient_state','package_weight','package_height','package_width','package_length','declared_value'] as const
 
+type Stage='preparing'|'conference'|'freight'|'label'|'posted'|'delivered'
+const stageLabels:Record<Stage,string>={preparing:'Em preparação',conference:'Conferência',freight:'Frete',label:'Etiqueta',posted:'Postado',delivered:'Entregue'}
+function shipmentStage(row:OperationalShipment):Stage{
+  if(row.status==='delivered')return 'delivered'
+  if(row.status==='posted')return 'posted'
+  if(row.status==='label_pending'||row.status==='label_released'||row.superfrete_order_id)return 'label'
+  if(row.status==='awaiting_customer_approval'||row.status==='customer_approved'||row.selected_quote_id)return 'freight'
+  const conferred=row.shipment_items.length>0&&row.shipment_items.every(item=>item.checked_at&&!item.divergence_note)
+  return conferred?'conference':'preparing'
+}
+
 export function OperationalShipments(){
-  const [rows,setRows]=useState<OperationalShipment[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('')
+  const [rows,setRows]=useState<OperationalShipment[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[stageFilter,setStageFilter]=useState<Stage|''>('')
   const reload=()=>fetchOperationalShipments().then(data=>{setRows(data);setError('')}).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar os envios.')).finally(()=>setLoading(false))
   useEffect(()=>{reload()},[])
-  const counts=useMemo(()=>rows.reduce((acc,row)=>{acc[row.status]=(acc[row.status]||0)+1;return acc},{} as Record<string,number>),[rows])
+  const counts=useMemo(()=>rows.reduce((acc,row)=>{const stage=shipmentStage(row);acc[stage]=(acc[stage]||0)+1;return acc},{} as Record<string,number>),[rows])
+  const visible=stageFilter?rows.filter(row=>shipmentStage(row)===stageFilter):rows
   return <section className="shipment-operations">
-    <div className="shipment-summary card"><div><Truck/><span>Em preparação<strong>{(counts.draft||0)+(counts.requested||0)}</strong></span></div><div><PackageCheck/><span>Aguardando cliente<strong>{counts.awaiting_customer_approval||0}</strong></span></div><div><Check/><span>Prontos/postados<strong>{(counts.label_released||0)+(counts.posted||0)}</strong></span></div></div>
-    <div className="card clients-table"><div className="clients-caption"><div><strong>Envios operacionais</strong><span>Uma etiqueta pode reunir várias compras do mesmo cliente.</span></div><span className="live-dot">SUPERFRETE</span></div>
-      {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="inline-empty">Carregando envios…</div>:<div className="table-wrap"><table><thead><tr><th>Cliente</th><th>Produtos</th><th>Status</th><th>Serviço</th><th>Frete</th><th>Rastreio</th><th>Criado</th><th>Ação</th></tr></thead><tbody>{rows.map(row=><tr key={row.id}><td><strong>{row.clients?.name||row.recipient_name}</strong></td><td>{row.shipment_items.length} · {row.shipment_items.reduce((sum,item)=>sum+Number(item.quantity_ml),0)} ml</td><td><span className={`badge ${['posted','delivered'].includes(row.status)?'paid':'pending'}`}>{shipmentStatusLabels[row.status]||row.status}</span></td><td>{row.service||'Não selecionado'}</td><td>{row.shipping_price==null?'—':brl(Number(row.shipping_price))}</td><td>{row.tracking_code||'—'}</td><td>{shortDate(row.created_at)}</td><td><a className="button-link" href={`/entregas/${row.id}`}>Abrir Envio 360</a></td></tr>)}</tbody></table>{!rows.length&&<div className="inline-empty">Nenhum envio criado. Use “Novo envio” para selecionar produtos reservados.</div>}</div>}
+    <div className="shipment-stage-tabs">
+      <button className={stageFilter===''?'active':''} onClick={()=>setStageFilter('')}>Todos<i>{rows.length}</i></button>
+      {(Object.keys(stageLabels) as Stage[]).map(stage=>counts[stage]?<button key={stage} className={stageFilter===stage?'active':''} onClick={()=>setStageFilter(stage)}>{stageLabels[stage]}<i>{counts[stage]}</i></button>:null)}
     </div>
+    {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="inline-empty">Carregando envios…</div>:visible.length===0?<EmptyState icon={Truck} title="Nenhum envio nesta etapa" description="Use “Novo envio” para selecionar produtos reservados e iniciar uma etiqueta."/>:
+    <div className="shipment-op-card-list">
+      {visible.map(row=>{
+        const items=row.shipment_items.length
+        const ml=row.shipment_items.reduce((sum,item)=>sum+Number(item.quantity_ml),0)
+        const nextAction=nextActionCopy[getShipmentNextAction(row)]
+        return <article className="shipment-op-card" key={row.id}>
+          <div className="shipment-op-card-head">
+            <div><strong>{row.clients?.name||row.recipient_name}</strong><span>Envio #{row.id.slice(0,8).toUpperCase()} · {items} {items===1?'item':'itens'} · {ml} ml</span></div>
+            <span className={`badge ${['posted','delivered'].includes(row.status)?'paid':'pending'}`}>{shipmentStatusLabels[row.status]||row.status}</span>
+          </div>
+          <div className="shipment-op-card-foot">
+            <span>{row.service?`${row.carrier||''} ${row.service}`.trim():'Serviço não selecionado'}</span>
+            {row.tracking_code&&<span>Rastreio: {row.tracking_code}</span>}
+            <span>Criado em {shortDate(row.created_at)}</span>
+            {nextAction&&nextAction!=='Sem ação pendente'&&<span className="shipment-op-next">Próxima ação: {nextAction}</span>}
+          </div>
+          <a className="button-link" href={`/entregas/${row.id}`}>Abrir envio</a>
+        </article>
+      })}
+    </div>}
   </section>
 }
 
@@ -30,7 +67,21 @@ export function NewShipmentModal({close,preselectedSaleId}:{close:()=>void;prese
   const chooseClient=(value:string)=>{setClientId(value);setSelected([])}
   const toggle=(id:string)=>setSelected(current=>current.includes(id)?current.filter(item=>item!==id):[...current,id])
   const submit=async()=>{if(!clientId||!selected.length)return;setSaving(true);setError('');try{const id=await createDraftShipment(clientId,selected);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'));close()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setSaving(false)}}
-  return <div className="modal-layer"><button className="modal-scrim" aria-label="Fechar" onClick={close}/><div className="modal-panel"><div className="modal-title"><div><span>LOGÍSTICA OPERACIONAL</span><h2>Novo envio</h2></div><button onClick={close}><X/></button></div><div className="record-form">{loading?<div className="inline-empty">Carregando produtos reservados…</div>:<><label className="field"><span>Cliente</span><select value={clientId} onChange={event=>chooseClient(event.target.value)}><option value="">Selecione…</option>{clients.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>{clientId&&<div className="shipment-products"><h3>Produtos pagos aguardando envio</h3>{visible.map(row=><label key={row.id} className="selection-row"><input type="checkbox" checked={selected.includes(row.id)} onChange={()=>toggle(row.id)}/><span>{row.sales?.perfume_name_raw||'Produto'} · {row.sales?.sale_type||'—'}</span><strong>{Number(row.quantity_ml).toLocaleString('pt-BR')} ml · {brl(Number(row.sales?.amount||0))}</strong></label>)}{!visible.length&&<div className="inline-empty">Este cliente não possui allocations reservadas.</div>}</div>}<div className="notice"><span>Somente allocations com status reservado aparecem aqui. Vendas históricas não verificadas não geram envio.</span></div></>}{error&&<div className="form-error">{error}</div>}<div className="form-actions"><button onClick={close}>Cancelar</button><button className="primary" disabled={saving||!selected.length} onClick={submit}>{saving?'Preparando…':'PREPARAR ENVIO'}</button></div></div></div></div>
+  return <Modal open onClose={close} eyebrow="LOGÍSTICA OPERACIONAL" title="Novo envio" footer={<>
+      <button onClick={close}>Cancelar</button>
+      <button className="primary" disabled={saving||!selected.length} onClick={submit}>{saving?'Preparando…':'Preparar envio'}</button>
+    </>}>
+    {loading?<div className="inline-empty">Carregando produtos reservados…</div>:<div className="record-form">
+      <div className="new-shipment-steps">
+        <span className={clientId?'done':'current'}>1. Cliente</span>
+        <span className={clientId?'current':''}>2. Produtos</span>
+      </div>
+      <label className="field"><span>Cliente</span><select value={clientId} onChange={event=>chooseClient(event.target.value)}><option value="">Selecione…</option>{clients.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
+      {clientId&&<div className="shipment-products"><h3>Produtos pagos aguardando envio</h3>{visible.map(row=><label key={row.id} className="selection-row"><input type="checkbox" checked={selected.includes(row.id)} onChange={()=>toggle(row.id)}/><span>{row.sales?.perfume_name_raw||'Produto'} · {row.sales?.sale_type||'—'}</span><strong>{Number(row.quantity_ml).toLocaleString('pt-BR')} ml · {brl(Number(row.sales?.amount||0))}</strong></label>)}{!visible.length&&<div className="inline-empty">Este cliente não possui allocations reservadas.</div>}</div>}
+      <div className="notice"><span>Somente allocations com status reservado aparecem aqui. Vendas históricas não verificadas não geram envio.</span></div>
+      {error&&<div className="form-error">{error}</div>}
+    </div>}
+  </Modal>
 }
 
 export function ShipmentDetailsPage({shipmentId}:{shipmentId:string}){
@@ -81,5 +132,12 @@ export function ShippingSettingsPage(){
   const required:[keyof ShippingSettings,string][]=[['sender_name','Nome / razão social'],['sender_document','CPF/CNPJ'],['sender_email','E-mail'],['sender_phone','Telefone'],['sender_postal_code','CEP'],['sender_address','Endereço'],['sender_number','Número'],['sender_district','Bairro'],['sender_city','Cidade'],['sender_state','UF'],['default_weight','Peso padrão'],['default_height','Altura padrão'],['default_width','Largura padrão'],['default_length','Comprimento padrão']]
   const missing=required.filter(([key])=>!String(form[key]??'').trim()).map(([,label])=>label)
   const submit=async()=>{if(missing.length){setMessage(`Preencha os campos obrigatórios: ${missing.join(', ')}.`);return}setSaving(true);setMessage('');try{await saveShippingSettings(form);setConfigured(true);setMessage('Configuração salva e persistida. O token continua somente nos Secrets do Supabase.')}catch(reason){setMessage(reason instanceof Error?reason.message:'Falha ao salvar.')}finally{setSaving(false)}}
-  return <div className="page"><div className="page-lead"><div><h2>Configurações</h2><p>Remetente e pacote padrão da operação logística.</p></div></div><div className="card settings-card"><div className="card-title"><div><h3>SuperFrete — Produção</h3><p>Nenhuma credencial é armazenada ou exibida no navegador.</p></div><span className="live-dot">{configured?'CONFIGURADO':'CONFIGURAÇÃO PENDENTE'}</span></div>{loading?<div className="inline-empty">Carregando…</div>:<div className="record-form">{!configured&&<div className="incomplete-data"><AlertTriangle/><div><strong>SUPERFRETE AINDA NÃO ESTÁ PRONTA PARA USO</strong><span>Preencha o remetente real e o pacote padrão. Sem isso, o cálculo de frete será bloqueado com segurança.</span></div></div>}<div className="form-grid">{[['sender_name','Nome do remetente'],['sender_document','CPF/CNPJ'],['sender_email','E-mail'],['sender_phone','Telefone'],['sender_postal_code','CEP'],['sender_address','Endereço'],['sender_number','Número'],['sender_complement','Complemento'],['sender_district','Bairro'],['sender_city','Cidade'],['sender_state','UF'],['default_weight','Peso padrão (kg)'],['default_height','Altura padrão (cm)'],['default_width','Largura padrão (cm)'],['default_length','Comprimento padrão (cm)'],['calculator_services','Serviços (IDs separados por vírgula)']].map(([key,label])=><label className={`field ${['sender_address','calculator_services'].includes(key)?'wide':''}`} key={key}><span>{label}{required.some(([requiredKey])=>requiredKey===key)&&' *'}</span><input value={String(form[key as keyof ShippingSettings]??'')} onChange={event=>set(key as keyof ShippingSettings,event.target.value)}/></label>)}</div>{missing.length>0&&<div className="incomplete-data"><AlertTriangle/><div><strong>CAMPOS OBRIGATÓRIOS AUSENTES</strong><span>{missing.join(', ')}</span></div></div>}{message&&<div className="notice"><span>{message}</span></div>}<div className="form-actions"><button className="primary" disabled={saving} onClick={submit}>{saving?'Salvando…':'Salvar configuração'}</button></div></div>}</div></div>
+  return <div className="page"><div className="page-lead"><div><h2>Configurações</h2><p>Remetente e pacote padrão da operação logística.</p></div></div><div className="card settings-card"><div className="card-title"><div><h3>SuperFrete — Produção</h3><p>Nenhuma credencial é armazenada ou exibida no navegador.</p></div><span className="live-dot">{configured?'CONFIGURADO':'CONFIGURAÇÃO PENDENTE'}</span></div>{loading?<div className="inline-empty">Carregando…</div>:<div className="record-form">{!configured&&<div className="incomplete-data"><AlertTriangle/><div><strong>SUPERFRETE AINDA NÃO ESTÁ PRONTA PARA USO</strong><span>Preencha o remetente real e o pacote padrão. Sem isso, o cálculo de frete será bloqueado com segurança.</span></div></div>}
+    <Divider label="Remetente"/>
+    <div className="form-grid">{([['sender_name','Nome do remetente'],['sender_document','CPF/CNPJ'],['sender_email','E-mail'],['sender_phone','Telefone'],['sender_postal_code','CEP'],['sender_address','Endereço'],['sender_number','Número'],['sender_complement','Complemento'],['sender_district','Bairro'],['sender_city','Cidade'],['sender_state','UF']] as [keyof ShippingSettings,string][]).map(([key,label])=><label className={`field ${key==='sender_address'?'wide':''}`} key={key}><span>{label}{required.some(([requiredKey])=>requiredKey===key)&&' *'}</span><input value={String(form[key]??'')} onChange={event=>set(key,event.target.value)}/></label>)}</div>
+    <Divider label="Pacote padrão"/>
+    <div className="form-grid">{([['default_weight','Peso padrão (kg)'],['default_height','Altura padrão (cm)'],['default_width','Largura padrão (cm)'],['default_length','Comprimento padrão (cm)']] as [keyof ShippingSettings,string][]).map(([key,label])=><label className="field" key={key}><span>{label}{required.some(([requiredKey])=>requiredKey===key)&&' *'}</span><input value={String(form[key]??'')} onChange={event=>set(key,event.target.value)}/></label>)}</div>
+    <Divider label="Integração"/>
+    <div className="form-grid"><label className="field wide"><span>Serviços (IDs separados por vírgula)</span><input value={String(form.calculator_services??'')} onChange={event=>set('calculator_services',event.target.value)}/></label></div>
+    {missing.length>0&&<div className="incomplete-data"><AlertTriangle/><div><strong>CAMPOS OBRIGATÓRIOS AUSENTES</strong><span>{missing.join(', ')}</span></div></div>}{message&&<div className="notice"><span>{message}</span></div>}<div className="form-actions"><button className="primary" disabled={saving} onClick={submit}>{saving?'Salvando…':'Salvar configuração'}</button></div></div>}</div></div>
 }

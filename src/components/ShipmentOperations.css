@@ -1,0 +1,82 @@
+.shipment-stage-tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.shipment-stage-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  background: var(--paper);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-weight: var(--fw-medium);
+}
+
+.shipment-stage-tabs button.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.shipment-stage-tabs button i {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  opacity: 0.8;
+}
+
+.shipment-op-card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.shipment-op-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shipment-op-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.shipment-op-card-head strong { display: block; font: var(--fw-semibold) var(--fs-base) var(--font-ui); }
+.shipment-op-card-head span { font-size: var(--fs-sm); color: var(--muted); }
+
+.shipment-op-card-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-2);
+}
+
+.shipment-op-next { color: var(--gold-deep); font-weight: var(--fw-semibold); }
+
+.new-shipment-steps {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.new-shipment-steps .current { color: var(--ink); font-weight: var(--fw-semibold); }
+.new-shipment-steps .done { color: var(--gold-deep); }
