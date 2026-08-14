@@ -2,6 +2,12 @@ begin;
 
 alter table public.sales add column if not exists inventory_item_id uuid references public.inventory_items(id);
 
+-- Items born from AI-inferred sales history never had a physical count.
+-- They must stay auditable (physical_ml/bootstrap_ml visible) while being
+-- ineligible for operational availability until a human confirms them via
+-- the existing inventory_apply adjustment/entry flow (see redefinition below).
+alter table public.inventory_items add column if not exists bootstrap_pending_verification boolean not null default false;
+
 create table if not exists public.ai_inventory_bootstraps(
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -62,8 +68,8 @@ begin
     values(p_organization_id,canonical_name,normalized,coalesce(nullif(base_name,''),canonical_name),nullif(btrim(p_brand),''),case when p_bottle_number is null then null else 'FRASCO '||p_bottle_number end)
     returning id into perfume;
   end if;
-  insert into public.inventory_items(organization_id,perfume_id,reference_date,available_ml,physical_ml,minimum_ml,status,notes,reconciliation_status,created_by)
-  values(p_organization_id,perfume,p_reference_date,bootstrap_ml,bootstrap_ml,0,'active','Estoque registrado pelas vendas; aguardando conferência física. Origem: ai_sales_batch.','review_required',auth.uid())
+  insert into public.inventory_items(organization_id,perfume_id,reference_date,available_ml,physical_ml,minimum_ml,status,notes,reconciliation_status,bootstrap_pending_verification,created_by)
+  values(p_organization_id,perfume,p_reference_date,bootstrap_ml,bootstrap_ml,0,'active','Estoque registrado pelas vendas; aguardando conferência física. Origem: ai_sales_batch.','review_required',true,auth.uid())
   returning * into item;
   insert into public.inventory_movements(organization_id,inventory_item_id,perfume_id,movement_type,quantity_ml,balance_before,balance_after,reason,notes,created_by)
   values(p_organization_id,item.id,perfume,'opening',bootstrap_ml,0,bootstrap_ml,'bootstrap_from_sales','Origem: ai_sales_batch · fingerprint: '||left(p_fingerprint,16)||' · aguardando conferência física',auth.uid());
@@ -75,6 +81,105 @@ begin
 end;$$;
 revoke all on function public.bootstrap_ai_batch_inventory(uuid,text,text,text,integer,date,jsonb) from public,anon;
 grant execute on function public.bootstrap_ai_batch_inventory(uuid,text,text,text,integer,date,jsonb) to authenticated;
+
+-- Centralized availability fix: items awaiting physical verification (created
+-- by bootstrap_ai_batch_inventory above) must not count as sellable stock
+-- anywhere. physical_ml/bootstrap_ml remain visible for audit; available_ml
+-- is masked to zero at the source used by every operational consumer
+-- (Estoque page, new-sale selectors, AI import matching, reports).
+create or replace function public.inventory_operational_rows(org_id uuid)
+returns table(item_id uuid,perfume_id uuid,perfume text,physical_ml numeric,reserved_ml numeric,
+  shipping_ml numeric,available_ml numeric,minimum_ml numeric,reconciliation_status text)
+language sql stable security invoker set search_path=public as $$
+  select i.id,p.id,p.full_name_raw,i.physical_ml,
+    coalesce(sum(a.quantity_ml) filter(where a.status='reserved'),0),
+    coalesce(sum(a.quantity_ml) filter(where a.status='shipping'),0),
+    case when i.bootstrap_pending_verification then 0 else i.available_ml end,
+    i.minimum_ml,i.reconciliation_status
+  from public.inventory_items i join public.perfumes p on p.id=i.perfume_id
+  left join public.inventory_allocations a on a.inventory_item_id=i.id
+  where i.organization_id=org_id and i.status='active'
+  group by i.id,p.id,p.full_name_raw order by p.full_name_raw;
+$$;
+
+-- Manual entry/adjustment through inventory_apply is the existing physical
+-- conference mechanism (InventoryPage "Entrada"/"Ajustar"). Treat it as the
+-- human confirmation event: clear the bootstrap-pending flag and resolve
+-- review_required so the item re-enters normal operational availability.
+-- Automatic movements (sale_out, cancellation_reversal) never touch a human,
+-- so they must not clear the flag.
+create or replace function public.inventory_apply(
+  p_item_id uuid,p_quantity_ml numeric,p_type public.inventory_movement_type,
+  p_reason text,p_notes text default null,p_sale_id uuid default null
+) returns public.inventory_movements
+language plpgsql security definer set search_path=public
+as $$
+declare v_item public.inventory_items; v_movement public.inventory_movements; v_after numeric; v_physical_after numeric; v_confirms boolean;
+begin
+  select * into v_item from public.inventory_items where id=p_item_id for update;
+  if not found then raise exception 'inventory_item_not_found'; end if;
+  if auth.uid() is not null and not public.has_org_role(v_item.organization_id,array['admin','manager','operator']::public.member_role[])
+    then raise exception 'inventory_write_forbidden'; end if;
+  if p_quantity_ml=0 or btrim(coalesce(p_reason,''))='' then raise exception 'inventory_reason_and_quantity_required'; end if;
+  v_after:=v_item.available_ml+p_quantity_ml;
+  v_physical_after:=v_item.physical_ml+p_quantity_ml;
+  if v_after<0 then raise exception 'insufficient_available_inventory'; end if;
+  if v_physical_after<0 then raise exception 'insufficient_physical_inventory'; end if;
+  v_confirms:=p_type in('entry','positive_adjustment','negative_adjustment','administrative_correction');
+  update public.inventory_items set available_ml=v_after,physical_ml=v_physical_after,updated_at=now(),
+    bootstrap_pending_verification=case when v_confirms then false else bootstrap_pending_verification end,
+    reconciliation_status=case when v_confirms and reconciliation_status='review_required' then 'reconciled' else reconciliation_status end
+    where id=v_item.id;
+  insert into public.inventory_movements(
+    organization_id,inventory_item_id,perfume_id,sale_id,movement_type,quantity_ml,
+    balance_before,balance_after,reason,notes,created_by
+  ) values(
+    v_item.organization_id,v_item.id,v_item.perfume_id,p_sale_id,p_type,p_quantity_ml,
+    v_item.available_ml,v_after,p_reason,p_notes,auth.uid()
+  ) returning * into v_movement;
+  insert into public.audit_logs(organization_id,actor_id,action,entity_type,entity_id,metadata)
+  values(v_item.organization_id,auth.uid(),'inventory_movement','inventory_item',v_item.id::text,
+    jsonb_build_object('movement_id',v_movement.id,'type',p_type,'quantity_ml',p_quantity_ml,
+      'physical_before',v_item.physical_ml,'physical_after',v_physical_after,'sale_id',p_sale_id));
+  return v_movement;
+end;
+$$;
+
+-- Same masking applied to the older summary/health RPCs so AI report
+-- aggregates and health labels never treat unverified bootstrap stock as
+-- sellable either.
+create or replace function public.inventory_summary(org_id uuid,start_date date,end_date date)
+returns jsonb language sql stable security invoker set search_path=public
+as $$
+  select jsonb_build_object(
+    'items',count(*),
+    'available_ml',coalesce(sum(case when i.bootstrap_pending_verification then 0 else i.available_ml end),0),
+    'healthy',count(*) filter(where not i.bootstrap_pending_verification and i.available_ml>i.minimum_ml),
+    'low',count(*) filter(where not i.bootstrap_pending_verification and i.available_ml>0 and i.available_ml<=i.minimum_ml),
+    'critical',count(*) filter(where not i.bootstrap_pending_verification and i.available_ml>0 and i.available_ml<=greatest(i.minimum_ml*.5,1)),
+    'out_of_stock',count(*) filter(where i.bootstrap_pending_verification or i.available_ml=0),
+    'consumed_ml',coalesce((select -sum(m.quantity_ml) from public.inventory_movements m where m.organization_id=org_id and m.movement_type='sale_out' and m.source<>'controlled_test' and (m.created_at at time zone 'America/Sao_Paulo')::date between start_date and end_date),0),
+    'movements',coalesce((select count(*) from public.inventory_movements m where m.organization_id=org_id and m.source<>'controlled_test' and (m.created_at at time zone 'America/Sao_Paulo')::date between start_date and end_date),0)
+  ) from public.inventory_items i where i.organization_id=org_id and i.status='active';
+$$;
+
+create or replace function public.inventory_rows(org_id uuid,start_date date,end_date date)
+returns table(
+  item_id uuid,perfume_id uuid,perfume text,available_ml numeric,minimum_ml numeric,status text,
+  sold_ml numeric,monthly_average numeric,estimated_days numeric,last_movement timestamptz
+) language sql stable security invoker set search_path=public
+as $$
+  select i.id,p.id,p.full_name_raw,case when i.bootstrap_pending_verification then 0 else i.available_ml end,i.minimum_ml,
+    case when i.bootstrap_pending_verification or i.available_ml=0 then 'Esgotado' when i.available_ml<=i.minimum_ml then 'Baixo' else 'Saudável' end,
+    coalesce(-sum(m.quantity_ml) filter(where m.movement_type='sale_out' and m.source<>'controlled_test' and (m.created_at at time zone 'America/Sao_Paulo')::date between start_date and end_date),0),
+    coalesce(-sum(m.quantity_ml) filter(where m.movement_type='sale_out' and m.source<>'controlled_test' and m.created_at>=now()-interval '30 days'),0),
+    case when coalesce(-sum(m.quantity_ml) filter(where m.movement_type='sale_out' and m.source<>'controlled_test' and m.created_at>=now()-interval '30 days'),0)>0
+      then round(case when i.bootstrap_pending_verification then 0 else i.available_ml end/(-sum(m.quantity_ml) filter(where m.movement_type='sale_out' and m.source<>'controlled_test' and m.created_at>=now()-interval '30 days')/30),1) end,
+    max(m.created_at) filter(where m.source<>'controlled_test')
+  from public.inventory_items i join public.perfumes p on p.id=i.perfume_id
+  left join public.inventory_movements m on m.inventory_item_id=i.id
+  where i.organization_id=org_id group by i.id,p.id,p.full_name_raw order by i.available_ml asc,p.full_name_raw;
+$$;
 
 -- Keep the existing single-perfume write behavior and add the resolved item
 -- to every sale. Multi-perfume confirmation remains explicitly blocked.
