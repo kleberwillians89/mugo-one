@@ -1,0 +1,30 @@
+.stock-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Same reasoning as InventoryPage's .stock-actions (this page reuses the
+   class but must not depend on InventoryPage.css being the one that happens
+   to define it): rebrand-v2.css sets .stock-actions button to 40px, so the
+   extra .page ancestor bumps specificity to win the 44px touch target. */
+.page .stock-actions button { min-height: 44px; }
+
+@media (max-width: 640px) {
+  /* Same fix shape as InventoryPage.css: three buttons squeezed into the
+     collapsed mobile table-card's value column would violate "não empilhar
+     3 botões numa linha" — stack instead, resetting every relevant flex
+     property so the td::before label's row-layout flex-basis (38%) can't
+     turn this into a two-column layout once the cell becomes column-flex. */
+  .ui-table td:has(.stock-actions) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+  .ui-table td:has(.stock-actions)::before { flex: 0 0 auto; text-align: left; }
+  .stock-actions { flex-direction: column; align-items: stretch; flex-wrap: nowrap; width: 100%; }
+  .stock-actions button { width: 100%; }
+}

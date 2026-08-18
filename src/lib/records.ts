@@ -240,23 +240,28 @@ export type OperationalShipment={
   tracking_code:string|null;print_url:string|null;label_pdf_url:string|null;integration_error:string|null
   print_available:boolean;print_http_status:number|null;print_content_type:string|null;print_checked_at:string|null
   conference_owner_user_id:string|null;conference_owner_name_snapshot:string|null;conference_started_at:string|null;conference_completed_at:string|null
-  clients:{name:string;updated_at?:string;phone?:string|null;whatsapp_phone?:string|null;cpf?:string|null;cnpj?:string|null;postal_code?:string|null;address_line?:string|null;address_number?:string|null;complement?:string|null;district?:string|null;city?:string|null;state?:string|null}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}[]
+  clients:{name:string;updated_at?:string;phone?:string|null;whatsapp_phone?:string|null;cpf?:string|null;cnpj?:string|null;postal_code?:string|null;address_line?:string|null;address_number?:string|null;complement?:string|null;district?:string|null;city?:string|null;state?:string|null}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;bottle_id:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean;inventory_items:{bottle_tracking_status:string}|null}|null;inventory_bottles:{bottle_code:string;bottle_label:string;physical_ml:number}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null;shipping_deadline_date:string|null}|null}[]
   shipment_events?:{id:number;event_type:string;from_status:string|null;to_status:string|null;metadata:Record<string,unknown>;created_at:string}[]
 }
 
+const SHIPMENT_ITEMS_SELECT='shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,bottle_id,inventory_allocations(allocation_source,stock_managed,inventory_items(bottle_tracking_status)),inventory_bottles(bottle_code,bottle_label,physical_ml),sales(id,amount,perfume_name_raw,sale_type,shipping_deadline_date))'
+
 export async function fetchOperationalShipments(){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select('*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,inventory_allocations(allocation_source,stock_managed),sales(id,amount,perfume_name_raw,sale_type))').eq('organization_id',organizationId).order('created_at',{ascending:false})
+  const {data,error}=await supabase!.from('shipments').select(`*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),${SHIPMENT_ITEMS_SELECT}`).eq('organization_id',organizationId).order('created_at',{ascending:false})
   if(error)throw new Error(error.message)
   return (data??[]) as unknown as OperationalShipment[]
 }
 export async function fetchShipment360(shipmentId:string){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select('*,clients(name,updated_at,phone,whatsapp_phone,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,inventory_allocations(allocation_source,stock_managed),sales(id,amount,perfume_name_raw,sale_type)),shipment_events(id,event_type,from_status,to_status,metadata,created_at)').eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
+  const {data,error}=await supabase!.from('shipments').select(`*,clients(name,updated_at,phone,whatsapp_phone,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),${SHIPMENT_ITEMS_SELECT},shipment_events(id,event_type,from_status,to_status,metadata,created_at)`).eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
   if(error)throw new Error(error.message)
   return data as unknown as OperationalShipment
 }
 export async function updateShipmentItemCheck(shipmentId:string,allocationId:string,separated:boolean,checked:boolean,divergenceNote:string){await currentOrganization();const {error}=await supabase!.rpc('update_shipment_item_check',{p_shipment_id:shipmentId,p_allocation_id:allocationId,p_separated:separated,p_checked:checked,p_divergence_note:divergenceNote||null});if(error)throw new Error(error.message)}
+export type BottleScanResult={ok:true;bottle_id:string;bottle_code:string;bottle_label:string;physical_ml:number;needed_ml:number}
+  |{ok:false;reason:'not_bottle_tracked'|'bottle_not_found'|'wrong_perfume'|'bottle_unavailable'|'insufficient_ml'|'bottle_already_assigned';bottle_label?:string;bottle_code?:string;status?:string;available_ml?:number;needed_ml?:number}
+export async function scanShipmentItemBottle(shipmentId:string,allocationId:string,scanValue:string){await currentOrganization();const {data,error}=await supabase!.rpc('shipment_item_scan_bottle',{p_shipment_id:shipmentId,p_allocation_id:allocationId,p_scan_value:scanValue});if(error)throw new Error(error.message);return data as BottleScanResult}
 export async function assumeShipmentConference(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('assume_shipment_conference',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
 export async function updateShipmentShippingData(shipmentId:string,data:Record<string,unknown>){await currentOrganization();const {data:shipment,error}=await supabase!.rpc('update_shipment_shipping_data',{p_shipment_id:shipmentId,p_data:data});if(error)throw new Error(error.message);return shipment as OperationalShipment}
 export async function refreshShipmentRecipient(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('refresh_shipment_recipient',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
@@ -479,6 +484,7 @@ export type InventorySummary = {
 export type OperationalInventoryRow = {
   item_id:string;perfume_id:string;perfume:string;physical_ml:number;reserved_ml:number
   shipping_ml:number;available_ml:number;minimum_ml:number;reconciliation_status:string
+  average_cost_per_ml:number|null
 }
 
 export async function fetchOperationalInventory() {
