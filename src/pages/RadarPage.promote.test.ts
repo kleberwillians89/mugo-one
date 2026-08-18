@@ -93,9 +93,10 @@ describe('RadarPage: validar fonte nunca marca trusted automaticamente', () => {
     expect(modal).toContain('onChange={(event) => setTrusted(event.target.checked)}')
   })
 
-  it('domínio é obrigatório antes de enviar (mesma regra do backend)', () => {
+  it('domínio inválido/vazio é rejeitado antes de enviar, com a mesma normalização do backend', () => {
     const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
-    expect(modal).toContain('if (!domain.trim())')
+    expect(modal).toContain('const normalized = normalizeDomain(domain)')
+    expect(modal).toContain('if (!normalized)')
   })
 
   it('chama promoteSource, nunca grava direto na tabela nem reaproveita addManualOffer', () => {
@@ -105,7 +106,99 @@ describe('RadarPage: validar fonte nunca marca trusted automaticamente', () => {
   })
 
   it('tipo "manual" não é uma opção na promoção de fonte descoberta', () => {
-    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'), radarPage.indexOf('</Modal>', radarPage.indexOf('function RadarPromoteSourceModal')))
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
     expect(modal).not.toContain('value="manual"')
+  })
+})
+
+describe('RadarPage: pré-preenchimento do modal "Validar fonte"', () => {
+  it('usa prefillFromShoppingResult a partir do item e da marca pesquisada, nunca deixa o operador digitar tudo de novo', () => {
+    expect(radarPage).toContain("import { findExistingSourceByDomain, normalizeDomain, prefillFromShoppingResult } from '../lib/radar-source-prefill'")
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(modal).toContain('const prefill = useMemo(() => prefillFromShoppingResult(item, brand)')
+    expect(modal).toContain('const [name, setName] = useState(prefill.name)')
+    expect(modal).toContain('const [domain, setDomain] = useState(prefill.domain ?? \'\')')
+    expect(modal).toContain('const [sourceType, setSourceType] = useState<Exclude<RadarSourceType,\'manual\'>>(prefill.sourceType)')
+  })
+
+  it('mostra aviso quando não há domínio confiável para pré-preencher (item 4 do spec)', () => {
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(modal).toContain('{!prefill.domain &&')
+    expect(modal).toContain('Não conseguimos identificar o site direto desta fonte. Confirme o domínio antes de validar.')
+  })
+
+  it('sinaliza "possível fonte oficial" só como texto, nunca seleciona official_brand sozinho', () => {
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(modal).toContain("prefill.officialHint && sourceType !== 'official_brand'")
+    expect(modal).toContain('possível fonte oficial')
+    expect(modal).not.toContain("setSourceType('official_brand')")
+  })
+
+  it('marca visualmente quando o nome foi inferido do domínio (nunca dado confirmado do provider)', () => {
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(modal).toContain('prefill.nameInferred')
+    expect(modal).toContain('inferido do domínio')
+  })
+})
+
+describe('RadarPage: fonte já existente (item 8 do spec — zero duplicata)', () => {
+  it('checa duplicata pelo domínio normalizado antes de mostrar o formulário', () => {
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(modal).toContain('const existingMatch = useMemo(() => findExistingSourceByDomain(normalizedTypedDomain, sources)')
+  })
+
+  it('mostra "Esta fonte já existe no Radar" com ações Editar/Cancelar, sem criar duplicata', () => {
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(modal).toContain('Esta fonte já existe no Radar')
+    expect(modal).toContain('<PrimaryButton onClick={loadExisting}>Editar fonte</PrimaryButton>')
+    expect(modal).toContain('<SecondaryButton onClick={close}>Cancelar</SecondaryButton>')
+  })
+
+  it('editar fonte carrega os dados já cadastrados no formulário em vez de deixar tudo em branco', () => {
+    const loadExistingStart = radarPage.indexOf('function loadExisting')
+    const modal = radarPage.slice(loadExistingStart, radarPage.indexOf('const submit', loadExistingStart))
+    expect(modal).toContain('setName(existingMatch.name)')
+    expect(modal).toContain('setDomain(existingMatch.domain ?? \'\')')
+    expect(modal).toContain('setCountryCode(existingMatch.country_code ?? \'\')')
+    expect(modal).toContain('setTrusted(existingMatch.trusted)')
+  })
+
+  it('salvar depois de editar ainda passa por promoteSource (upsert), nunca grava direto', () => {
+    const modal = radarPage.slice(radarPage.indexOf('function RadarPromoteSourceModal'))
+    const submitCalls = (modal.match(/await promoteSource\(/g) ?? []).length
+    expect(submitCalls).toBe(1)
+  })
+})
+
+describe('RadarPage: salvar fonte nunca dispara nova busca Serper (item 11-12 do spec)', () => {
+  it('o callback saved() só fecha o modal e chama reload() — nunca handleSearch/searchRadar', () => {
+    const savedWiring = radarPage.slice(radarPage.indexOf('{promoting && <RadarPromoteSourceModal'), radarPage.indexOf('{searchResult?.available'))
+    expect(savedWiring).toContain('saved={() => { setPromoting(null); reload() }}')
+    expect(savedWiring).not.toContain('handleSearch')
+    expect(savedWiring).not.toContain('searchRadar')
+  })
+
+  it('reload() nunca chama searchRadar — só refetch de watchlist/offers/sources/role', () => {
+    const reloadFn = radarPage.slice(radarPage.indexOf('const load = () =>'), radarPage.indexOf('const canManageSources'))
+    expect(reloadFn).toContain('fetchWatchlist()')
+    expect(reloadFn).toContain('fetchSources()')
+    expect(reloadFn).not.toContain('searchRadar')
+  })
+
+  it('query/results/relevance/market/score/availability do resultado atual nunca são reescritos ao salvar uma fonte', () => {
+    const savedWiring = radarPage.slice(radarPage.indexOf('{promoting && <RadarPromoteSourceModal'), radarPage.indexOf('{searchResult?.available'))
+    expect(savedWiring).not.toContain('setSearchResult')
+  })
+})
+
+describe('RadarPage: só admin/manager veem e usam "Validar fonte" (item 14 do spec)', () => {
+  it('canManageSources é derivado do papel do usuário (admin ou manager)', () => {
+    expect(radarPage).toContain("const canManageSources = role === 'admin' || role === 'manager'")
+  })
+
+  it('operator/viewer continuam vendo o badge "NOVA FONTE", só não recebem o botão', () => {
+    const cardFn = radarPage.slice(radarPage.indexOf('function RadarSearchResultCard'), radarPage.indexOf('function RadarPromoteSourceModal'))
+    expect(cardFn).toContain("badge.label === 'NOVA FONTE'")
+    expect(cardFn).toContain('{unvalidated && canManageSources &&')
   })
 })

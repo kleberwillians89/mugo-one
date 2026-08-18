@@ -7,6 +7,7 @@
 .radar-search-query{color:var(--muted);font-size:11.5px}
 .radar-new-source-hint{display:flex;align-items:center;gap:6px;color:#8a5a1c;font-size:11px;margin:0 0 10px}
 .radar-promote-hint{grid-column:1/-1;color:var(--muted);font-size:11.5px;line-height:1.5;margin:0 0 4px}
+.radar-domain-helper{display:block;color:#8a5a1c;font-size:10.5px;margin-top:4px;font-weight:400}
 .radar-watch-actions{display:flex;gap:8px;justify-content:flex-end}
 .radar-watch-actions button{border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:5px 10px;font:600 10px var(--font-ui);cursor:pointer}
 .radar-offer-source{margin-top:4px}

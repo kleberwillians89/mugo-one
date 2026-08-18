@@ -6,6 +6,7 @@ import {
   addManualOffer, createWatchItem, fetchOffersForPerfume, fetchRadarRole, fetchSources, fetchWatchlist,
   normalizeSearchQuery, parsePerfumeQuery, promoteSource, removeWatchItem, searchRadar, summarizeRadar, updateWatchStatus,
 } from '../lib/radar'
+import { findExistingSourceByDomain, normalizeDomain, prefillFromShoppingResult } from '../lib/radar-source-prefill'
 import { Metric } from '../components/shared/Metric'
 import { EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import './RadarPage.css'
@@ -55,9 +56,10 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   const [query, setQuery] = useState(initialQuery ?? '')
   const [searching, setSearching] = useState(false)
   const [searchResult, setSearchResult] = useState<RadarSearchResult|null>(null)
+  const [searchedBrand, setSearchedBrand] = useState('')
   const [activeWatch, setActiveWatch] = useState<RadarWatchItem|null>(null)
   const [showManualOffer, setShowManualOffer] = useState(false)
-  const [promotingItem, setPromotingItem] = useState<ShoppingSearchResult|null>(null)
+  const [promoting, setPromoting] = useState<{ item:ShoppingSearchResult; brand:string }|null>(null)
   const [sort, setSort] = useState<Sort>('score')
 
   const load = () => Promise.all([fetchWatchlist(), fetchOffersForPerfume({}), fetchSources(), fetchRadarRole()])
@@ -87,8 +89,10 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
     setSearching(true); setSearchResult(null); setError('')
     try {
       const parsed = parsePerfumeQuery(value)
-      const result = await searchRadar({ query: value, brand: parsed.brand || value, perfume_name: parsed.perfumeName || value, size_ml: parsed.sizeMl })
+      const brandUsed = parsed.brand || value
+      const result = await searchRadar({ query: value, brand: brandUsed, perfume_name: parsed.perfumeName || value, size_ml: parsed.sizeMl })
       setSearchResult(result)
+      setSearchedBrand(brandUsed)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível buscar agora.')
     } finally {
@@ -141,9 +145,12 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
       {searchResult && !searchResult.available && <div className="notice"><Globe2 size={16} /><span>{searchResult.message}</span></div>}
     </div>
 
-    {promotingItem && <RadarPromoteSourceModal item={promotingItem} close={() => setPromotingItem(null)} saved={() => { setPromotingItem(null); reload() }} />}
+    {/* Salvar aqui só chama radar_promote_source + reload() (refetch de radar_sources) — nunca
+       searchRadar de novo. O resultado atual (query/results/relevance/market/score/availability)
+       fica intocado; só os badges de fonte recalculam no próximo render com o `sources` novo. */}
+    {promoting && <RadarPromoteSourceModal item={promoting.item} brand={promoting.brand} sources={sources} close={() => setPromoting(null)} saved={() => { setPromoting(null); reload() }} />}
 
-    {searchResult?.available && <RadarSearchResults result={searchResult} sources={sources} canManageSources={canManageSources} onValidate={setPromotingItem} />}
+    {searchResult?.available && <RadarSearchResults result={searchResult} sources={sources} canManageSources={canManageSources} onValidate={(item) => setPromoting({ item, brand: searchedBrand })} />}
 
     <section className="card radar-watchlist">
       <div className="clients-caption"><strong>Perfumes acompanhados</strong></div>
@@ -397,22 +404,47 @@ function RadarSearchResultCard({ item, sources, canManageSources, onValidate }:{
   </article>
 }
 
-function RadarPromoteSourceModal({ item, close, saved }:{ item:ShoppingSearchResult; close:()=>void; saved:()=>void }) {
-  const [name, setName] = useState(item.seller_name ?? '')
-  const [domain, setDomain] = useState('')
+function RadarPromoteSourceModal({ item, brand, sources, close, saved }:{ item:ShoppingSearchResult; brand:string; sources:RadarSource[]; close:()=>void; saved:()=>void }) {
+  // Pré-preenche só o que dá pra determinar com segurança (item 1-6 do spec). Nunca inventa
+  // domínio/país/tipo — ver radar-source-prefill.ts para a justificativa de cada campo.
+  const prefill = useMemo(() => prefillFromShoppingResult(item, brand), [item, brand])
+  const [name, setName] = useState(prefill.name)
+  const [domain, setDomain] = useState(prefill.domain ?? '')
   const [countryCode, setCountryCode] = useState('')
-  const [sourceType, setSourceType] = useState<Exclude<RadarSourceType,'manual'>>('retailer')
+  const [sourceType, setSourceType] = useState<Exclude<RadarSourceType,'manual'>>(prefill.sourceType)
   const [trusted, setTrusted] = useState(false)
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [acknowledgedExisting, setAcknowledgedExisting] = useState(false)
+
+  // Checagem de duplicata ANTES de salvar (item 8): compara o domínio normalizado contra
+  // organization_id+domain — `sources` já vem só da organização autenticada (RLS).
+  const normalizedTypedDomain = useMemo(() => normalizeDomain(domain), [domain])
+  const existingMatch = useMemo(() => findExistingSourceByDomain(normalizedTypedDomain, sources), [normalizedTypedDomain, sources])
+  const showExistingBanner = Boolean(existingMatch) && !acknowledgedExisting
+
+  function loadExisting() {
+    if (!existingMatch) return
+    setName(existingMatch.name)
+    setDomain(existingMatch.domain ?? '')
+    setCountryCode(existingMatch.country_code ?? '')
+    setSourceType(existingMatch.source_type === 'manual' ? 'retailer' : existingMatch.source_type)
+    setTrusted(existingMatch.trusted)
+    setNotes(existingMatch.notes ?? '')
+    setAcknowledgedExisting(true)
+  }
 
   const submit = async () => {
-    if (!domain.trim()) { setError('Informe o domínio da fonte para validá-la.'); return }
+    const normalized = normalizeDomain(domain)
+    if (!normalized) { setError('Informe um domínio válido (ex.: harrods.com).'); return }
     setSaving(true); setError('')
     try {
+      // Sempre via radar_promote_source — o frontend nunca grava direto em radar_sources.
+      // Como a função é upsert por organization_id+domain, salvar aqui também cobre o fluxo
+      // "Editar fonte" sem criar duplicata.
       const payload:PromoteSourceInput = {
-        domain: domain.trim(), name: name.trim() || undefined, country_code: countryCode.trim() || undefined,
+        domain: normalized, name: name.trim() || undefined, country_code: countryCode.trim() || undefined,
         source_type: sourceType, trusted, notes: notes.trim() || undefined,
       }
       await promoteSource(payload)
@@ -424,16 +456,29 @@ function RadarPromoteSourceModal({ item, close, saved }:{ item:ShoppingSearchRes
     }
   }
 
+  if (showExistingBanner) {
+    return <Modal open onClose={close} eyebrow="FONTE JÁ CADASTRADA" title="Esta fonte já existe no Radar" footer={<>
+      <SecondaryButton onClick={close}>Cancelar</SecondaryButton>
+      <PrimaryButton onClick={loadExisting}>Editar fonte</PrimaryButton>
+    </>}>
+      <p>Já existe uma fonte cadastrada para <strong>{existingMatch?.domain}</strong> ({existingMatch?.name}). Nenhuma duplicata será criada.</p>
+    </Modal>
+  }
+
   return <Modal open onClose={close} eyebrow="NOVA FONTE" title="Validar fonte descoberta" footer={<>
     <SecondaryButton onClick={close}>Cancelar</SecondaryButton>
-    <PrimaryButton loading={saving} onClick={submit}>Validar fonte</PrimaryButton>
+    <PrimaryButton loading={saving} onClick={submit}>Salvar fonte</PrimaryButton>
   </>}>
     <div className="record-form"><div className="form-grid">
       <p className="radar-promote-hint">Esta fonte apareceu numa busca do Radar mas ainda não está classificada. Escolha o tipo, o país e se ela é confiável antes de aparecer com selo de confiança nas próximas buscas.</p>
-      <label className="field wide"><span>Nome</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
-      <label className="field wide"><span>Domínio</span><input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="loja.com" /></label>
+      <label className="field wide"><span>Nome{prefill.nameInferred ? ' (inferido do domínio — confirme)' : ''}</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label className="field wide">
+        <span>Domínio</span>
+        <input value={domain} onChange={(event) => { setDomain(event.target.value); setAcknowledgedExisting(false) }} placeholder="loja.com" />
+        {!prefill.domain && <small className="radar-domain-helper">Não conseguimos identificar o site direto desta fonte. Confirme o domínio antes de validar.</small>}
+      </label>
       <label className="field"><span>País (código, ex.: GB)</span><input value={countryCode} onChange={(event) => setCountryCode(event.target.value)} maxLength={2} /></label>
-      <label className="field"><span>Tipo</span>
+      <label className="field"><span>Tipo{prefill.officialHint && sourceType !== 'official_brand' ? ' — possível fonte oficial' : ''}</span>
         <select value={sourceType} onChange={(event) => setSourceType(event.target.value as Exclude<RadarSourceType,'manual'>)}>
           <option value="official_brand">Marca oficial</option>
           <option value="authorized_retailer">Revendedor autorizado</option>
