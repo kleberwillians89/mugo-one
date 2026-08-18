@@ -21,14 +21,12 @@ export function RadarSuppliersPage() {
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
-  const reload = () => {
-    setLoading(true)
-    Promise.all([fetchSources(), fetchOffersForPerfume({})])
-      .then(([sourceRows, offerRows]) => { setSources(sourceRows); setOffers(offerRows); setError('') })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar os fornecedores.'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(reload, [])
+  const load = () => Promise.all([fetchSources(), fetchOffersForPerfume({})])
+    .then(([sourceRows, offerRows]) => { setSources(sourceRows); setOffers(offerRows); setError('') })
+    .catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar os fornecedores.'))
+    .finally(() => setLoading(false))
+  const reload = () => { setLoading(true); load() }
+  useEffect(() => { load() }, [])
 
   const stats = useMemo(() => {
     const map = new Map<string, { count:number; lastChecked:string|null }>()

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Compass, Globe2, Package, Plus, Radar as RadarIcon, Search, Sparkles, TrendingDown } from 'lucide-react'
+import { AlertTriangle, Compass, ExternalLink, Globe2, Package, Plus, Radar as RadarIcon, Search, Sparkles, TrendingDown } from 'lucide-react'
 import {
-  ManualOfferInput, RadarAvailability, RadarOffer, RadarSearchResult, RadarShipping, RadarWatchItem,
-  addManualOffer, createWatchItem, fetchOffersForPerfume, fetchWatchlist, parsePerfumeQuery,
+  ManualOfferInput, RadarAvailability, RadarOffer, RadarSearchResult, RadarShipping, RadarWatchItem, SerpApiShoppingResult,
+  addManualOffer, createWatchItem, fetchOffersForPerfume, fetchWatchlist, normalizeSearchQuery, parsePerfumeQuery,
   removeWatchItem, searchRadar, summarizeRadar, updateWatchStatus,
 } from '../lib/radar'
 import { Metric } from '../components/shared/Metric'
@@ -56,15 +56,13 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   const [showManualOffer, setShowManualOffer] = useState(false)
   const [sort, setSort] = useState<Sort>('score')
 
-  const reload = () => {
-    setLoading(true)
-    Promise.all([fetchWatchlist(), fetchOffersForPerfume({})])
-      .then(([watch, allOffers]) => { setWatchlist(watch); setOffers(allOffers); setError('') })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o radar.'))
-      .finally(() => setLoading(false))
-  }
+  const load = () => Promise.all([fetchWatchlist(), fetchOffersForPerfume({})])
+    .then(([watch, allOffers]) => { setWatchlist(watch); setOffers(allOffers); setError('') })
+    .catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o radar.'))
+    .finally(() => setLoading(false))
+  const reload = () => { setLoading(true); load() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { reload(); if (initialQuery) handleSearch(initialQuery) }, [])
+  useEffect(() => { load(); if (initialQuery) queueMicrotask(() => handleSearch(initialQuery)) }, [])
 
   const metrics = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -77,12 +75,14 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   }, [watchlist, offers])
 
   async function handleSearch(raw?:string) {
-    const value = (raw ?? query).trim()
+    // Uma ação humana = uma busca: ignora cliques repetidos enquanto uma busca já está em voo.
+    if (searching) return
+    const value = normalizeSearchQuery(raw ?? query)
     if (!value) return
     setSearching(true); setSearchResult(null); setError('')
     try {
       const parsed = parsePerfumeQuery(value)
-      const result = await searchRadar({ brand: parsed.brand || value, perfume_name: parsed.perfumeName || value, size_ml: parsed.sizeMl })
+      const result = await searchRadar({ query: value, brand: parsed.brand || value, perfume_name: parsed.perfumeName || value, size_ml: parsed.sizeMl })
       setSearchResult(result)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível buscar agora.')
@@ -135,6 +135,8 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
       </div>
       {searchResult && !searchResult.available && <div className="notice"><Globe2 size={16} /><span>{searchResult.message}</span></div>}
     </div>
+
+    {searchResult?.available && <RadarSearchResults result={searchResult} />}
 
     <section className="card radar-watchlist">
       <div className="clients-caption"><strong>Perfumes acompanhados</strong></div>
@@ -189,7 +191,6 @@ function RadarComparator({ watch, close, onAddOffer }:{ watch:RadarWatchItem; cl
   const [summaryError, setSummaryError] = useState('')
 
   useEffect(() => {
-    setLoading(true)
     fetchOffersForPerfume({ watchItemId: watch.id }).then(setOffers).finally(() => setLoading(false))
   }, [watch.id])
 
@@ -300,4 +301,34 @@ function RadarManualOfferModal({ watchItem, close, saved }:{ watchItem:RadarWatc
       </label>
     </div>{error && <div className="form-error">{error}</div>}</div>
   </Modal>
+}
+
+function RadarSearchResults({ result }:{ result:RadarSearchResult }) {
+  const results = result.results ?? []
+  return <section className="card radar-search-results">
+    <div className="clients-caption">
+      <strong>{result.result_count ?? results.length} resultados — Google Shopping ({(result.market ?? 'uk').toUpperCase()})</strong>
+      <span className="radar-search-query">“{result.query}”</span>
+    </div>
+    {results.length === 0 ? <EmptyState icon={Compass} title="Nenhum resultado agora" description="Nenhuma oferta encontrada para esta busca no Google Shopping." /> :
+      <div className="radar-offer-list">{results.map((item, index) => <RadarSearchResultCard key={item.product_id ?? item.source_url ?? index} item={item} />)}</div>}
+  </section>
+}
+
+function RadarSearchResultCard({ item }:{ item:SerpApiShoppingResult }) {
+  const state = AVAILABILITY_LABEL[item.availability_status]
+  return <article className="radar-offer-card">
+    <header><strong>{item.seller_name ?? 'Loja não identificada'}</strong><StatusBadge tone="neutral">MARKETPLACE</StatusBadge></header>
+    <p className="radar-offer-title">{item.title ?? '—'}</p>
+    <div className="radar-offer-meta">
+      <strong>{item.currency ? `${item.currency} ${item.price_native ?? '—'}` : item.raw_price ?? 'Preço não informado'}</strong>
+      {item.delivery && <span>{item.delivery}</span>}
+      {item.rating != null && <span>★ {item.rating}{item.reviews != null ? ` (${item.reviews})` : ''}</span>}
+      <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+    </div>
+    <footer>
+      <span>Fonte: Google Shopping</span>
+      {item.source_url ? <a href={item.source_url} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /> Abrir</a> : <span>Sem link direto</span>}
+    </footer>
+  </article>
 }

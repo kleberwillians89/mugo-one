@@ -1,24 +1,17 @@
-// RADAR GLOBAL - busca externa de ofertas.
-// Nenhuma API key hardcoded. Provider configurado via secrets de Edge Function:
-//   RADAR_SEARCH_PROVIDER  (ex.: 'web_search' - ainda nao implementado)
-//   RADAR_SEARCH_API_KEY
-// Sem provider configurado, a funcao registra a tentativa e responde available:false -
+// RADAR GLOBAL - busca externa de ofertas via SerpAPI Google Shopping.
+// Secret usado: SERPAPI_API_KEY (Supabase Function secret). Nunca exposto ao frontend,
+// nunca prefixado VITE_, nunca logado (nem em erro, nem em URL de log).
+// Sem a chave configurada, a funcao registra a tentativa e responde available:false -
 // o restante do Radar (ofertas manuais, watchlist, comparador) continua funcional.
+//
+// Fase atual (smoke): UMA busca por clique, mercado UK apenas (gl=uk, hl=en).
+// Nao executa as demais linguas planejadas para nao gastar quota antes de provar o mercado UK.
+// READ-ONLY: nenhuma oferta e gravada em radar_offers a partir desta funcao.
 import { context, json, audit } from '../_shared/security.ts'
+import { serpApiGoogleShoppingSearch } from '../_shared/serpapi.ts'
+import { extractShoppingResults, normalizeShoppingResult, safeSerpApiError, serpApiResponseError } from '../_shared/serpapi-domain.ts'
 
-const LANGUAGE_TEMPLATES: { lang: string; build: (q: string) => string }[] = [
-  { lang: 'en', build: (q) => `${q} buy` },
-  { lang: 'en', build: (q) => `${q} in stock` },
-  { lang: 'fr', build: (q) => `${q} parfum prix` },
-  { lang: 'it', build: (q) => `${q} profumo prezzo` },
-  { lang: 'es', build: (q) => `${q} perfume precio` },
-  { lang: 'de', build: (q) => `${q} parfum kaufen` },
-]
-
-function buildQueries(brand: string, perfumeName: string, sizeMl: number | null) {
-  const base = [brand, perfumeName, sizeMl ? `${sizeMl}ml` : null].filter(Boolean).join(' ').trim()
-  return LANGUAGE_TEMPLATES.map((t) => ({ lang: t.lang, query: t.build(base) }))
-}
+const MARKET = { gl: 'uk', hl: 'en' } as const
 
 const sha256 = async (value: string) => {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
@@ -36,7 +29,11 @@ Deno.serve(async (req) => {
   const perfumeName = String(body.perfume_name ?? '').trim().slice(0, 160)
   const sizeMl = Number(body.size_ml ?? 0) || null
   const watchItemId = body.watch_item_id ? String(body.watch_item_id) : null
-  if (!brand || !perfumeName) {
+  // A query base preserva EXATAMENTE o texto digitado pelo usuário - nunca é reconstruída
+  // a partir de brand/perfume_name/size_ml, o que reordenaria as palavras arbitrariamente.
+  const rawQuery = String(body.query ?? '').trim().replace(/\s+/g, ' ').slice(0, 200)
+  const query = rawQuery || [brand, perfumeName, sizeMl ? `${sizeMl}ml` : null].filter(Boolean).join(' ')
+  if (!brand || !perfumeName || !query) {
     return respond({ error: { code: 'invalid_payload', message: 'Informe marca e nome do perfume.' } }, 400)
   }
   if (!['admin', 'manager', 'operator', 'viewer'].includes(role)) {
@@ -48,50 +45,78 @@ Deno.serve(async (req) => {
     .eq('user_id', user.id).eq('run_type', 'search').gte('created_at', since)
   if ((count ?? 0) >= 5) return respond({ error: { code: 'rate_limit', message: 'Limite de buscas atingido. Aguarde um minuto.' } }, 429)
 
-  const requestHash = await sha256(`${user.id}|${organizationId}|${brand.toLowerCase()}|${perfumeName.toLowerCase()}|${sizeMl ?? ''}`)
-  const queries = buildQueries(brand, perfumeName, sizeMl)
+  // Uma ação humana = uma busca: uma requisição idêntica ainda em andamento é recusada em
+  // vez de disparar uma segunda chamada à SerpAPI (guarda contra duplo clique/retry de rede).
+  const requestHash = await sha256(`${user.id}|${organizationId}|${query.toLowerCase()}|${MARKET.gl}`)
+  const { data: duplicate } = await client.from('radar_search_runs').select('id').eq('user_id', user.id)
+    .eq('request_hash', requestHash).eq('status', 'running').gte('created_at', since).limit(1).maybeSingle()
+  if (duplicate) return respond({ error: { code: 'duplicate_request', message: 'Esta busca já está em andamento.' } }, 409)
 
-  const provider = Deno.env.get('RADAR_SEARCH_PROVIDER')
-  const apiKey = Deno.env.get('RADAR_SEARCH_API_KEY')
+  const apiKey = Deno.env.get('SERPAPI_API_KEY')?.trim()
+  const provider = apiKey ? 'serpapi_google_shopping' : null
 
   const run = await client.from('radar_search_runs').insert({
     organization_id: organizationId, user_id: user.id, watch_item_id: watchItemId,
-    run_type: 'search', query: `${brand} ${perfumeName}`.trim(), provider: provider ?? null,
-    status: provider && apiKey ? 'running' : 'not_configured', request_hash: requestHash,
+    run_type: 'search', query, provider,
+    status: provider ? 'running' : 'not_configured', request_hash: requestHash,
   }).select('id').single()
 
   await audit(client, organizationId, user.id, 'radar_search_started', 'radar_search_run', run.data?.id, {
-    brand, perfume_name: perfumeName, size_ml: sizeMl, provider: provider ?? null,
+    brand, perfume_name: perfumeName, size_ml: sizeMl, query, market: MARKET.gl, provider,
   })
 
-  if (!provider || !apiKey) {
+  if (!apiKey) {
     if (run.data?.id) {
       await client.from('radar_search_runs').update({
         status: 'not_configured', duration_ms: Date.now() - startedAt, completed_at: new Date().toISOString(),
       }).eq('id', run.data.id)
     }
     await audit(client, organizationId, user.id, 'radar_search_completed', 'radar_search_run', run.data?.id, {
-      status: 'not_configured', offers_found: 0,
+      status: 'not_configured', result_count: 0,
     })
     return respond({
-      data: {
-        available: false,
-        message: 'Busca externa ainda não configurada.',
-        queries_planned: queries,
-        run_id: run.data?.id ?? null,
-      },
+      data: { available: false, message: 'Busca externa ainda não configurada.', query, market: MARKET.gl, run_id: run.data?.id ?? null },
     })
   }
 
-  // Nenhum provider real esta integrado ainda (nenhuma API foi escolhida/contratada).
-  // O ponto de extensao fica aqui: um adapter real deve popular `offers` respeitando o
-  // shape de radar_offers e chamar radar_save_manual_offer (ou equivalente em lote) por item,
-  // sempre exigindo url, preco, moeda e pais - nunca inventando esses campos.
-  if (run.data?.id) {
+  const finish = async (status: string, errorCode: string | null) => {
+    if (!run.data?.id) return
     await client.from('radar_search_runs').update({
-      status: 'failed', error_code: 'PROVIDER_NOT_IMPLEMENTED',
-      duration_ms: Date.now() - startedAt, completed_at: new Date().toISOString(),
+      status, error_code: errorCode, duration_ms: Date.now() - startedAt, completed_at: new Date().toISOString(),
     }).eq('id', run.data.id)
   }
-  return respond({ error: { code: 'PROVIDER_NOT_IMPLEMENTED', message: 'Provider de busca configurado, mas ainda sem integração ativa.' } }, 501)
+
+  let raw: unknown
+  try {
+    raw = await serpApiGoogleShoppingSearch(query, MARKET)
+  } catch (cause) {
+    const safe = safeSerpApiError(cause)
+    await finish('failed', safe.code)
+    console.error(JSON.stringify({ stage: 'serpapi_fetch', error_code: safe.code, organization_id: organizationId, user_id: user.id, duration_ms: Date.now() - startedAt }))
+    return respond({ error: { code: safe.code, message: safe.message } }, safe.httpStatus)
+  }
+
+  const providerError = serpApiResponseError(raw)
+  if (providerError) {
+    await finish('failed', 'SERPAPI_PROVIDER_ERROR')
+    console.error(JSON.stringify({ stage: 'serpapi_provider_error', organization_id: organizationId, user_id: user.id }))
+    return respond({ error: { code: 'SERPAPI_PROVIDER_ERROR', message: 'A busca externa não conseguiu processar esta pesquisa.' } }, 502)
+  }
+
+  // Zero resultados NÃO é erro: shopping_results vazio ou ausente vira lista vazia.
+  const results = extractShoppingResults(raw).map(normalizeShoppingResult)
+
+  await finish('completed', null)
+  await audit(client, organizationId, user.id, 'radar_search_completed', 'radar_search_run', run.data?.id, {
+    status: 'completed', result_count: results.length, market: MARKET.gl,
+  })
+
+  // READ-ONLY: nada aqui é gravado em radar_offers. Persistir uma oferta escolhida é uma
+  // ação futura e explícita do usuário (botão "Salvar oportunidade"), fora deste smoke.
+  return respond({
+    data: {
+      available: true, provider: 'serpapi_google_shopping', query, market: MARKET.gl,
+      result_count: results.length, results, run_id: run.data?.id ?? null,
+    },
+  })
 })

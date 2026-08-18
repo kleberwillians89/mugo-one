@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { parsePerfumeQuery, validateManualOffer } from './radar'
+import { normalizeSearchQuery, parsePerfumeQuery, validateManualOffer } from './radar'
 
 describe('parsePerfumeQuery', () => {
-  it('separa marca, nome e tamanho quando "nome marca" é informado', () => {
+  it('reconhece a marca no início do texto ("marca nome tamanho") sem reordenar palavras', () => {
+    const result = parsePerfumeQuery('Amouage Guidance 46 100ml')
+    expect(result.brand).toBe('Amouage')
+    expect(result.perfumeName).toBe('Guidance 46')
+    expect(result.sizeMl).toBe(100)
+  })
+
+  it('reconhece a marca no fim do texto ("nome marca tamanho")', () => {
     const result = parsePerfumeQuery('Guidance 46 Amouage 100ml')
     expect(result.sizeMl).toBe(100)
     expect(result.brand).toBe('Amouage')
@@ -12,6 +19,7 @@ describe('parsePerfumeQuery', () => {
   it('não confunde tamanho com identidade principal', () => {
     const result = parsePerfumeQuery('Naxos Xerjoff 50ml')
     expect(result.sizeMl).toBe(50)
+    expect(result.brand).toBe('Xerjoff')
     expect(result.perfumeName).not.toMatch(/ml/i)
   })
 
@@ -23,6 +31,23 @@ describe('parsePerfumeQuery', () => {
   it('sem tamanho retorna sizeMl nulo', () => {
     const result = parsePerfumeQuery('Naxos Xerjoff')
     expect(result.sizeMl).toBeNull()
+  })
+
+  it('separador "nome — marca" também funciona quando a marca não é reconhecida', () => {
+    const result = parsePerfumeQuery('Produto Desconhecido — Marca Nova')
+    expect(result.brand).toBe('Marca Nova')
+    expect(result.perfumeName).toBe('Produto Desconhecido')
+  })
+})
+
+describe('normalizeSearchQuery', () => {
+  it('só colapsa espaços redundantes, nunca reordena palavras', () => {
+    expect(normalizeSearchQuery('Amouage   Guidance 46   100ml')).toBe('Amouage Guidance 46 100ml')
+  })
+
+  it('preserva a ordem original mesmo com marca no início', () => {
+    const input = 'Amouage Guidance 46 100ml'
+    expect(normalizeSearchQuery(input)).toBe(input)
   })
 })
 

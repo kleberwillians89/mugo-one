@@ -38,7 +38,16 @@ export type RadarOfferAggregates = {
   generated_at:string
 }
 
-export type RadarSearchResult = { available:boolean; message?:string; queries_planned?:{lang:string;query:string}[]; run_id?:string|null }
+export type SerpApiShoppingResult = {
+  title:string|null; seller_name:string|null; price_native:number|null; raw_price:string|null
+  currency:string|null; product_id:string|null; source_url:string|null; merchant_url:string|null
+  delivery:string|null; rating:number|null; reviews:number|null; availability_status:'unknown'
+}
+
+export type RadarSearchResult = {
+  available:boolean; message?:string; provider?:string; query?:string; market?:string
+  result_count?:number; results?:SerpApiShoppingResult[]; run_id?:string|null
+}
 
 export async function fetchWatchlist() {
   const { organizationId } = await authenticatedOrganization()
@@ -132,7 +141,7 @@ export async function fetchOfferSnapshots(offerId:string) {
   return (data ?? []) as RadarOfferSnapshot[]
 }
 
-export async function searchRadar(payload:{brand:string;perfume_name:string;size_ml?:number|null;watch_item_id?:string|null}) {
+export async function searchRadar(payload:{query:string;brand:string;perfume_name:string;size_ml?:number|null;watch_item_id?:string|null}) {
   const { organizationId } = await authenticatedOrganization()
   const { data, error } = await supabase!.functions.invoke('radar-search', { body: { organization_id: organizationId, ...payload } })
   if (error) {
@@ -158,11 +167,43 @@ export async function summarizeRadar(payload:{ perfume_id?:string|null; watch_it
   return data.data as { resumo:string; menor_preco_por_moeda:{moeda:string;valor:string}[]; ofertas_disponiveis:number; quedas_de_preco:number; alertas:string[]; data_geracao:string }
 }
 
+// Marcas conhecidas do catálogo RUAH. Usadas para reconhecer a marca em qualquer posição do
+// texto digitado (início, fim, meio) sem reordenar palavras — só extraímos o trecho reconhecido.
+const KNOWN_BRANDS = [
+  'Amouage', 'Xerjoff', 'Nishane', 'Initio Parfums Privés', 'Initio', 'Parfums de Marly',
+  'Maison Francis Kurkdjian', 'Roja Dove', 'Roja', 'Tom Ford', 'Creed', 'Mancera', 'Montale',
+  'By Kilian', 'Kilian', 'Memo Paris', 'Memo', 'Frederic Malle', 'Byredo', 'Diptyque', 'Le Labo',
+  'Bond No 9', 'Clive Christian', 'Ex Nihilo', 'Orto Parisi', 'Vertus', 'Areej Le Doré',
+  'Boadicea the Victorious', 'Boadicea', 'Fragrance Du Bois',
+].sort((a, b) => b.length - a.length)
+
+function escapeRegExp(value:string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// Só remove espaços redundantes — nunca reordena as palavras do que foi digitado.
+export function normalizeSearchQuery(raw:string) {
+  return raw.trim().replace(/\s+/g, ' ')
+}
+
 export function parsePerfumeQuery(raw:string) {
-  const value = raw.trim().replace(/\s+/g, ' ')
+  const value = normalizeSearchQuery(raw)
   const sizeMatch = value.match(/(\d+(?:[.,]\d+)?)\s*ml\b/i)
   const sizeMl = sizeMatch ? Number(sizeMatch[1].replace(',', '.')) : null
-  const withoutSize = value.replace(sizeMatch?.[0] ?? '', '').trim()
+  const withoutSize = normalizeSearchQuery(value.replace(sizeMatch?.[0] ?? '', ''))
+
+  for (const candidate of KNOWN_BRANDS) {
+    const pattern = new RegExp(`(^|\\s)${escapeRegExp(candidate)}(\\s|$)`, 'i')
+    if (pattern.test(withoutSize)) {
+      const perfumeName = normalizeSearchQuery(withoutSize.replace(pattern, ' '))
+      return { brand: candidate, perfumeName, sizeMl }
+    }
+  }
+
+  const dashSplit = withoutSize.split(/\s+[—–-]\s+/)
+  if (dashSplit.length === 2) return { brand: dashSplit[1].trim(), perfumeName: dashSplit[0].trim(), sizeMl }
+
+  // Sem marca reconhecida: mantém a heurística de fallback (última palavra = marca).
   const parts = withoutSize.split(' ').filter(Boolean)
   const brand = parts.length > 1 ? parts[parts.length - 1] : ''
   const perfumeName = parts.length > 1 ? parts.slice(0, -1).join(' ') : withoutSize
