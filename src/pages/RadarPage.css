@@ -1,0 +1,29 @@
+.radar-search-card{padding:20px;margin-bottom:20px}
+.radar-search-card h3{margin:0 0 12px;font:500 16px/1.2 var(--font-serif)}
+.radar-search-row{display:flex;gap:10px;flex-wrap:wrap}
+.radar-search-row input{flex:1 1 260px;min-width:0;padding:11px 14px;border:1px solid var(--line);border-radius:var(--radius-md);font:400 13px var(--font-ui)}
+.radar-search-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.radar-watchlist,.radar-offers{margin-bottom:20px}
+.radar-watch-actions{display:flex;gap:8px;justify-content:flex-end}
+.radar-watch-actions button{border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:5px 10px;font:600 10px var(--font-ui);cursor:pointer}
+.radar-offer-source{margin-top:4px}
+.radar-comparator-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.radar-summary{background:#f8f4ea;border:1px solid var(--line);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:16px}
+.radar-summary p{margin:0 0 8px;font-size:12.5px;line-height:1.5}
+.radar-summary ul{margin:0;padding-left:18px;font-size:11.5px}
+.radar-summary-alerts li{display:flex;align-items:center;gap:6px;color:#8a5a1c}
+.radar-offer-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.radar-offer-card{border:1px solid var(--line);border-radius:var(--radius-md);padding:14px;background:var(--paper)}
+.radar-offer-card header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.radar-offer-title{font-size:11.5px;color:var(--muted);margin:0 0 10px;min-height:16px}
+.radar-offer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;margin-bottom:10px}
+.radar-offer-card footer{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}
+.radar-offer-card footer a{color:var(--ink);font-weight:700;text-decoration:none}
+
+@container page (max-width:900px){
+  .radar-offer-list{grid-template-columns:1fr}
+}
+@container page (max-width:650px){
+  .radar-search-row{flex-direction:column;align-items:stretch}
+  .radar-search-row input{flex:1 1 auto}
+}

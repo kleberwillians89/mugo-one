@@ -15,6 +15,8 @@ import { ReportsPage } from './pages/ReportsPage'
 import { ImportPage } from './pages/ImportPage'
 import { Intelligence } from './pages/Intelligence'
 import { Insights } from './pages/Insights'
+import { RadarPage } from './pages/RadarPage'
+import { RadarSuppliersPage } from './pages/RadarSuppliersPage'
 import { GenericPage } from './pages/GenericPage'
 
 export function App() {
@@ -34,6 +36,7 @@ export function App() {
     if (page === 'Importação') return <ImportPage/>
     if (page === 'IA') return <Intelligence period={period} setPeriod={setPeriod}/>
     if (page === 'Insights') return <Insights period={period}/>
+    if (page === 'Radar') return routePath === '/radar/fornecedores' ? <RadarSuppliersPage/> : <RadarPage initialQuery={new URLSearchParams(location.search).get('q')??undefined}/>
     if(page==='Configurações')return <ShippingSettingsPage/>
     return <GenericPage page={page}/>
   }, [page,period,routePath])

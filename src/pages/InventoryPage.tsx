@@ -48,7 +48,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
           {key:'available_ml',label:'Disponível',render:(balance)=><strong className="stock-available">{Number(balance.available_ml).toLocaleString('pt-BR')} ML</strong>},
           {key:'minimum_ml',label:'Mínimo',render:(balance)=>`${Number(balance.minimum_ml).toLocaleString('pt-BR')} ML`},
           {key:'situacao',label:'Situação',render:(balance)=>{const state=stockState(balance);return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>}},
-          {key:'actions',label:'Ações',render:(balance)=><div className="stock-actions"><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,true)}>Entrada</button><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,false)}>Ajustar</button></div>},
+          {key:'actions',label:'Ações',render:(balance)=><div className="stock-actions"><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,true)}>Entrada</button><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,false)}>Ajustar</button>{stockState(balance).tone!=='success'&&<button onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}</div>},
         ]}
       />
     </div>}
