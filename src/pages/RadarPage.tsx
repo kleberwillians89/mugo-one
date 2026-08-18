@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Compass, ExternalLink, Globe2, Package, Plus, Radar as RadarIcon, Search, Sparkles, TrendingDown } from 'lucide-react'
+import { AlertTriangle, Compass, ExternalLink, Globe2, Package, Plus, Radar as RadarIcon, Search, ShieldAlert, Sparkles, TrendingDown } from 'lucide-react'
 import {
-  ManualOfferInput, RadarAvailability, RadarOffer, RadarSearchResult, RadarShipping, RadarWatchItem, SerpApiShoppingResult,
-  addManualOffer, createWatchItem, fetchOffersForPerfume, fetchWatchlist, normalizeSearchQuery, parsePerfumeQuery,
-  removeWatchItem, searchRadar, summarizeRadar, updateWatchStatus,
+  ManualOfferInput, PromoteSourceInput, RadarAvailability, RadarOffer, RadarSearchResult, RadarShipping, RadarSource,
+  RadarSourceType, RadarWatchItem, ShoppingSearchResult,
+  addManualOffer, createWatchItem, fetchOffersForPerfume, fetchRadarRole, fetchSources, fetchWatchlist,
+  normalizeSearchQuery, parsePerfumeQuery, promoteSource, removeWatchItem, searchRadar, summarizeRadar, updateWatchStatus,
 } from '../lib/radar'
 import { Metric } from '../components/shared/Metric'
 import { EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
@@ -47,6 +48,8 @@ function goToSuppliers() {
 export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   const [watchlist, setWatchlist] = useState<RadarWatchItem[]>([])
   const [offers, setOffers] = useState<RadarOffer[]>([])
+  const [sources, setSources] = useState<RadarSource[]>([])
+  const [role, setRole] = useState<'admin'|'manager'|'operator'|'viewer'|null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [query, setQuery] = useState(initialQuery ?? '')
@@ -54,13 +57,15 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   const [searchResult, setSearchResult] = useState<RadarSearchResult|null>(null)
   const [activeWatch, setActiveWatch] = useState<RadarWatchItem|null>(null)
   const [showManualOffer, setShowManualOffer] = useState(false)
+  const [promotingItem, setPromotingItem] = useState<ShoppingSearchResult|null>(null)
   const [sort, setSort] = useState<Sort>('score')
 
-  const load = () => Promise.all([fetchWatchlist(), fetchOffersForPerfume({})])
-    .then(([watch, allOffers]) => { setWatchlist(watch); setOffers(allOffers); setError('') })
+  const load = () => Promise.all([fetchWatchlist(), fetchOffersForPerfume({}), fetchSources(), fetchRadarRole()])
+    .then(([watch, allOffers, sourceRows, currentRole]) => { setWatchlist(watch); setOffers(allOffers); setSources(sourceRows); setRole(currentRole); setError('') })
     .catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o radar.'))
     .finally(() => setLoading(false))
   const reload = () => { setLoading(true); load() }
+  const canManageSources = role === 'admin' || role === 'manager'
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); if (initialQuery) queueMicrotask(() => handleSearch(initialQuery)) }, [])
 
@@ -136,7 +141,9 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
       {searchResult && !searchResult.available && <div className="notice"><Globe2 size={16} /><span>{searchResult.message}</span></div>}
     </div>
 
-    {searchResult?.available && <RadarSearchResults result={searchResult} />}
+    {promotingItem && <RadarPromoteSourceModal item={promotingItem} close={() => setPromotingItem(null)} saved={() => { setPromotingItem(null); reload() }} />}
+
+    {searchResult?.available && <RadarSearchResults result={searchResult} sources={sources} canManageSources={canManageSources} onValidate={setPromotingItem} />}
 
     <section className="card radar-watchlist">
       <div className="clients-caption"><strong>Perfumes acompanhados</strong></div>
@@ -303,32 +310,140 @@ function RadarManualOfferModal({ watchItem, close, saved }:{ watchItem:RadarWatc
   </Modal>
 }
 
-function RadarSearchResults({ result }:{ result:RadarSearchResult }) {
-  const results = result.results ?? []
+// Uma oferta é considerada de "fonte conhecida" quando o nome do vendedor bate com uma fonte
+// já classificada em radar_sources (a busca funciona igual sem a migration de seed — a lista
+// só fica vazia e tudo aparece como "nova fonte" ou "marketplace" conforme classificação do
+// backend). Quando não bate com nada, tratamos como fonte nova e nunca marcamos trusted
+// automaticamente.
+function matchSource(sellerName:string|null, sources:RadarSource[]):RadarSource|null {
+  if (!sellerName) return null
+  const normalized = sellerName.trim().toLowerCase()
+  return sources.find((source) => source.name.trim().toLowerCase() === normalized) ?? null
+}
+
+function sourceBadge(item:ShoppingSearchResult, sources:RadarSource[]):{ label:string; tone:'success'|'warning'|'neutral' } {
+  if (item.source_type === 'marketplace') return { label: 'MARKETPLACE', tone: 'neutral' }
+  const matched = matchSource(item.seller_name, sources)
+  if (matched) return { label: SOURCE_LABEL[matched.source_type] ?? 'REVENDEDOR', tone: matched.trusted ? 'success' : 'neutral' }
+  return { label: 'NOVA FONTE', tone: 'warning' }
+}
+
+const RELEVANCE_SECTION_LABEL:Record<'primary'|'secondary'|'excluded',string> = {
+  primary: 'Oportunidades mais relevantes', secondary: 'Outros resultados', excluded: 'Resultados descartados',
+}
+
+function RadarSearchResults({ result, sources, canManageSources, onValidate }:{ result:RadarSearchResult; sources:RadarSource[]; canManageSources:boolean; onValidate:(item:ShoppingSearchResult)=>void }) {
+  const [showSecondary, setShowSecondary] = useState(false)
+  const [showExcluded, setShowExcluded] = useState(false)
+
+  const results = useMemo(() => result.results ?? [], [result.results])
+  const primary = useMemo(() => results
+    .filter((item) => item.relevance === 'exact' || item.relevance === 'likely')
+    .sort((a, b) => (a.relevance === 'exact' ? 0 : 1) - (b.relevance === 'exact' ? 0 : 1)), [results])
+  const secondary = useMemo(() => results.filter((item) => item.relevance === 'weak'), [results])
+  const excluded = useMemo(() => results.filter((item) => item.relevance === 'excluded'), [results])
+
   return <section className="card radar-search-results">
     <div className="clients-caption">
       <strong>{result.result_count ?? results.length} resultados — Google Shopping ({(result.market ?? 'uk').toUpperCase()})</strong>
       <span className="radar-search-query">“{result.query}”</span>
     </div>
-    {results.length === 0 ? <EmptyState icon={Compass} title="Nenhum resultado agora" description="Nenhuma oferta encontrada para esta busca no Google Shopping." /> :
-      <div className="radar-offer-list">{results.map((item, index) => <RadarSearchResultCard key={item.product_id ?? item.source_url ?? index} item={item} />)}</div>}
+    {/* item 13: o contador nunca mistura resultados brutos com oportunidades — sempre as 3 partes. */}
+    <p className="radar-relevance-summary">
+      {results.length} resultados encontrados · {primary.length} oportunidades relevantes · {secondary.length + excluded.length} resultados secundários/descartados
+    </p>
+    {results.length === 0 ? <EmptyState icon={Compass} title="Nenhum resultado agora" description="Nenhuma oferta encontrada para esta busca no Google Shopping." /> : <>
+      <h4 className="radar-results-heading">{RELEVANCE_SECTION_LABEL.primary}</h4>
+      {primary.length === 0 ? <p className="radar-results-empty">Nenhum resultado exato ou provável para esta busca.</p> :
+        <div className="radar-offer-list">{primary.map((item, index) => <RadarSearchResultCard key={item.product_id ?? item.source_url ?? index} item={item} sources={sources} canManageSources={canManageSources} onValidate={() => onValidate(item)} />)}</div>}
+
+      {secondary.length > 0 && <>
+        <button className="radar-toggle-section" onClick={() => setShowSecondary((value) => !value)}>{showSecondary ? 'Ocultar' : 'Ver'} {RELEVANCE_SECTION_LABEL.secondary.toLowerCase()} ({secondary.length})</button>
+        {showSecondary && <div className="radar-offer-list">{secondary.map((item, index) => <RadarSearchResultCard key={item.product_id ?? item.source_url ?? index} item={item} sources={sources} canManageSources={canManageSources} onValidate={() => onValidate(item)} />)}</div>}
+      </>}
+
+      {excluded.length > 0 && <>
+        <button className="radar-toggle-section" onClick={() => setShowExcluded((value) => !value)}>{showExcluded ? 'Ocultar' : 'Ver'} {RELEVANCE_SECTION_LABEL.excluded.toLowerCase()} ({excluded.length})</button>
+        {showExcluded && <div className="radar-offer-list">{excluded.map((item, index) => <RadarSearchResultCard key={item.product_id ?? item.source_url ?? index} item={item} sources={sources} canManageSources={canManageSources} onValidate={() => onValidate(item)} />)}</div>}
+      </>}
+    </>}
   </section>
 }
 
-function RadarSearchResultCard({ item }:{ item:SerpApiShoppingResult }) {
+function RadarSearchResultCard({ item, sources, canManageSources, onValidate }:{ item:ShoppingSearchResult; sources:RadarSource[]; canManageSources:boolean; onValidate:()=>void }) {
   const state = AVAILABILITY_LABEL[item.availability_status]
+  const badge = sourceBadge(item, sources)
+  const unvalidated = badge.label === 'NOVA FONTE'
+  // Prioridade: loja/URL comercial verificável > só a página do Google Shopping como fallback.
+  // Nunca chamamos um link do Google de "oferta" — o clique pode não levar a lugar nenhum.
+  const hasMerchantLink = Boolean(item.merchant_url)
+  const openUrl = item.merchant_url ?? item.source_url
   return <article className="radar-offer-card">
-    <header><strong>{item.seller_name ?? 'Loja não identificada'}</strong><StatusBadge tone="neutral">MARKETPLACE</StatusBadge></header>
+    <header><strong>{item.seller_name ?? 'Loja não identificada'}</strong><StatusBadge tone={badge.tone}>{badge.label}</StatusBadge></header>
     <p className="radar-offer-title">{item.title ?? '—'}</p>
+    {unvalidated && <p className="radar-new-source-hint"><ShieldAlert size={13} /> Ainda não validada pela RUAH.</p>}
     <div className="radar-offer-meta">
       <strong>{item.currency ? `${item.currency} ${item.price_native ?? '—'}` : item.raw_price ?? 'Preço não informado'}</strong>
       {item.delivery && <span>{item.delivery}</span>}
       {item.rating != null && <span>★ {item.rating}{item.reviews != null ? ` (${item.reviews})` : ''}</span>}
       <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+      {item.price_flag === 'outlier' && <StatusBadge tone="warning">PREÇO FORA DA FAIXA</StatusBadge>}
     </div>
     <footer>
       <span>Fonte: Google Shopping</span>
-      {item.source_url ? <a href={item.source_url} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /> Abrir</a> : <span>Sem link direto</span>}
+      {openUrl ? <a href={openUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={12} /> {hasMerchantLink ? 'Abrir loja' : 'Ver no Google Shopping'}</a> : <span>Sem link direto</span>}
     </footer>
+    {unvalidated && canManageSources && <SecondaryButton onClick={onValidate}>Validar fonte</SecondaryButton>}
   </article>
+}
+
+function RadarPromoteSourceModal({ item, close, saved }:{ item:ShoppingSearchResult; close:()=>void; saved:()=>void }) {
+  const [name, setName] = useState(item.seller_name ?? '')
+  const [domain, setDomain] = useState('')
+  const [countryCode, setCountryCode] = useState('')
+  const [sourceType, setSourceType] = useState<Exclude<RadarSourceType,'manual'>>('retailer')
+  const [trusted, setTrusted] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const submit = async () => {
+    if (!domain.trim()) { setError('Informe o domínio da fonte para validá-la.'); return }
+    setSaving(true); setError('')
+    try {
+      const payload:PromoteSourceInput = {
+        domain: domain.trim(), name: name.trim() || undefined, country_code: countryCode.trim() || undefined,
+        source_type: sourceType, trusted, notes: notes.trim() || undefined,
+      }
+      await promoteSource(payload)
+      saved()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível validar esta fonte.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return <Modal open onClose={close} eyebrow="NOVA FONTE" title="Validar fonte descoberta" footer={<>
+    <SecondaryButton onClick={close}>Cancelar</SecondaryButton>
+    <PrimaryButton loading={saving} onClick={submit}>Validar fonte</PrimaryButton>
+  </>}>
+    <div className="record-form"><div className="form-grid">
+      <p className="radar-promote-hint">Esta fonte apareceu numa busca do Radar mas ainda não está classificada. Escolha o tipo, o país e se ela é confiável antes de aparecer com selo de confiança nas próximas buscas.</p>
+      <label className="field wide"><span>Nome</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
+      <label className="field wide"><span>Domínio</span><input value={domain} onChange={(event) => setDomain(event.target.value)} placeholder="loja.com" /></label>
+      <label className="field"><span>País (código, ex.: GB)</span><input value={countryCode} onChange={(event) => setCountryCode(event.target.value)} maxLength={2} /></label>
+      <label className="field"><span>Tipo</span>
+        <select value={sourceType} onChange={(event) => setSourceType(event.target.value as Exclude<RadarSourceType,'manual'>)}>
+          <option value="official_brand">Marca oficial</option>
+          <option value="authorized_retailer">Revendedor autorizado</option>
+          <option value="retailer">Revendedor</option>
+          <option value="distributor">Distribuidor</option>
+          <option value="marketplace">Marketplace</option>
+        </select>
+      </label>
+      <label className="field checkbox-field"><input type="checkbox" checked={trusted} onChange={(event) => setTrusted(event.target.checked)} /><span>Marcar como fonte confiável</span></label>
+      <label className="field wide"><span>Observações</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+    </div>{error && <div className="form-error">{error}</div>}</div>
+  </Modal>
 }

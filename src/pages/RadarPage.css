@@ -5,6 +5,8 @@
 .radar-search-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 .radar-watchlist,.radar-offers,.radar-search-results{margin-bottom:20px}
 .radar-search-query{color:var(--muted);font-size:11.5px}
+.radar-new-source-hint{display:flex;align-items:center;gap:6px;color:#8a5a1c;font-size:11px;margin:0 0 10px}
+.radar-promote-hint{grid-column:1/-1;color:var(--muted);font-size:11.5px;line-height:1.5;margin:0 0 4px}
 .radar-watch-actions{display:flex;gap:8px;justify-content:flex-end}
 .radar-watch-actions button{border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:5px 10px;font:600 10px var(--font-ui);cursor:pointer}
 .radar-offer-source{margin-top:4px}
@@ -20,6 +22,11 @@
 .radar-offer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;margin-bottom:10px}
 .radar-offer-card footer{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}
 .radar-offer-card footer a{color:var(--ink);font-weight:700;text-decoration:none}
+.radar-offer-card>.ui-btn{margin-top:10px}
+.radar-relevance-summary{color:var(--muted);font-size:11.5px;margin:0 0 16px}
+.radar-results-heading{margin:0 0 10px;font:700 11px var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--ink)}
+.radar-results-empty{color:var(--muted);font-size:12px;margin:0 0 16px}
+.radar-toggle-section{display:block;margin:16px 0 10px;border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:7px 14px;font:600 11px var(--font-ui);cursor:pointer;color:var(--muted)}
 
 @container page (max-width:900px){
   .radar-offer-list{grid-template-columns:1fr}

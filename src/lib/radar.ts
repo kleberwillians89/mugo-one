@@ -38,15 +38,19 @@ export type RadarOfferAggregates = {
   generated_at:string
 }
 
-export type SerpApiShoppingResult = {
+export type SearchRelevance = 'exact'|'likely'|'weak'|'excluded'
+
+export type ShoppingSearchResult = {
   title:string|null; seller_name:string|null; price_native:number|null; raw_price:string|null
   currency:string|null; product_id:string|null; source_url:string|null; merchant_url:string|null
   delivery:string|null; rating:number|null; reviews:number|null; availability_status:'unknown'
+  provider?:string; relevance:SearchRelevance; source_type:'marketplace'|null; price_flag:'outlier'|null
 }
 
 export type RadarSearchResult = {
   available:boolean; message?:string; provider?:string; query?:string; market?:string
-  result_count?:number; results?:SerpApiShoppingResult[]; run_id?:string|null
+  requested_market?:string; provider_market?:string
+  result_count?:number; relevant_count?:number; results?:ShoppingSearchResult[]; run_id?:string|null
 }
 
 export async function fetchWatchlist() {
@@ -130,6 +134,43 @@ export async function createSource(payload:{name:string;domain?:string;country_c
     country_code: payload.country_code?.trim().toUpperCase() || null, source_type: payload.source_type,
     trusted: payload.trusted ?? false, priority: payload.priority ?? 0, notes: payload.notes ?? null,
   }).select('*').single()
+  if (error) throw new Error(error.message)
+  return data as RadarSource
+}
+
+export async function fetchRadarRole() {
+  const { role } = await authenticatedOrganization()
+  return role as 'admin'|'manager'|'operator'|'viewer'
+}
+
+export type RadarSeedResult = { inserted:number; updated:number; total:number }
+
+// Só admin/manager conseguem executar (validado no RPC). Idempotente: pode ser chamada
+// várias vezes sem duplicar fontes — chave natural organization_id+domain.
+export async function seedInitialSources() {
+  const { organizationId } = await currentOrganization()
+  const { data, error } = await supabase!.rpc('radar_seed_initial_sources', { p_org_id: organizationId })
+  if (error) throw new Error(error.message)
+  return data as RadarSeedResult
+}
+
+export function formatSeedResult(result:RadarSeedResult) {
+  return result.inserted > 0 ? `${result.total} fontes disponíveis no Radar.` : 'Fontes iniciais já configuradas.'
+}
+
+export type PromoteSourceInput = {
+  domain:string; name?:string; country_code?:string
+  source_type:'official_brand'|'authorized_retailer'|'retailer'|'distributor'|'marketplace'
+  trusted?:boolean; priority?:number; notes?:string
+}
+
+// A descoberta automática (SerpAPI) nunca chama isso sozinha: promover uma fonte é sempre
+// uma ação explícita de admin/manager, e trusted só vira true se marcado explicitamente.
+export async function promoteSource(payload:PromoteSourceInput) {
+  const { organizationId } = await currentOrganization()
+  const { data, error } = await supabase!.rpc('radar_promote_source', {
+    p_payload: { ...payload, organization_id: organizationId },
+  })
   if (error) throw new Error(error.message)
   return data as RadarSource
 }
