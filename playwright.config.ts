@@ -2,10 +2,10 @@ import { defineConfig } from '@playwright/test'
 
 /**
  * Minimal responsive-QA config. The app requires an authenticated Supabase
- * session for most routes, so this suite only covers the pre-login shell
- * (the one screen reachable without real credentials) at the breakpoints
- * from the UX briefing. Screenshots are written outside the repo (gitignored)
- * — never commit real customer data or auth state.
+ * session for most routes, so this suite covers the pre-login shell and
+ * isolated markup/CSS fixtures at the breakpoints from the UX briefing.
+ * Screenshots are written outside the repo (gitignored) — never commit real
+ * customer data or auth state.
  */
 export default defineConfig({
   testDir: './tests',

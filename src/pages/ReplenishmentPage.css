@@ -1,5 +1,5 @@
 .replenishment-tabs{display:flex;gap:8px;margin:18px 0 20px;flex-wrap:wrap}
-.replenishment-tabs button{border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:9px 16px;font:600 11px var(--font-ui);cursor:pointer;color:var(--muted)}
+.replenishment-tabs button{min-height:44px;border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:9px 16px;font:600 11px var(--font-ui);cursor:pointer;color:var(--muted)}
 .replenishment-tabs button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .replenishment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .replenishment-card{border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;background:var(--paper);display:flex;flex-direction:column;gap:10px}
@@ -18,4 +18,8 @@
 @container page (max-width:650px){
   .replenishment-tabs{overflow-x:auto;flex-wrap:nowrap}
   .replenishment-actions{flex-direction:column;align-items:stretch}
+  /* One fact per line ("4 ml disponíveis" / "31 ml vendidos..." / "Cobertura
+     estimada: X dias") reads as a clear human sentence instead of a wrapped
+     inline run — matches the card layout from the mobile briefing. */
+  .replenishment-stats{flex-direction:column;gap:4px}
 }

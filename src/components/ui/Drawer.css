@@ -20,6 +20,7 @@
   color: white;
   box-shadow: var(--shadow-lg);
   overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
   animation: ui-drawer-in 0.2s ease-out;
 }
 

@@ -1,0 +1,30 @@
+.bottle-onboarding { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.bottle-onboarding-status { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); background: var(--cream); border-radius: var(--radius-lg); }
+.bottle-onboarding-totals { display: flex; flex-wrap: wrap; gap: var(--space-5); }
+.bottle-onboarding-totals > div { display: flex; flex-direction: column; gap: 2px; }
+.bottle-onboarding-totals span { font: var(--fw-bold) var(--fs-xs) var(--font-ui); letter-spacing: 0.06em; color: var(--muted); }
+.bottle-onboarding-totals strong { font: var(--fw-semibold) var(--fs-lg) var(--font-ui); color: var(--ink); font-variant-numeric: tabular-nums; }
+.bottle-onboarding-diff { margin: 0; color: var(--danger); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.bottle-onboarding-ok { margin: 0; color: var(--success); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+
+.bottle-onboarding-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.bottle-onboarding-list li { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); min-width: 0; }
+.bottle-onboarding-checkbox { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; margin: calc(var(--space-3) * -1) 0 calc(var(--space-3) * -1) calc(var(--space-3) * -1); cursor: pointer; }
+.bottle-onboarding-checkbox input { width: 20px; height: 20px; }
+.bottle-onboarding-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bottle-onboarding-item-info strong { font: var(--fw-semibold) var(--fs-base) var(--font-ui); color: var(--ink); }
+.bottle-onboarding-item-info span { font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
+.bottle-onboarding-print-one { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 44px; padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--paper); color: var(--ink-soft); font: var(--fw-semibold) var(--fs-xs) var(--font-ui); cursor: pointer; white-space: nowrap; }
+
+.bottle-onboarding-actions { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--line); }
+.bottle-onboarding-generate { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.bottle-onboarding-generate input { flex: 1 1 200px; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 0 var(--space-4); font-size: var(--fs-base); background: var(--paper); }
+.bottle-onboarding-buttons { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+
+@media (max-width: 480px) {
+  .bottle-onboarding-list li { flex-wrap: wrap; }
+  .bottle-onboarding-print-one { width: 100%; justify-content: center; }
+  .bottle-onboarding-buttons { flex-direction: column; align-items: stretch; }
+  .bottle-onboarding-buttons > * { width: 100%; }
+}

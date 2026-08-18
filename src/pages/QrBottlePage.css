@@ -1,0 +1,54 @@
+.qr-bottle-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper-warm);
+}
+
+.qr-bottle-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-5) var(--space-3);
+  padding-top: max(var(--space-5), env(safe-area-inset-top));
+}
+.qr-bottle-header span { font: var(--fw-bold) var(--fs-sm) var(--font-ui); letter-spacing: 0.16em; color: var(--gold-deep); }
+.qr-bottle-header strong { font: var(--fw-semibold) var(--fs-lg) var(--font-ui); color: var(--ink); }
+
+.qr-bottle-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-4) max(var(--space-6), env(safe-area-inset-bottom));
+  min-width: 0;
+}
+
+.qr-bottle-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--muted);
+  text-align: center;
+  padding: var(--space-6);
+}
+.qr-bottle-state .spin { animation: qr-bottle-spin 0.8s linear infinite; color: var(--gold); }
+@keyframes qr-bottle-spin { to { transform: rotate(360deg); } }
+
+.qr-bottle-state--error { color: var(--ink-soft); }
+.qr-bottle-state--error svg:first-child { color: var(--danger); }
+.qr-bottle-state--error p { margin: 0; font-size: var(--fs-md); max-width: 320px; }
+.qr-bottle-state--error button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--paper);
+  font: var(--fw-semibold) var(--fs-sm) var(--font-ui);
+  cursor: pointer;
+}

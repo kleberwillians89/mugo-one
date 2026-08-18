@@ -6,4 +6,32 @@
 .stock-actions {
   display: flex;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* rebrand-v2.css loads after this file and sets .stock-actions button to
+   40px; the extra .page ancestor bumps specificity so the 44px touch target
+   (briefing item 27) wins regardless of load order. */
+.page .stock-actions button { min-height: 44px; }
+
+@media (max-width: 640px) {
+  /* Inside the collapsed mobile table-card, the "Ações" cell is a row
+     (label left, value right) — three buttons squeezed into ~60% of the
+     card would violate "não empilhar 3 botões numa linha". Stack instead.
+     Table.css's default td::before carries flex:0 0 38% for the ROW layout;
+     left in place under flex-direction:column with the td's auto height,
+     that percentage basis makes the browser wrap the label into its own
+     column instead of stacking — every property that matters is reset
+     explicitly here rather than relying on partial inheritance. */
+  .ui-table td:has(.stock-actions) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+  .ui-table td:has(.stock-actions)::before { flex: 0 0 auto; text-align: left; }
+  .stock-actions { flex-direction: column; align-items: stretch; flex-wrap: nowrap; width: 100%; }
+  .stock-actions button { width: 100%; }
 }

@@ -6,6 +6,8 @@ type Column<T> = {
   label: string
   align?: 'left' | 'right' | 'center'
   render?: (row: T) => ReactNode
+  /** Secondary info that can stay hidden in the stacked mobile card view (<640px) to keep the card scannable. Never used for the primary/action columns. */
+  hideOnMobile?: boolean
 }
 
 type Props<T> = {
@@ -34,7 +36,7 @@ export function Table<T extends Record<string, unknown>>({ columns, rows, rowKey
               onKeyDown={onRowClick ? (event) => { if (event.key === 'Enter') onRowClick(row) } : undefined}
             >
               {columns.map((column) => (
-                <td key={column.key} data-label={column.label} style={{ textAlign: column.align ?? 'left' }}>
+                <td key={column.key} data-label={column.label} className={column.hideOnMobile ? 'ui-table-col--hide-mobile' : undefined} style={{ textAlign: column.align ?? 'left' }}>
                   {column.render ? column.render(row) : String(row[column.key] ?? '—')}
                 </td>
               ))}

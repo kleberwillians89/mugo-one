@@ -3,8 +3,14 @@ import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucid
 import type { Session } from '@supabase/supabase-js'
 import { App } from './App'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { QrBottlePage } from './pages/QrBottlePage'
+import { InventoryStationPage } from './pages/InventoryStationPage'
+import { InventoryCountPage } from './pages/InventoryCountPage'
 
 const go = (path:string) => { window.history.pushState({},'',path); window.dispatchEvent(new PopStateEvent('popstate')) }
+// Só aceita um "next" relativo à própria origem (nunca "//host" nem uma URL
+// absoluta) — evita que um link de login vire redirecionamento aberto.
+const safeNext = (raw:string|null) => raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
 const message = (error:unknown) => {
   const text=error instanceof Error?error.message:'Não foi possível concluir a operação.'
   if(/invalid login/i.test(text))return 'E-mail ou senha incorretos.'
@@ -28,7 +34,7 @@ export function LoginPage() {
   const [loading,setLoading]=useState(false),[error,setError]=useState('')
   const submit=async(e:FormEvent)=>{e.preventDefault();if(!supabase)return;setLoading(true);setError('')
     const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password})
-    if(error)setError(message(error));else{localStorage.setItem('ruah_remember',String(remember));sessionStorage.setItem('ruah_session','active');go('/')}setLoading(false)}
+    if(error)setError(message(error));else{localStorage.setItem('ruah_remember',String(remember));sessionStorage.setItem('ruah_session','active');go(safeNext(new URLSearchParams(location.search).get('next')))}setLoading(false)}
   return <AuthLayout title="Bem-vinda de volta" subtitle="Entre para acessar o CRM e a inteligência comercial."><form className="auth-form" onSubmit={submit}>
     <label><span>E-mail</span><div><Mail/><input type="email" autoComplete="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="seu@email.com"/></div></label>
     <label><span>Senha</span><div><LockKeyhole/><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Sua senha"/><button type="button" onClick={()=>setShow(!show)} aria-label={show?'Ocultar senha':'Mostrar senha'}>{show?<EyeOff/>:<Eye/>}</button></div></label>
@@ -72,12 +78,21 @@ export function AuthRoot() {
     const {data}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));return()=>{removeEventListener('popstate',change);data.subscription.unsubscribe()}},[])
   if(!ready)return <div className="app-loading"><LoaderCircle className="spin"/></div>
   const publicRoute=['/login','/recuperar-senha','/auth/callback','/definir-senha','/atualizar-senha'].includes(path)
-  if(!session&&!publicRoute){go('/login');return null}
-  if(session&&path==='/login'){go('/');return null}
+  // Ler um QR sem sessão ativa deve voltar para o MESMO frasco depois do
+  // login (briefing "Modo Ilde", seção 3) — nunca perder o destino original.
+  if(!session&&!publicRoute){go(`/login?next=${encodeURIComponent(path+location.search)}`);return null}
+  if(session&&path==='/login'){go(safeNext(new URLSearchParams(location.search).get('next')));return null}
   if(path==='/login')return <LoginPage/>
   if(path==='/recuperar-senha')return <EmailRecovery/>
   if(path==='/auth/callback')return <CallbackPage/>
   if(path==='/definir-senha')return <PasswordPage first/>
   if(path==='/atualizar-senha')return <PasswordPage/>
+  // Telas de operação física ("Modo Ilde"): renderizadas fora do shell
+  // (sem sidebar/header do CRM) — "deve parecer aplicativo".
+  const qrMatch=path.match(/^\/q\/([^/]+)$/)
+  if(qrMatch)return <QrBottlePage token={decodeURIComponent(qrMatch[1])}/>
+  if(path==='/estoque/leitor')return <InventoryStationPage/>
+  const countMatch=path.match(/^\/estoque\/([0-9a-f-]{36})\/contagem$/i)
+  if(countMatch)return <InventoryCountPage itemId={countMatch[1]}/>
   return <App/>
 }

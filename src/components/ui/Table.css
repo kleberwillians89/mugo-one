@@ -59,4 +59,5 @@
     color: var(--muted);
     text-align: left;
   }
+  .ui-table td.ui-table-col--hide-mobile { display: none; }
 }

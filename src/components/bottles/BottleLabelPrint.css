@@ -1,0 +1,48 @@
+.bottle-label-print { display: none; }
+
+@media print {
+  /* Same contract as .shipment-print-view (enhancements.css): hide every
+     piece of CRM chrome, show only the label sheet. */
+  .sidebar, .app-shell > main > header, .ui-modal-scrim, .ui-modal-title, .ui-modal-footer,
+  .internal-mugo-signature, .back-link { display: none !important; }
+  .ui-modal-layer, .ui-modal-panel { position: static !important; inset: auto !important; height: auto !important; max-height: none !important; padding: 0 !important; box-shadow: none !important; }
+  .ui-modal-body { padding: 0 !important; }
+  body * { visibility: hidden; }
+  .bottle-label-print, .bottle-label-print * { visibility: visible; }
+  .bottle-label-print {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    color: #111;
+  }
+}
+
+.bottle-label-sheet {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6mm;
+  padding: 8mm;
+}
+
+.bottle-label-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2mm;
+  padding: 6mm;
+  border: 1px solid #ccc;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.bottle-label-brand { font: 700 8pt Arial, sans-serif; letter-spacing: 0.16em; color: #8a6924; }
+.bottle-label-perfume { font: 400 15pt Georgia, serif; }
+.bottle-label-frasco { font: 700 9pt Arial, sans-serif; letter-spacing: 0.06em; color: #444; }
+.bottle-label-house { font: 400 8pt Arial, sans-serif; color: #777; }
+.bottle-label-tag .qr-code-image { width: 30mm; height: 30mm; }
+.bottle-label-tag .barcode-image { width: 100%; max-width: 44mm; height: auto; }
+
+@media screen {
+  .bottle-label-print { display: none !important; }
+}
