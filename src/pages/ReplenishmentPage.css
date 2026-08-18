@@ -1,0 +1,21 @@
+.replenishment-tabs{display:flex;gap:8px;margin:18px 0 20px;flex-wrap:wrap}
+.replenishment-tabs button{border:1px solid var(--line);background:transparent;border-radius:var(--radius-full);padding:9px 16px;font:600 11px var(--font-ui);cursor:pointer;color:var(--muted)}
+.replenishment-tabs button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.replenishment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.replenishment-card{border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px;background:var(--paper);display:flex;flex-direction:column;gap:10px}
+.replenishment-card header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.replenishment-card header strong{display:block;font:500 16px/1.2 var(--font-serif)}
+.replenishment-brand{display:block;color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.replenishment-stats{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--ink)}
+.replenishment-summary{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.replenishment-offers-note{margin:0;font-size:11.5px;color:#8a5a1c}
+.replenishment-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:6px}
+.replenishment-actions .ui-btn{min-height:44px}
+
+@container page (max-width:900px){
+  .replenishment-grid{grid-template-columns:1fr}
+}
+@container page (max-width:650px){
+  .replenishment-tabs{overflow-x:auto;flex-wrap:nowrap}
+  .replenishment-actions{flex-direction:column;align-items:stretch}
+}

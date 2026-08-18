@@ -9,6 +9,7 @@ import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
   adjustInventory, createInventoryItem, fetchInventory, fetchOperationalInventory, inventoryPerfumes,
 } from '../lib/records'
+import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
 import { Metric } from '../components/shared/Metric'
 import { EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import './InventoryPage.css'
@@ -23,15 +24,18 @@ function stockState(balance: OperationalInventoryRow): { tone: 'success'|'warnin
 export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [summary,setSummary]=useState<InventorySummary|null>(null),[rows,setRows]=useState<InventoryRow[]>([])
   const [operational,setOperational]=useState<OperationalInventoryRow[]>([])
+  const [replenishment,setReplenishment]=useState<ReplenishmentSignal[]>([])
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[showCreate,setShowCreate]=useState(false)
-  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory()]).then(([result,balances])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
-  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory()]).then(([result,balances])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
+  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
+  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
+  const replenishmentByItem=new Map(replenishment.map((signal)=>[signal.item_id,signal.status]))
   const adjust=async(row:InventoryRow,positive:boolean)=>{const raw=prompt(`${positive?'Entrada':'Ajuste negativo'} em ML para ${row.perfume}:`);if(!raw)return;const amount=Number(raw.replace(',','.'));if(!Number.isFinite(amount)||amount<=0)return alert('Informe uma quantidade válida.');const reason=prompt('Motivo obrigatório:')?.trim();if(!reason)return;if(!positive&&!confirm(`Confirma retirar ${amount} ML de ${row.perfume}?`))return;try{await adjustInventory(row.item_id,positive?amount:-amount,reason);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível registrar o movimento.')}}
 
   return <div className="page">
     {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{setShowCreate(false);reload()}}/>}
     <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo em ML e movimentações integradas às novas vendas." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
+      <SecondaryButton onClick={goToReplenishment}>Reposição inteligente</SecondaryButton>
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setShowCreate(true)}>Cadastrar perfume</PrimaryButton>
     </>}/>
     {summary&&<section className="metrics"><Metric label="Estoque físico" value={`${operational.reduce((sum,row)=>sum+Number(row.physical_ml),0).toLocaleString('pt-BR')} ML`} detail={`${integer(summary.items)} perfumes`} icon={Boxes}/><Metric label="Reservado para clientes" value={`${operational.reduce((sum,row)=>sum+Number(row.reserved_ml)+Number(row.shipping_ml),0).toLocaleString('pt-BR')} ML`} detail="Pago e ainda guardado" icon={UserRound}/><Metric label="Disponível para venda" value={`${operational.reduce((sum,row)=>sum+Number(row.available_ml),0).toLocaleString('pt-BR')} ML`} detail={`${operational.filter((row)=>row.reconciliation_status==='review_required').length} para reconciliar`} icon={Check}/><Metric label="Consumo no período" value={`${Number(summary.consumed_ml).toLocaleString('pt-BR')} ML`} detail={`${integer(summary.movements)} movimentações`} icon={TrendingUp}/></section>}
@@ -48,6 +52,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
           {key:'available_ml',label:'Disponível',render:(balance)=><strong className="stock-available">{Number(balance.available_ml).toLocaleString('pt-BR')} ML</strong>},
           {key:'minimum_ml',label:'Mínimo',render:(balance)=>`${Number(balance.minimum_ml).toLocaleString('pt-BR')} ML`},
           {key:'situacao',label:'Situação',render:(balance)=>{const state=stockState(balance);return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>}},
+          {key:'reposicao',label:'Reposição',render:(balance)=>{const status=replenishmentByItem.get(balance.item_id);return status==='critico'||status==='repor'?<StatusBadge tone={status==='critico'?'danger':'warning'}>REPOSIÇÃO</StatusBadge>:'—'}},
           {key:'actions',label:'Ações',render:(balance)=><div className="stock-actions"><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,true)}>Entrada</button><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,false)}>Ajustar</button>{stockState(balance).tone!=='success'&&<button onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}</div>},
         ]}
       />

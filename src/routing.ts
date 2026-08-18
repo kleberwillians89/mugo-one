@@ -16,4 +16,4 @@ export const navigation: { label: Page; icon: typeof Home }[] = [
 
 export const routes:Record<Page,string>={'Visão Geral':'/','Clientes':'/clientes','Vendas':'/vendas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Configurações':'/configuracoes'}
 
-export const pageFromPath=()=>location.pathname.startsWith('/clientes/')?'Clientes':location.pathname.startsWith('/vendas/')?'Vendas':location.pathname.startsWith('/entregas/')?'Entregas':location.pathname.startsWith('/radar')?'Radar':Object.entries(routes).find(([,path])=>path===location.pathname)?.[0] as Page||'Visão Geral'
+export const pageFromPath=()=>location.pathname.startsWith('/clientes/')?'Clientes':location.pathname.startsWith('/vendas/')?'Vendas':location.pathname.startsWith('/entregas/')?'Entregas':location.pathname.startsWith('/radar')?'Radar':location.pathname.startsWith('/estoque')?'Estoque':Object.entries(routes).find(([,path])=>path===location.pathname)?.[0] as Page||'Visão Geral'

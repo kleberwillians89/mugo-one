@@ -5,14 +5,23 @@ import { brl, integer, shortDate } from '../lib/format'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { DashboardActivityItem, PeriodSummary, fetchDashboardActivity, fetchPeriodSummary } from '../lib/records'
+import { fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
 import { Metric } from '../components/shared/Metric'
+import { SecondaryButton } from '../components/ui'
+import './Dashboard.css'
 
 export function Dashboard({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [live,setLive]=useState<PeriodSummary|null>(null)
   const [loadError,setLoadError]=useState('')
   const [operations,setOperations]=useState<{activity:DashboardActivityItem[];attention:DashboardActivityItem[]}>({activity:[],attention:[]})
+  const [stockAlerts,setStockAlerts]=useState({repor:0,atencao:0})
   useEffect(()=>{fetchPeriodSummary(period).then(setLive).catch(()=>setLoadError('Não foi possível consultar o Supabase.'))},[period])
   useEffect(()=>{fetchDashboardActivity().then(setOperations).catch(()=>{})},[])
+  // Só sinais determinísticos do estoque (reposição inteligente) — nunca inventa números aqui.
+  useEffect(()=>{fetchReplenishmentSignals().then((signals)=>setStockAlerts({
+    repor:signals.filter((signal)=>signal.status==='critico'||signal.status==='repor').length,
+    atencao:signals.filter((signal)=>signal.status==='atencao').length,
+  })).catch(()=>{})},[])
   const hasData = Boolean(live?.sales)
   const paid = Number(live?.paid ?? 0)
   const pending = Number(live?.pending ?? 0)
@@ -26,6 +35,20 @@ export function Dashboard({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
       <PeriodFilter value={period} onApply={setPeriod}/>
     </div>
     {loadError && <div className="notice"><AlertTriangle size={18} /><span>{loadError}</span></div>}
+    {(stockAlerts.repor > 0 || stockAlerts.atencao > 0) && <section className="card attention-card">
+      <span className="attention-eyebrow">O QUE PRECISA DA SUA ATENÇÃO</span>
+      <div className="attention-row">
+        <div>
+          <strong>ESTOQUE</strong>
+          <p>
+            {stockAlerts.repor > 0 && <>{stockAlerts.repor} perfume{stockAlerts.repor === 1 ? '' : 's'} precisa{stockAlerts.repor === 1 ? '' : 'm'} de reposição</>}
+            {stockAlerts.repor > 0 && stockAlerts.atencao > 0 && <br />}
+            {stockAlerts.atencao > 0 && <>{stockAlerts.atencao} está{stockAlerts.atencao === 1 ? '' : 'ão'} em atenção</>}
+          </p>
+        </div>
+        <SecondaryButton onClick={goToReplenishment}>Ver reposições</SecondaryButton>
+      </div>
+    </section>}
     <section className="executive-hero" aria-label="Resumo executivo"><div className="executive-primary"><span>VENDAS NO PERÍODO</span><strong>{hasData?brl(Number(live!.total)):'—'}</strong><small>{hasData?`${integer(Number(live!.sales))} relações comerciais`:'Aguardando dados reais'}</small></div><div className="executive-secondary"><div><span>RECEBIDO</span><strong>{hasData?brl(paid):'—'}</strong></div><div><span>PENDENTE</span><strong>{hasData?brl(pending):'—'}</strong></div><div><span>ATENÇÃO OPERACIONAL</span><strong>{hasData?integer(Number(live!.deliveries_pending)+Number(live!.deliveries_overdue)):'—'}</strong><small>entregas pendentes + atrasadas</small></div></div></section>
     <section className="metrics">
       <Metric label="Vendas realizadas" value={hasData ? integer(Number(live!.sales)) : '—'} detail={period.label} icon={ShoppingBag} />

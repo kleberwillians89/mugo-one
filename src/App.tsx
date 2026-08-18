@@ -11,6 +11,7 @@ import { SalesPage } from './pages/SalesPage'
 import { SaleDetailsPage } from './pages/SaleDetailsPage'
 import { DeliveriesPage } from './pages/DeliveriesPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { ReplenishmentPage } from './pages/ReplenishmentPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ImportPage } from './pages/ImportPage'
 import { Intelligence } from './pages/Intelligence'
@@ -31,7 +32,7 @@ export function App() {
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
     if (page === 'Entregas') {const shipmentId=routePath.match(/^\/entregas\/([0-9a-f-]{36})$/i)?.[1];return shipmentId?<ShipmentDetailsPage shipmentId={shipmentId}/>:<DeliveriesPage period={period} setPeriod={setPeriod}/>}
-    if (page === 'Estoque') return <InventoryPage period={period} setPeriod={setPeriod}/>
+    if (page === 'Estoque') return routePath === '/estoque/reposicao' ? <ReplenishmentPage/> : <InventoryPage period={period} setPeriod={setPeriod}/>
     if (page === 'Relatórios') return <ReportsPage period={period} setPeriod={setPeriod}/>
     if (page === 'Importação') return <ImportPage/>
     if (page === 'IA') return <Intelligence period={period} setPeriod={setPeriod}/>
