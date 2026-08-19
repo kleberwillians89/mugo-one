@@ -50,7 +50,9 @@ export function PrintLabelPage({ kind }: { kind: PrintLabelKind }) {
       {codes.map((code) => (
         <div className="print-label" key={code}>
           {perfume && <strong className="print-label-perfume">{perfume}</strong>}
-          <BarcodeImage value={`RUAH-${code}`} displayValue={false} height={64} width={1} />
+          <div className="print-label-barcode">
+            <BarcodeImage value={`RUAH-${code}`} displayValue={false} height={64} width={1} margin={2} />
+          </div>
           <span className="print-label-code">{code}</span>
         </div>
       ))}

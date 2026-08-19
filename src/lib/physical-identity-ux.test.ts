@@ -53,8 +53,9 @@ describe('A/B/C/D/E — etiqueta física do FRASCO (PrintLabelPage, kind=bottle)
     expect(printLabelPage).not.toContain('QrCodeImage')
     expect(printLabelPage).not.toContain('qr_token')
   })
-  it('barcode nunca é comprimido para caber texto — recebe flex:1 e a maior altura disponível', () => {
-    expect(printLabelCss).toMatch(/\.print-label \.barcode-image \{[^}]*flex:\s*1 1 auto;/)
+  it('barcode nunca é comprimido para caber texto — recebe a linha central flexível do grid (a única com altura variável) e a maior largura possível (ver print-label-typography.test.ts para o detalhamento de proporção)', () => {
+    expect(printLabelCss).toMatch(/grid-template-rows:\s*1\.55mm minmax\(0, 1fr\) 1\.35mm;/)
+    expect(printLabelCss).toMatch(/\.print-label-barcode \.barcode-image \{[^}]*height:\s*100%;/)
   })
 })
 

@@ -17,49 +17,91 @@ html, body {
   color: #444;
 }
 
+/* Layout determinístico em grid (não flex livre): as três linhas de
+   altura têm um tamanho fixo cada — nome, barcode, código humano — então
+   nenhum texto pode "roubar" espaço do barcode dinamicamente. O barcode
+   fica na linha do meio (minmax(0,1fr)), que recebe tudo que sobra depois
+   das duas linhas de texto fixas: nome (1.55mm) + código (1.35mm) + 2
+   gaps (0.10mm cada) + padding vertical (0.20mm de cada lado) = 3.30mm
+   fixos, sobrando ~6.5mm de altura útil pro barcode nos 10mm totais da
+   etiqueta — dentro da faixa de 5.5-6mm pedida (o SVG em si é limitado a
+   max-height:5.8mm, centralizado no que sobra). */
 .print-label {
+  box-sizing: border-box;
   width: 28mm;
   height: 10mm;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3mm;
-  padding: 0.4mm 0.8mm;
+  padding: 0.20mm 0.50mm;
+  display: grid;
+  grid-template-rows: 1.55mm minmax(0, 1fr) 1.35mm;
+  row-gap: 0.10mm;
   overflow: hidden;
+  align-items: center;
+  background: #fff;
+  color: #000;
   break-after: page;
 }
 .print-label:last-child { break-after: auto; }
 
+/* Nome do perfume — só apoio visual pra identificação de perto, nunca
+   protagonista. Uma linha só, trunca com reticências em vez de quebrar
+   (nome completo já existe no sistema — a etiqueta não precisa caber
+   tudo). Sem uppercase forçado: mostra o nome como já está cadastrado. */
 .print-label-perfume {
-  font: 700 6pt Arial, sans-serif;
-  color: #000;
-  line-height: 1;
+  width: 100%;
+  min-width: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.55mm;
+  line-height: 1.55mm;
+  font-weight: 600;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-/* Code128 recebe a maior área possível de propósito — prioridade é
-   leitura do scanner, nunca decoração (briefing: "barcode NUNCA deve ser
-   comprimido para caber texto"). */
-.print-label .barcode-image {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
+/* Code128 é o protagonista: recebe a linha do meio inteira (a única com
+   altura flexível) e a maior largura possível — nunca comprimido pra
+   caber texto (briefing: "NÃO reduzir o barcode para acomodar nome").
+   Sem transform:scale() — o dimensionamento é só CSS width/height
+   normais, então as barras não distorcem. */
+.print-label-barcode {
   width: 100%;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+.print-label-barcode .barcode-image {
+  display: block;
+  width: auto;
   max-width: 100%;
-  height: 5mm;
+  height: 100%;
+  max-height: 5.8mm;
+  margin: 0;
+  padding: 0;
 }
 
+/* Código humano (F000003 / S000003-001) — mesmo tratamento do nome:
+   apoio visual pequeno, nunca protagonista. */
 .print-label-code {
-  font: 700 5.5pt Arial, sans-serif;
-  color: #000;
-  line-height: 1;
-  letter-spacing: 0.02em;
+  width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.35mm;
+  line-height: 1.35mm;
+  font-weight: 600;
+  letter-spacing: 0.04mm;
+  text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  padding: 0;
 }
 
 @media screen {
