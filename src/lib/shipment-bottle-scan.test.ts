@@ -18,15 +18,17 @@ describe('describeBottleScanResult — frasco fonte', () => {
   it('frasco vazio', () => {
     expect(describeBottleScanResult({ ok: false, reason: 'bottle_unavailable', status: 'empty' }).message).toBe('Este frasco está marcado como vazio.')
   })
-  it('ml insuficiente: mostra disponível e necessário', () => {
+  it('ml insuficiente: mostra disponível e necessário, tone warning (amarelo) — não error (vermelho), porque o frasco é o CERTO, só falta volume', () => {
     const result: BottleScanResult = { ok: false, reason: 'insufficient_ml', available_ml: 10, needed_ml: 50 }
-    expect(describeBottleScanResult(result).message).toBe('Este frasco só tem 10 ml — o pedido precisa de 50 ml.')
+    expect(describeBottleScanResult(result)).toEqual({ tone: 'warning', message: '⚠ VOLUME INSUFICIENTE — este frasco só tem 10 ml, o pedido precisa de 50 ml.' })
   })
   it('frasco já usado noutro envio', () => {
     expect(describeBottleScanResult({ ok: false, reason: 'bottle_already_assigned' }).message).toBe('Este frasco já está separado para outro envio.')
   })
-  it('todo resultado de erro usa tone error, sucesso usa tone success', () => {
+  it('três tons distintos (briefing seção 10/12): sucesso=success, objeto errado/indisponível=error, objeto certo mas quantidade insuficiente=warning', () => {
     expect(describeBottleScanResult({ ok: false, reason: 'bottle_not_found' }).tone).toBe('error')
+    expect(describeBottleScanResult({ ok: false, reason: 'wrong_perfume' }).tone).toBe('error')
+    expect(describeBottleScanResult({ ok: false, reason: 'insufficient_ml', available_ml: 1, needed_ml: 2 }).tone).toBe('warning')
     expect(describeBottleScanResult({ ok: true, kind: 'bottle', bottle_id: 'x', bottle_code: 'F1', bottle_label: 'F1', physical_ml: 1, needed_ml: 1 }).tone).toBe('success')
   })
 })

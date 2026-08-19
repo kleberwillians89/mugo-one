@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { AlertTriangle, Printer, Scissors } from 'lucide-react'
+import { AlertTriangle, Printer, QrCode, Scissors } from 'lucide-react'
 import { Modal, PrimaryButton, SecondaryButton } from '../ui'
 import { InventoryBottle, InventorySplitUnit, splitBottle } from '../../lib/inventory-bottles'
 import { computeSplitPreview } from '../../lib/split-units'
 import { formatMl } from '../../lib/bottle-scan'
 import { SplitLabelPrint } from './SplitLabelPrint'
+import { PhysicalIdentityView } from './PhysicalIdentityView'
 import './BottleSplitModal.css'
 
 type Props = { bottle: InventoryBottle; perfumeName: string; close: () => void; onDone: () => void }
@@ -22,6 +23,7 @@ export function BottleSplitModal({ bottle, perfumeName, close, onDone }: Props) 
   const [error, setError] = useState('')
   const [created, setCreated] = useState<InventorySplitUnit[] | null>(null)
   const [printQueue, setPrintQueue] = useState<InventorySplitUnit[] | null>(null)
+  const [identityUnit, setIdentityUnit] = useState<InventorySplitUnit | null>(null)
 
   const qty = Number(quantityPerVial.replace(',', '.'))
   const cnt = Number(count)
@@ -57,12 +59,25 @@ export function BottleSplitModal({ bottle, perfumeName, close, onDone }: Props) 
     </>
   }>
     {printQueue && <SplitLabelPrint units={printQueue} perfumeName={perfumeName} />}
+    {identityUnit && (
+      <PhysicalIdentityView
+        eyebrow={`SPLIT ${identityUnit.split_code}`}
+        title={perfumeName}
+        volumeLabel={formatMl(identityUnit.quantity_ml)}
+        statusLabel={identityUnit.status === 'available' ? 'DISPONÍVEL' : identityUnit.status === 'consumed' ? 'USADO' : 'ANULADO'}
+        statusTone={identityUnit.status === 'available' ? 'success' : 'neutral'}
+        code={identityUnit.barcode_value}
+        qrValue={identityUnit.barcode_value}
+        onPrint={() => { setPrintQueue([identityUnit]); requestAnimationFrame(() => window.print()) }}
+        onClose={() => setIdentityUnit(null)}
+      />
+    )}
     {error && <div className="notice"><AlertTriangle size={16} /><span>{error}</span></div>}
 
     {created ? <div className="bottle-split-result">
       <p>{created.length} split{created.length === 1 ? '' : 's'} gerado{created.length === 1 ? '' : 's'} a partir de {bottle.bottle_label}:</p>
       <ul className="bottle-split-list">
-        {created.map((unit) => <li key={unit.id}><strong>{unit.split_code}</strong><span>{formatMl(unit.quantity_ml)}</span></li>)}
+        {created.map((unit) => <li key={unit.id}><strong>{unit.split_code}</strong><span>{formatMl(unit.quantity_ml)}</span><button type="button" className="bottle-split-identity-btn" onClick={() => setIdentityUnit(unit)}><QrCode size={14} /> Identidade</button></li>)}
       </ul>
     </div> : <div className="bottle-split-form">
       <div className="bottle-split-source">

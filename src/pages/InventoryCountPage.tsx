@@ -38,8 +38,17 @@ export function InventoryCountPage({ itemId }: { itemId: string }) {
       const result = parsed.kind === 'token' ? await resolveBottleByToken(parsed.value) : await resolveBottleByCode(parsed.value)
       if (!result) { setNote('Não reconhecemos este frasco.'); return }
       if (result.inventory_item_id !== itemId) { setNote(`${result.bottle_label} pertence a outro perfume — não faz parte deste inventário.`); return }
-      setFound((prev) => ({ ...prev, [result.bottle_id]: true }))
-      setNote('')
+      // Reler um frasco já conferido não pode contar duas vezes (briefing
+      // seção 8) — found é um mapa por id (não uma lista), então o
+      // contador já é naturalmente idempotente; falta só o aviso visual
+      // distinto. Atualiza via updater funcional para nunca ler um
+      // `found` desatualizado (handleScan é criado uma vez por itemId).
+      let already = false
+      setFound((prev) => {
+        if (prev[result.bottle_id]) { already = true; return prev }
+        return { ...prev, [result.bottle_id]: true }
+      })
+      setNote(already ? `⚠ FRASCO JÁ CONFERIDO — ${result.bottle_label}` : '')
       setManualCode('')
     } catch (reason) {
       setNote(reason instanceof Error ? reason.message : 'Não foi possível ler este frasco.')

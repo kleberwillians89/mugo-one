@@ -29,7 +29,7 @@
     background: #fff;
   }
   /* Target hardware is a dedicated small-label printer (Netum-class), fed
-     with 30x10mm continuous/die-cut stock — NOT A4 cut apart afterward.
+     with 24x10mm continuous/die-cut stock — NOT A4 cut apart afterward.
      Each label is therefore its own physical PAGE, not a cell in a grid.
      Named page (not a bare @page): enhancements.css already declares an
      unconditional `@page{size:A4;margin:14mm}` for ShipmentPrintView's
@@ -43,7 +43,7 @@
      to page" — see BottleOnboardingModal's on-screen reminder next to the
      print buttons (a CSS comment can't reach browser print-dialog UI). */
   @page bottle-label {
-    size: 30mm 10mm;
+    size: 24mm 10mm;
     margin: 0;
   }
   .bottle-label-tag {
@@ -55,36 +55,43 @@
   display: block;
 }
 
+/* PENDENTE VALIDAÇÃO FÍSICA (ver relatório final): reduzido de 30x10mm
+   para 24x10mm por pedido operacional (o frasco físico tem só 30mm de
+   largura — a etiqueta precisa de respiro). Estimativa conservadora
+   (Code128 subconjunto B, pior caso, sem a compactação numérica que o
+   jsbarcode pode aplicar ao sufixo "000185"): "RUAH-F000185" (12
+   caracteres) gera ~167 módulos (start+12 símbolos+check+stop). A 30mm,
+   a barra útil (~26mm após a marca RUAH que existia antes) dava módulo
+   ≈0.156mm; a 24mm, com a marca removida e ~23mm úteis, módulo ≈0.138mm —
+   ~12% mais apertado que a versão já validada por leitura humana real
+   (Code128 lido com sucesso a 30mm). Abaixo da faixa confortável usual
+   (≥0.25mm) mas ainda dentro do que scanners/câmeras de boa qualidade
+   normalmente leem em boa iluminação. Testar fisicamente antes de
+   imprimir em lote — se a leitura falhar, o próximo tamanho seguro a
+   tentar é 26x10mm ou 28x10mm, não voltar a 30mm sem necessidade. */
 .bottle-label-tag {
-  width: 30mm;
+  width: 24mm;
   height: 10mm;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 1mm;
-  padding: 0.6mm 1mm;
+  justify-content: center;
+  padding: 0.6mm 0.8mm;
   overflow: hidden;
   break-after: page;
 }
 .bottle-label-tag:last-child { break-after: auto; }
 
-.bottle-label-brand {
-  flex: 0 0 auto;
-  font: 700 6pt Arial, sans-serif;
-  letter-spacing: 0.04em;
-  color: #000;
-}
-
-/* Barcode gets the majority of the usable width on purpose — priority is
-   scan reliability, not decoration (briefing: "the barcode should receive
-   most of the usable label width"). White background, black bars: same
-   reasoning as the "avoid dark luxury backgrounds" instruction — contrast
-   is what scanners depend on, not brand styling. */
+/* Barcode gets the entire usable width — priority is scan reliability,
+   not decoration (briefing: "Code128 é prioridade absoluta"). White
+   background, black bars: same reasoning as the "avoid dark luxury
+   backgrounds" instruction — contrast is what scanners depend on, not
+   brand styling. */
 .bottle-label-tag .barcode-image {
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
-  width: auto;
+  width: 100%;
   max-width: 100%;
 }
 

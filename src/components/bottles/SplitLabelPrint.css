@@ -25,7 +25,7 @@
      targets in this app now, three different physical page sizes, never
      fighting over a single @page declaration. */
   @page split-label {
-    size: 30mm 10mm;
+    size: 24mm 10mm;
     margin: 0;
   }
   .split-label-tag {
@@ -37,8 +37,19 @@
   display: block;
 }
 
+/* PENDENTE VALIDAÇÃO FÍSICA (ver relatório final): reduzido de 30x10mm
+   para 24x10mm. O payload do split é MAIOR que o do frasco — ex.
+   "RUAH-S000185-001" (16 caracteres) gera, no pior caso (Code128 B, sem
+   compactação numérica), ~211 módulos, contra ~167 do frasco. A 24mm de
+   largura (menos ~1.6mm de padding, ~22.4mm úteis) o módulo estimado fica
+   ≈0.106mm — mais apertado que a versão de frasco e mais apertado que a
+   30mm já validada por leitura humana real (≈0.142mm a 30mm). Esta é a
+   etiqueta com MAIOR risco de leitura das duas ao encolher para 24mm —
+   testar fisicamente antes de imprimir em lote; se a leitura falhar, um
+   tamanho seguro alternativo é 28x10mm ou 30x10mm específico só para
+   split (mantendo o frasco em 24x10mm, que tem código mais curto). */
 .split-label-tag {
-  width: 30mm;
+  width: 24mm;
   height: 10mm;
   box-sizing: border-box;
   display: flex;
@@ -46,7 +57,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.3mm;
-  padding: 0.4mm 1mm;
+  padding: 0.4mm 0.8mm;
   overflow: hidden;
   break-after: page;
 }
@@ -62,14 +73,15 @@
   max-width: 100%;
 }
 
-/* Barcode gets the remaining height — same reasoning as the bottle label:
-   priority is scan reliability over any decorative concern. */
+/* Barcode gets the remaining height and full available width — same
+   reasoning as the bottle label: priority is scan reliability over any
+   decorative concern. */
 .split-label-tag .barcode-image {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   height: 6mm;
-  width: auto;
+  width: 100%;
   max-width: 100%;
 }
 

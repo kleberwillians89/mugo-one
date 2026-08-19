@@ -3,8 +3,9 @@ import { BarcodeImage } from './BarcodeImage'
 import './SplitLabelPrint.css'
 
 /**
- * Etiqueta física do SPLIT (vidro fracionado) — 30mm x 10mm, DIFERENTE da
- * etiqueta do frasco fonte (BottleLabelPrint): aqui o nome do perfume ENTRA
+ * Etiqueta física do SPLIT (vidro fracionado) — 24mm x 10mm (reduzida de
+ * 30x10mm), DIFERENTE da etiqueta do frasco fonte (BottleLabelPrint): aqui
+ * o nome do perfume ENTRA
  * (o vidro sai da mão de quem fraciona sem nenhuma outra referência visual
  * de qual perfume é), mas a marca RUAH sai — briefing explícito: "If
  * adding the RUAH logo damages readability, omit the logo... priorities:

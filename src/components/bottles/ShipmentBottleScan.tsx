@@ -29,7 +29,7 @@ export function ShipmentBottleScan({ bottleId, bottle, splitUnitId, splitUnit, o
   const [open, setOpen] = useState(false)
   const [manual, setManual] = useState('')
   const [busy, setBusy] = useState(false)
-  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'warning' | 'error'; message: string } | null>(null)
   const [attempt, setAttempt] = useState(0)
 
   async function handleRaw(raw: string) {

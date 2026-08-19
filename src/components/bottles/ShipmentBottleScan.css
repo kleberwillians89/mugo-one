@@ -44,6 +44,7 @@
   font-weight: var(--fw-medium);
 }
 .bottle-scan-feedback--success { color: var(--success); }
+.bottle-scan-feedback--warning { color: var(--warning); }
 .bottle-scan-feedback--error { color: var(--danger); }
 
 .bottle-scan-manual { display: flex; gap: var(--space-2); }

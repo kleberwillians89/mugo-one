@@ -3,22 +3,27 @@ import { BarcodeImage } from './BarcodeImage'
 import './BottleLabelPrint.css'
 
 /**
- * Etiqueta física do frasco — 30mm x 10mm, identidade mínima (ver
+ * Etiqueta física do frasco — 24mm x 10mm (reduzida de 30x10mm; ver
  * BottleLabelPrint.css para as regras @page/@media print que fixam o
- * tamanho físico). Contém SÓ: marca RUAH + Code128 do barcode_value do
- * frasco (ex. RUAH-F000185 — a identidade FÍSICA do frasco individual,
- * nunca o token de QR). Nunca nome do perfume, ml, APC, status, preço,
- * cliente ou envio — esses pertencem ao objeto de impressão operacional
- * (ver ShipmentPrintView em Shipment360View.tsx), um identificador
- * completamente diferente do frasco. QR foi removido desta etiqueta: em
- * 30x10mm não sobra espaço para QR + Code128 + marca sem comprometer a
- * leitura do scanner, que é a prioridade.
+ * tamanho físico e o cálculo de largura de módulo do Code128). Contém SÓ:
+ * Code128 do barcode_value do frasco (ex. RUAH-F000185 — a identidade
+ * FÍSICA do frasco individual, nunca o token de QR). Nunca nome do
+ * perfume, ml, APC, status, preço, cliente ou envio — esses pertencem ao
+ * objeto de impressão operacional (ver ShipmentPrintView em
+ * Shipment360View.tsx), um identificador completamente diferente do
+ * frasco.
  *
- * Legenda textual do Code128 (o "RUAH-F000185" de apoio abaixo das barras)
- * também foi desligada (displayValue=false): em 10mm de altura total,
- * reservar espaço para texto legível reduziria a altura das barras a
- * ponto de arriscar a leitura — decisão documentada aqui, a confirmar
- * fisicamente (ver relatório final: "REAL PHYSICAL PRINT 30x10mm").
+ * A marca RUAH foi removida (era texto fixo em 30x10mm) para o barcode
+ * receber 100% da largura disponível em 24mm — mesma prioridade já
+ * aplicada ao SplitLabelPrint ("1. leitura do Code128, 2+. resto").  QR
+ * continua fora desta etiqueta: não há espaço para QR + Code128 sem
+ * comprometer a leitura, e o QR de tela (PhysicalIdentityView) já cobre o
+ * caso de uso de leitura por celular/teste.
+ *
+ * Legenda textual do Code128 continua desligada (displayValue=false) pelo
+ * mesmo motivo de antes: em 10mm de altura, texto legível roubaria altura
+ * das barras.
+ *
  * Sempre montado (mesmo fora de impressão) para window.print() funcionar
  * sem corrida de estado — mesma técnica de .shipment-print-view.
  */
@@ -28,7 +33,6 @@ export function BottleLabelPrint({ bottles }: { bottles: InventoryBottle[] }) {
       <div className="bottle-label-sheet">
         {bottles.map((bottle) => (
           <div className="bottle-label-tag" key={bottle.id}>
-            <span className="bottle-label-brand">RUAH</span>
             <BarcodeImage value={bottle.barcode_value} displayValue={false} height={64} width={1} />
           </div>
         ))}
