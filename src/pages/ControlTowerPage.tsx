@@ -40,8 +40,8 @@ export function ControlTowerPage() {
   return <div className="page control-tower-page">
     <PageHeader eyebrow="RUAH INTELLIGENCE" title="Torre de Controle" description="Onde a operação está travando — em três perguntas, uma por pessoa." />
     {error && <div className="notice"><span>{error}</span></div>}
-    {loading || !summary ? <div className="empty card"><h3>Carregando torre de controle…</h3></div> :
-      <div className="control-tower-grid">
+    {loading ? <div className="empty card"><h3>Carregando torre de controle…</h3></div> :
+      summary && <div className="control-tower-grid">
         <Column icon={UsersRound} title="Davi" subtitle="Atendimento e vendas">
           <Row label="Vendas bloqueadas" value={String(summary.davi.blockedSalesCount)} tone={summary.davi.blockedSalesCount > 0 ? 'danger' : 'success'} onClick={goToSalesBlocked} />
           <Row label="Clientes em recuperação" value={String(summary.davi.recoveryCount)} tone={summary.davi.recoveryCount > 0 ? 'warning' : 'success'} onClick={goToClientRecovery} />
