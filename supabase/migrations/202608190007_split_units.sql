@@ -42,10 +42,9 @@ create policy inventory_split_units_select on public.inventory_split_units for s
 revoke insert,update,delete on public.inventory_split_units from authenticated;
 
 -- shipment_items ganha um vínculo opcional a um split, irmão de bottle_id
--- (Fase 1) — nunca os dois ao mesmo tempo na prática (uma linha é vendida
--- de um frasco fonte OU de um split pré-fracionado, nunca ambos), mas o
--- schema não impede porque a exclusividade é uma regra operacional, não
--- estrutural, e forçá-la aqui não muda nenhum comportamento hoje.
+-- (Fase 1) — uma linha é vendida de um frasco fonte OU de um split
+-- pré-fracionado, nunca ambos. A exclusividade é reforçada abaixo por uma
+-- check constraint: não é só regra operacional, o banco recusa a linha.
 alter table public.shipment_items
   add column if not exists split_unit_id uuid references public.inventory_split_units(id);
 create index if not exists shipment_items_split_unit_idx on public.shipment_items(split_unit_id) where split_unit_id is not null;
@@ -56,6 +55,18 @@ create index if not exists shipment_items_split_unit_idx on public.shipment_item
 -- aqui (ao contrário do frasco fonte, que precisa ser reutilizável).
 create unique index if not exists shipment_items_active_split_unit_uidx
   on public.shipment_items(split_unit_id) where split_unit_id is not null and removed_at is null;
+
+-- Uma linha operacional usa UM frasco fonte OU UM split, nunca os dois —
+-- bottle_id (202608190001) e split_unit_id (acima) não coexistem numa
+-- mesma linha. Constraint nova (não existe em migration anterior).
+alter table public.shipment_items
+  add constraint shipment_items_single_physical_source_chk
+  check (
+    not (
+      bottle_id is not null
+      and split_unit_id is not null
+    )
+  );
 
 -- ---------------------------------------------------------------------
 -- Fracionar um frasco fonte em N unidades de split, atômico: trava o
@@ -187,6 +198,7 @@ begin
     begin
       update public.shipment_items set
         split_unit_id=v_split.id,
+        bottle_id=null,
         separated_at=coalesce(separated_at,now()),
         separated_by=coalesce(separated_by,auth.uid())
       where id=v_item.id;
@@ -248,6 +260,7 @@ begin
 
   update public.shipment_items set
     bottle_id=v_bottle.id,
+    split_unit_id=null,
     separated_at=coalesce(separated_at,now()),
     separated_by=coalesce(separated_by,auth.uid())
   where id=v_item.id;
@@ -267,11 +280,13 @@ grant execute on function public.shipment_item_scan_bottle(uuid,uuid,text) to au
 -- igual, mais duas correções desta revisão de arquitetura:
 --
 -- 1. Marcador de consumo do split (quando a linha tem um vinculado) ao
---    lado do bloco de frasco já existente. Nenhuma segunda baixa de
---    inventory_items.physical_ml aqui — esse ml já saiu do pooled quando
---    o split foi CRIADO (fracionar é transferência interna, não consumo);
---    marcar 'consumed' aqui é só bookkeeping de qual unidade física
---    específica foi de fato enviada.
+--    lado do bloco de frasco já existente. O pooled (inventory_items.
+--    physical_ml) SEMPRE desce aqui, exatamente uma vez por allocation,
+--    seja a origem física bottle ou split — fracionar (inventory_split_
+--    bottle) é transferência física INTERNA entre frasco fonte e splits,
+--    nunca mexe no pooled; é só na postagem do envio que o ml sai de
+--    fato do pooled. Marcar 'consumed' aqui é bookkeeping de qual unidade
+--    física específica foi de fato enviada, não uma segunda baixa.
 --
 -- 2. GATE FINAL DE AUDITORIA DE ENVIO (correção do Deviation Report):
 --    para item com rastreamento físico ATIVO, postar exige bottle_id OU
@@ -303,32 +318,45 @@ begin
   if v.status in('posted','delivered') then return; end if;
   if v.status not in('label_released','customer_approved') then raise exception 'shipment_not_ready_to_post'; end if;
   for r in select a.* from public.inventory_allocations a where a.shipment_id=v.id and a.status='shipping' for update loop
+    v_bottle_id:=null;
+    v_split_id:=null;
+    v_tracking_status:=null;
     if r.stock_managed then
       perform 1 from public.inventory_items where id=r.inventory_item_id and physical_ml>=r.quantity_ml for update;
       if not found then raise exception 'insufficient_physical_inventory'; end if;
 
       select si.bottle_id,si.split_unit_id into v_bottle_id,v_split_id from public.shipment_items si
         where si.shipment_id=v.id and si.allocation_id=r.id and si.removed_at is null;
+      if v_bottle_id is not null and v_split_id is not null then
+        raise exception 'multiple_physical_sources_confirmed';
+      end if;
       select bottle_tracking_status into v_tracking_status from public.inventory_items where id=r.inventory_item_id;
       if v_tracking_status='active' and v_bottle_id is null and v_split_id is null then
         raise exception 'physical_source_not_confirmed';
       end if;
 
+      -- Pooled desce exatamente uma vez por allocation, independentemente
+      -- da origem física (bottle ou split) ser confirmada abaixo.
       update public.inventory_items set physical_ml=physical_ml-r.quantity_ml,updated_at=now() where id=r.inventory_item_id;
 
       if v_bottle_id is not null then
         select physical_ml into v_bottle_physical from public.inventory_bottles where id=v_bottle_id for update;
-        if v_bottle_physical is not null then
-          if v_bottle_physical<r.quantity_ml then raise exception 'insufficient_bottle_inventory'; end if;
-          update public.inventory_bottles set
-            physical_ml=physical_ml-r.quantity_ml,
-            status=case when physical_ml-r.quantity_ml=0 then 'empty' else status end,
-            updated_at=now()
-          where id=v_bottle_id;
-        end if;
+        if not found then raise exception 'bottle_not_found'; end if;
+        if v_bottle_physical<r.quantity_ml then raise exception 'insufficient_bottle_inventory'; end if;
+        update public.inventory_bottles set
+          physical_ml=physical_ml-r.quantity_ml,
+          status=case when physical_ml-r.quantity_ml=0 then 'empty' else status end,
+          updated_at=now()
+        where id=v_bottle_id;
       end if;
       if v_split_id is not null then
-        update public.inventory_split_units set status='consumed',consumed_at=now() where id=v_split_id and status='available';
+        -- Origem split: NÃO diminui o frasco fonte de novo (já desceu na
+        -- criação do split). Só marca a unidade específica como consumida
+        -- — e só se ela ainda está disponível e bate exatamente com o ml
+        -- da allocation, para nunca aceitar uma unidade de tamanho errado.
+        update public.inventory_split_units
+          set status='consumed',consumed_at=now()
+          where id=v_split_id and status='available' and quantity_ml=r.quantity_ml;
         if not found then raise exception 'split_unit_unavailable'; end if;
       end if;
     end if;

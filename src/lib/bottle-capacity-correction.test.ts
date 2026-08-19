@@ -25,8 +25,11 @@ describe('Correction 1 — bottle is reusable across sequential orders (test 1)'
     expect(splitUnits).toContain("s2.status not in('posted','delivered','cancelled')")
   })
   it('post_shipment never clears bottle_id — the historical record of which order used which bottle is preserved', () => {
-    expect(splitUnits).not.toMatch(/bottle_id\s*=\s*null/)
-    expect(splitUnits).not.toContain('set bottle_id=null')
+    const postShipment = splitUnits.slice(splitUnits.lastIndexOf('create or replace function public.post_shipment'))
+    // post_shipment only reads shipment_items.bottle_id/split_unit_id, it never issues
+    // an UPDATE against shipment_items — clearing/switching the physical source on
+    // rescan is shipment_item_scan_bottle's job (see Correction — scan source switch below).
+    expect(postShipment).not.toContain('update public.shipment_items')
   })
 })
 
