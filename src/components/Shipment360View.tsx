@@ -8,7 +8,10 @@ import {
 } from "lucide-react";
 import type { BottleScanResult, OperationalShipment } from "../lib/records";
 import { ShipmentBottleScan } from "./bottles/ShipmentBottleScan";
+import { QrCodeImage } from "./bottles/QrCodeImage";
+import { BarcodeImage } from "./bottles/BarcodeImage";
 import { isBottleTrackedItem, unassignedBottleItems } from "../lib/shipment-bottle-scan";
+import { shipmentControlDeepLink } from "../lib/shipment-queue";
 import { brl, shortDate } from "../lib/format";
 import { friendlyIntegrationError, operationalLabel } from "../lib/presentation";
 import { getLabelUiState, shipmentHumanState } from "../lib/superfrete";
@@ -347,6 +350,8 @@ export function ShipmentChecklist({
                 <ShipmentBottleScan
                   bottleId={item.bottle_id}
                   bottle={item.inventory_bottles}
+                  splitUnitId={item.split_unit_id}
+                  splitUnit={item.inventory_split_units}
                   onScan={(rawValue) => onScanBottle(item, rawValue)}
                 />
               )}
@@ -752,6 +757,18 @@ export function ShipmentPrintView({
         <h2>{shipment.recipient_name}</h2>
         <p>{shortDate(shipment.created_at)}</p>
       </header>
+      {/* Identidade da NOTA DE CONTROLE (pedido/envio) — nunca a identidade
+          do frasco físico (essa é a etiqueta 30x10mm, BottleLabelPrint,
+          um objeto de impressão totalmente diferente). QR aponta para o
+          próprio Envio 360 autenticado (nunca dados do cliente/financeiro
+          no payload); Code128 carrega o mesmo shipment.id — o identificador
+          canônico que já existe, sem inventar um segundo esquema de ID só
+          para impressão. */}
+      <div className="print-codes">
+        <QrCodeImage value={shipmentControlDeepLink(shipment.id)} size={132} alt="QR do envio" />
+        <BarcodeImage value={shipment.id} height={40} />
+        <span>Bipe para abrir este envio</span>
+      </div>
       <div className="print-summary">
         <h3>SEPARAÇÃO E CONFERÊNCIA</h3>
         <dl>

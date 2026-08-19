@@ -21,6 +21,7 @@ import { RadarPage } from './pages/RadarPage'
 import { RadarSuppliersPage } from './pages/RadarSuppliersPage'
 import { WaitlistPage } from './pages/WaitlistPage'
 import { ClientRecoveryPage } from './pages/ClientRecoveryPage'
+import { ControlTowerPage } from './pages/ControlTowerPage'
 import { GenericPage } from './pages/GenericPage'
 
 export function App() {
@@ -32,6 +33,7 @@ export function App() {
   const navigate=(next:Page)=>{history.pushState({},'',routes[next]);setRoutePath(location.pathname);setPage(next)}
   const content = useMemo<ReactNode>(() => {
     if (page === 'Visão Geral') return <Dashboard period={period} setPeriod={setPeriod}/>
+    if (page === 'Torre de Controle') return <ControlTowerPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
     if (page === 'Entregas') {const shipmentId=routePath.match(/^\/entregas\/([0-9a-f-]{36})$/i)?.[1];return shipmentId?<ShipmentDetailsPage shipmentId={shipmentId}/>:<DeliveriesPage period={period} setPeriod={setPeriod}/>}
@@ -40,7 +42,7 @@ export function App() {
     if (page === 'Importação') return <ImportPage/>
     if (page === 'IA') return <Intelligence period={period} setPeriod={setPeriod}/>
     if (page === 'Insights') return <Insights period={period}/>
-    if (page === 'Radar') return routePath === '/radar/fornecedores' ? <RadarSuppliersPage/> : <RadarPage initialQuery={new URLSearchParams(location.search).get('q')??undefined}/>
+    if (page === 'Radar') return routePath === '/radar/fornecedores' ? <RadarSuppliersPage/> : <RadarPage initialQuery={new URLSearchParams(location.search).get('q')??undefined} initialPerfumeId={new URLSearchParams(location.search).get('perfume')??undefined}/>
     if (page === 'Interessados') return <WaitlistPage/>
     if(page==='Configurações')return <ShippingSettingsPage/>
     return <GenericPage page={page}/>

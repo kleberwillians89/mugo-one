@@ -3,9 +3,10 @@ import {AlertTriangle,Copy,ExternalLink,RefreshCw,Truck,X} from 'lucide-react'
 import {brl,shortDate} from '../lib/format'
 import {approveShipmentForLabel,assumeShipmentConference,authenticatedOrganization,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,scanShipmentItemBottle,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
 import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,Stage,shipmentStage,shipmentStatusLabels,stageLabels} from '../lib/superfrete'
-import {sortShipmentQueue,isUrgentShipment} from '../lib/shipment-queue'
+import {sortShipmentQueue,isUrgentShipment,shipmentIdFromScan} from '../lib/shipment-queue'
 import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
 import {Shipment360View} from './Shipment360View'
+import {useKeyboardWedgeListener} from './bottles/useKeyboardWedgeListener'
 import {Divider, EmptyState, Modal} from './ui'
 import './ShipmentOperations.css'
 
@@ -14,10 +15,23 @@ const nextActionCopy:Record<string,string>={create_label:'Criar etiqueta',checko
 const emptySettings:Partial<ShippingSettings>={default_format:'box',calculator_services:'1,2,17,3,31'}
 const shipmentKeys=['recipient_name','recipient_phone','recipient_document','recipient_email','recipient_postal_code','recipient_address','recipient_number','recipient_complement','recipient_district','recipient_city','recipient_state','package_weight','package_height','package_width','package_length','declared_value'] as const
 
+function openShipment(id:string){history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}
+
 export function OperationalShipments(){
   const [rows,setRows]=useState<OperationalShipment[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[stageFilter,setStageFilter]=useState<Stage|''>('')
+  const [scanNotice,setScanNotice]=useState('')
   const reload=()=>fetchOperationalShipments().then(data=>{setRows(data);setError('')}).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar os envios.')).finally(()=>setLoading(false))
   useEffect(()=>{reload()},[])
+  // Priority 0 (nota de controle impressa): Code128 carrega o shipment.id
+  // inteiro — bipar aqui abre o envio direto, sem precisar procurar na
+  // lista. Um código de frasco (RUAH-Fxxxxxx) nunca casa com a forma de
+  // UUID, então os dois tipos de bipagem nunca se confundem.
+  useKeyboardWedgeListener((value)=>{
+    const shipmentId=shipmentIdFromScan(value)
+    if(!shipmentId){setScanNotice(`"${value.trim()}" não é um código de envio.`);return}
+    openShipment(shipmentId)
+  })
+  useEffect(()=>{if(!scanNotice)return;const timer=setTimeout(()=>setScanNotice(''),4000);return()=>clearTimeout(timer)},[scanNotice])
   const counts=useMemo(()=>rows.reduce((acc,row)=>{const stage=shipmentStage(row);acc[stage]=(acc[stage]||0)+1;return acc},{} as Record<string,number>),[rows])
   // Fase 4 do roadmap operacional ("Qual pedido preparo agora?"): urgente
   // primeiro, depois quem precisa de mais trabalho, depois o mais antigo —
@@ -29,6 +43,7 @@ export function OperationalShipments(){
       <button className={stageFilter===''?'active':''} onClick={()=>setStageFilter('')}>Todos<i>{rows.length}</i></button>
       {(Object.keys(stageLabels) as Stage[]).map(stage=>counts[stage]?<button key={stage} className={stageFilter===stage?'active':''} onClick={()=>setStageFilter(stage)}>{stageLabels[stage]}<i>{counts[stage]}</i></button>:null)}
     </div>
+    {scanNotice&&<div className="notice"><AlertTriangle/><span>{scanNotice}</span></div>}
     {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="inline-empty">Carregando envios…</div>:visible.length===0?<EmptyState icon={Truck} title="Nenhum envio nesta etapa" description="Use “Novo envio” para selecionar produtos reservados e iniciar uma etiqueta."/>:
     <div className="shipment-op-card-list">
       {visible.map(row=>{

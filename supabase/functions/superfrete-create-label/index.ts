@@ -14,8 +14,23 @@ Deno.serve(async(req)=>{
 
   const {data:initial,error:initialError}=await ctx.client.from('shipments').select('id,superfrete_order_id,checkout_status').eq('id',shipmentId).eq('organization_id',ctx.organizationId).single()
   if(initialError||!initial)return json({error:{code:'shipment_not_found',message:'Envio não encontrado.'}},404,req)
-  const {data:conference}=await ctx.client.from('shipment_items').select('checked_at,divergence_note').eq('shipment_id',shipmentId).is('removed_at',null)
+  // Correção final (ordenação SuperFrete / conferência física): cart e
+  // checkout são as duas ações que criam/comprometem algo do lado da
+  // SuperFrete — a primeira ação externa real do fluxo. O gate de
+  // conferência física precisa valer ANTES de qualquer uma das duas, não
+  // só no post_shipment (defensivo, tardio demais para evitar o
+  // descompasso "SuperFrete já avançou, nossa conferência não"). Reaproveita
+  // exatamente a mesma consulta/formato de erro que já existia aqui para
+  // checked_at/divergence_note — só acrescenta bottle_id/split_unit_id ao
+  // select e mais uma condição de bloqueio, mesmo shape de resposta 409.
+  const {data:conference}=await ctx.client.from('shipment_items').select('checked_at,divergence_note,bottle_id,split_unit_id,inventory_allocations(stock_managed,inventory_items(bottle_tracking_status))').eq('shipment_id',shipmentId).is('removed_at',null)
   if(!conference?.length||conference.some(item=>!item.checked_at||present(item.divergence_note)))return json({error:{code:'conference_incomplete',message:'Conferência incompleta. Confira todos os itens e resolva as divergências antes da emissão.'}},409,req)
+  const missingPhysicalSource=conference.some(item=>{
+    const allocation=item.inventory_allocations as {stock_managed?:boolean;inventory_items?:{bottle_tracking_status?:string}|null}|null
+    const tracked=Boolean(allocation?.stock_managed)&&allocation?.inventory_items?.bottle_tracking_status==='active'
+    return tracked&&!item.bottle_id&&!item.split_unit_id
+  })
+  if(missingPhysicalSource)return json({error:{code:'physical_source_not_confirmed',message:'Bipe o frasco ou o split de cada item com identidade física antes de emitir a etiqueta.'}},409,req)
   const initialAction=emissionAction(initial.superfrete_order_id,initial.checkout_status)
   if(initialAction==='blocked_uncertain'||initialAction==='sync_existing'){
     return json({error:{code:'reconciliation_required',message:'Já existe um pedido SuperFrete. Sincronize o envio; o carrinho não será repetido.'}},409,req)

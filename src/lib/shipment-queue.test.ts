@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isUrgentShipment, sortShipmentQueue } from './shipment-queue'
+import { isUrgentShipment, shipmentControlDeepLink, shipmentIdFromScan, sortShipmentQueue } from './shipment-queue'
 import { OperationalShipment } from './records'
 
 function makeShipment(overrides: Partial<OperationalShipment> & { id: string }): OperationalShipment {
@@ -20,8 +20,8 @@ function makeShipment(overrides: Partial<OperationalShipment> & { id: string }):
 }
 
 const itemWithDeadline = (deadline: string | null) => ({
-  allocation_id: 'a1', quantity_ml: 10, separated_at: null, checked_at: null, divergence_note: null, bottle_id: null,
-  inventory_allocations: null, inventory_bottles: null,
+  allocation_id: 'a1', quantity_ml: 10, separated_at: null, checked_at: null, divergence_note: null, bottle_id: null, split_unit_id: null,
+  inventory_allocations: null, inventory_bottles: null, inventory_split_units: null,
   sales: { id: 's1', amount: 100, perfume_name_raw: 'Naxos', sale_type: 'SPLIT', shipping_deadline_date: deadline },
 })
 
@@ -75,5 +75,36 @@ describe('sortShipmentQueue', () => {
     const rows = [makeShipment({ id: 'a' }), makeShipment({ id: 'b' })]
     const sorted = sortShipmentQueue(rows)
     expect(sorted).not.toBe(rows)
+  })
+})
+
+describe('shipmentIdFromScan', () => {
+  it('aceita um UUID de envio (o Code128 da nota de controle)', () => {
+    expect(shipmentIdFromScan('a1b2c3d4-e5f6-4789-a012-3456789abcde')).toBe('a1b2c3d4-e5f6-4789-a012-3456789abcde')
+  })
+  it('aceita maiúsculas (scanner pode capitalizar)', () => {
+    expect(shipmentIdFromScan('A1B2C3D4-E5F6-4789-A012-3456789ABCDE')).toBe('A1B2C3D4-E5F6-4789-A012-3456789ABCDE')
+  })
+  it('ignora espaços de borda', () => {
+    expect(shipmentIdFromScan('  a1b2c3d4-e5f6-4789-a012-3456789abcde  ')).toBe('a1b2c3d4-e5f6-4789-a012-3456789abcde')
+  })
+  it('rejeita um código de frasco — nunca confunde os dois objetos de impressão', () => {
+    expect(shipmentIdFromScan('RUAH-F000185')).toBeNull()
+  })
+  it('rejeita texto arbitrário', () => {
+    expect(shipmentIdFromScan('não é um código')).toBeNull()
+  })
+})
+
+describe('shipmentControlDeepLink', () => {
+  it('aponta para o Envio 360 autenticado, nunca dados do cliente/financeiro no payload', () => {
+    expect(shipmentControlDeepLink('a1b2c3d4-e5f6-4789-a012-3456789abcde', 'https://crm.ruahparfums.com'))
+      .toBe('https://crm.ruahparfums.com/entregas/a1b2c3d4-e5f6-4789-a012-3456789abcde')
+  })
+  it('a URL resolve para o mesmo id que o Code128 carrega — QR e barcode identificam o mesmo objeto', () => {
+    const id = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
+    const link = shipmentControlDeepLink(id, 'https://crm.ruahparfums.com')
+    expect(link.endsWith(`/entregas/${id}`)).toBe(true)
+    expect(shipmentIdFromScan(id)).toBe(id)
   })
 })

@@ -122,3 +122,27 @@ export async function fetchBottlesForItem(inventoryItemId:string) {
   if (error) throw new Error(error.message)
   return (data ?? []) as InventoryBottle[]
 }
+
+// Priority 0B — identidade física do SPLIT (vidro fracionado a partir de um frasco fonte). Terceiro objeto: PERFUME (produto) / FRASCO FONTE (acima) / SPLIT (abaixo) — nunca confundidos.
+export type SplitUnitStatus = 'available'|'consumed'|'void'
+
+export type InventorySplitUnit = {
+  id:string; organization_id:string; perfume_id:string; inventory_item_id:string; source_bottle_id:string
+  split_code:string; barcode_value:string; quantity_ml:number; status:SplitUnitStatus
+  created_by:string|null; created_at:string; consumed_at:string|null
+}
+
+/** Fracionar é transferência física interna (nunca entrada de estoque): decrementa o frasco fonte, nunca o pooled do perfume. Atômico no banco — sem escrita nenhuma antes desta chamada (o preview é só aritmética local). */
+export async function splitBottle(sourceBottleId:string, quantityMl:number, count:number) {
+  await authenticatedOrganization()
+  const { data, error } = await supabase!.rpc('inventory_split_bottle', { p_source_bottle_id: sourceBottleId, p_quantity_ml: quantityMl, p_count: count })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as InventorySplitUnit[]
+}
+
+export async function fetchSplitUnitsForBottle(sourceBottleId:string) {
+  await authenticatedOrganization()
+  const { data, error } = await supabase!.rpc('inventory_split_units_for_bottle', { p_source_bottle_id: sourceBottleId })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as InventorySplitUnit[]
+}

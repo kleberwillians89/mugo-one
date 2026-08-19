@@ -7,6 +7,7 @@ import { useKeyboardWedgeListener } from './useKeyboardWedgeListener'
 import './ShipmentBottleScan.css'
 
 type BottleInfo = { bottle_code: string; bottle_label: string; physical_ml: number } | null
+type SplitInfo = { split_code: string; quantity_ml: number; status: string } | null
 
 /**
  * Roadmap Fase 1 — "Qual frasco devo pegar? Bipei o frasco correto?" Reuses
@@ -14,8 +15,17 @@ type BottleInfo = { bottle_code: string; bottle_label: string; physical_ml: numb
  * (Estação de Estoque) — no parallel scanning implementation. Purely
  * additive: rendered by the caller only for perfumes that opted into bottle
  * tracking; every other shipment item is untouched.
+ *
+ * Priority 0B: an item can be resolved by a source bottle OR a
+ * pre-fractionated split unit — two independent props (never both set on
+ * the same item in practice) so a split-fulfilled item shows its own
+ * "already scanned" chip instead of silently falling through to "Bipar
+ * frasco" again as if nothing had happened.
  */
-export function ShipmentBottleScan({ bottleId, bottle, onScan }: { bottleId: string | null; bottle: BottleInfo; onScan: (rawValue: string) => Promise<BottleScanResult> }) {
+export function ShipmentBottleScan({ bottleId, bottle, splitUnitId, splitUnit, onScan }: {
+  bottleId: string | null; bottle: BottleInfo; splitUnitId: string | null; splitUnit: SplitInfo
+  onScan: (rawValue: string) => Promise<BottleScanResult>
+}) {
   const [open, setOpen] = useState(false)
   const [manual, setManual] = useState('')
   const [busy, setBusy] = useState(false)
@@ -42,6 +52,9 @@ export function ShipmentBottleScan({ bottleId, bottle, onScan }: { bottleId: str
 
   if (bottleId && bottle) {
     return <div className="bottle-scan-chip"><QrCode size={12} /> {bottle.bottle_label} · {bottle.bottle_code}</div>
+  }
+  if (splitUnitId && splitUnit) {
+    return <div className="bottle-scan-chip"><QrCode size={12} /> {splitUnit.split_code}</div>
   }
 
   if (!open) {

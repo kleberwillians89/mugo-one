@@ -122,7 +122,7 @@ const markup = `
 
 <div data-fixture="print" class="bottle-label-print">
   <div class="bottle-label-sheet">
-    <div class="bottle-label-tag"><span class="bottle-label-brand">RUAH</span><strong class="bottle-label-perfume">NAXOS</strong><span class="bottle-label-frasco">Frasco 02</span><div style="width:120px;height:120px;background:#000"></div><svg class="barcode-image"></svg><small class="bottle-label-house">XERJOFF</small></div>
+    <div class="bottle-label-tag"><span class="bottle-label-brand">RUAH</span><svg class="barcode-image" role="img" aria-label="Código de barras RUAH-F000185"></svg></div>
   </div>
 </div>
 <div data-fixture="chrome-should-hide">
@@ -184,12 +184,14 @@ test('print layout hides CRM chrome and shows only the label sheet', async ({ pa
   const sidebarVisible = await page.locator('.sidebar').first().isVisible()
   const headerVisible = await page.locator('[data-fixture="chrome-should-hide"] > header').first().isVisible()
   const printVisible = await page.locator('[data-fixture="print"]').isVisible()
-  const printContent = await page.locator('.bottle-label-perfume').first().textContent()
+  // Round D / Priority 0: the physical bottle label is 30x10mm, barcode
+  // only — no perfume name on it any more (see BottleLabelPrint.tsx).
+  const printContent = await page.locator('.bottle-label-brand').first().textContent()
 
   expect(sidebarVisible, 'sidebar must be hidden under print').toBe(false)
   expect(headerVisible, 'CRM header must be hidden under print').toBe(false)
   expect(printVisible, 'the label sheet must be visible under print').toBe(true)
-  expect(printContent?.trim()).toBe('NAXOS')
+  expect(printContent?.trim()).toBe('RUAH')
 })
 
 test('print layout stays hidden on screen (no accidental double-render)', async ({ page }) => {

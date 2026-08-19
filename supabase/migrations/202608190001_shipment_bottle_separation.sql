@@ -15,17 +15,32 @@ begin;
 -- há frasco vinculado.
 
 -- ---------------------------------------------------------------------
--- 1. shipment_items ganha um vínculo opcional a um frasco físico. O índice
---    único parcial é a garantia de verdade contra o cenário de concorrência
---    que a rodada pediu para vigiar: dois envios nunca podem reivindicar o
---    mesmo frasco físico ao mesmo tempo — o banco recusa a segunda escrita,
---    não é só uma checagem de aplicação que uma corrida poderia furar.
+-- 1. shipment_items ganha um vínculo opcional a um frasco físico.
+--
+--    CORREÇÃO (revisão de arquitetura pós-roadmap): esta migration
+--    originalmente criava um índice único parcial em bottle_id
+--    (shipment_items_active_bottle_uidx), pensado como proteção de
+--    concorrência. Na prática ele implementava a semântica ERRADA: "no
+--    máximo UMA reivindicação ativa por frasco, para sempre" — e como
+--    post_shipment nunca limpa bottle_id nem seta removed_at ao postar,
+--    um frasco fonte de SPLIT (decant), que existe justamente para
+--    abastecer MUITAS vendas sequenciais ao longo do tempo, ficava
+--    permanentemente travado no primeiro envio que o bipasse.
+--
+--    O índice foi removido. A proteção de concorrência real —
+--    "a soma dos compromissos ATIVOS contra um frasco nunca pode
+--    ultrapassar seu physical_ml atual" — é uma invariante de SOMA, não
+--    de unicidade, e por isso não é expressável como índice único. Ela é
+--    garantida em shipment_item_scan_bottle (true replace mais recente:
+--    202608190007) via lock pessimista na linha do frasco (`for update`)
+--    antes de somar os compromissos ativos e comparar contra physical_ml
+--    — a técnica canônica do Postgres para "verificar-então-agir" sob
+--    concorrência, não um índice mal empregado para um invariante que
+--    índices não conseguem expressar.
 -- ---------------------------------------------------------------------
 alter table public.shipment_items
   add column if not exists bottle_id uuid references public.inventory_bottles(id);
 create index if not exists shipment_items_bottle_idx on public.shipment_items(bottle_id) where bottle_id is not null;
-create unique index if not exists shipment_items_active_bottle_uidx
-  on public.shipment_items(bottle_id) where bottle_id is not null and removed_at is null;
 
 -- ---------------------------------------------------------------------
 -- 2. Bipar o frasco na separação. Casos "normais mas não bem-sucedidos"

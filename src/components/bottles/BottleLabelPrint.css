@@ -2,46 +2,91 @@
 
 @media print {
   /* Same contract as .shipment-print-view (enhancements.css): hide every
-     piece of CRM chrome, show only the label sheet. */
+     piece of CRM chrome, show only the label content. */
   .sidebar, .app-shell > main > header, .ui-modal-scrim, .ui-modal-title, .ui-modal-footer,
   .internal-mugo-signature, .back-link { display: none !important; }
   .ui-modal-layer, .ui-modal-panel { position: static !important; inset: auto !important; height: auto !important; max-height: none !important; padding: 0 !important; box-shadow: none !important; }
   .ui-modal-body { padding: 0 !important; }
-  body * { visibility: hidden; }
-  .bottle-label-print, .bottle-label-print * { visibility: visible; }
+  /* Scoped to :has(.bottle-label-print) — NOT a bare `body *` — because
+     this stylesheet is bundled globally (single CSS output, loaded on
+     every page). An unconditional `body * {visibility:hidden}` here would
+     blank out every OTHER print flow in the app (e.g. ShipmentPrintView's
+     "FOLHA DO ENVIO") any time print media activates, regardless of
+     whether this component is even mounted — found via the Priority 0
+     print tests, not something print output should ever have shipped
+     with. .bottle-label-print only exists in the DOM at all while a print
+     is actually queued (BottleOnboardingModal renders it conditionally),
+     so this scoping costs nothing on the happy path. */
+  body:has(.bottle-label-print) * { visibility: hidden; }
+  /* !important: body:has(.bottle-label-print) * outranks a bare
+     .bottle-label-print selector on specificity alone (0,0,1,1 vs
+     0,0,1,0), so without this the label would hide itself. */
+  .bottle-label-print, .bottle-label-print * { visibility: visible !important; }
   .bottle-label-print {
     display: block;
     position: absolute;
     inset: 0;
     background: #fff;
-    color: #111;
+  }
+  /* Target hardware is a dedicated small-label printer (Netum-class), fed
+     with 30x10mm continuous/die-cut stock — NOT A4 cut apart afterward.
+     Each label is therefore its own physical PAGE, not a cell in a grid.
+     Named page (not a bare @page): enhancements.css already declares an
+     unconditional `@page{size:A4;margin:14mm}` for ShipmentPrintView's
+     "FOLHA DO ENVIO" sheet. A second bare @page here would just lose that
+     cascade (same weight, enhancements.css loads later) and silently print
+     the label as A4. Scoping this page under its own name, and opting
+     .bottle-label-tag into it via `page:`, keeps the two print targets
+     from ever fighting over @page, regardless of CSS file load order.
+     Browser support for honoring a custom @page size varies by OS/driver;
+     the print dialog must still be set to "Real size / 100%", never "Fit
+     to page" — see BottleOnboardingModal's on-screen reminder next to the
+     print buttons (a CSS comment can't reach browser print-dialog UI). */
+  @page bottle-label {
+    size: 30mm 10mm;
+    margin: 0;
+  }
+  .bottle-label-tag {
+    page: bottle-label;
   }
 }
 
 .bottle-label-sheet {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6mm;
-  padding: 8mm;
+  display: block;
 }
 
 .bottle-label-tag {
+  width: 30mm;
+  height: 10mm;
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2mm;
-  padding: 6mm;
-  border: 1px solid #ccc;
-  text-align: center;
-  break-inside: avoid;
+  gap: 1mm;
+  padding: 0.6mm 1mm;
+  overflow: hidden;
+  break-after: page;
+}
+.bottle-label-tag:last-child { break-after: auto; }
+
+.bottle-label-brand {
+  flex: 0 0 auto;
+  font: 700 6pt Arial, sans-serif;
+  letter-spacing: 0.04em;
+  color: #000;
 }
 
-.bottle-label-brand { font: 700 8pt Arial, sans-serif; letter-spacing: 0.16em; color: #8a6924; }
-.bottle-label-perfume { font: 400 15pt Georgia, serif; }
-.bottle-label-frasco { font: 700 9pt Arial, sans-serif; letter-spacing: 0.06em; color: #444; }
-.bottle-label-house { font: 400 8pt Arial, sans-serif; color: #777; }
-.bottle-label-tag .qr-code-image { width: 30mm; height: 30mm; }
-.bottle-label-tag .barcode-image { width: 100%; max-width: 44mm; height: auto; }
+/* Barcode gets the majority of the usable width on purpose — priority is
+   scan reliability, not decoration (briefing: "the barcode should receive
+   most of the usable label width"). White background, black bars: same
+   reasoning as the "avoid dark luxury backgrounds" instruction — contrast
+   is what scanners depend on, not brand styling. */
+.bottle-label-tag .barcode-image {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+}
 
 @media screen {
   .bottle-label-print { display: none !important; }

@@ -23,7 +23,18 @@ describe('ReplenishmentPage: busca no Radar é sempre navegação, nunca busca a
   })
 
   it('a navegação usa a mesma query construída da identidade canônica, pronta para o usuário só clicar buscar', () => {
-    expect(page).toContain("import {\n  ReplenishmentSignal, ReplenishmentStatus, STATUS_LABEL, buildRadarQuery, fetchReplenishmentSignals,\n  formatReplenishmentSummary, goToRadarWithQuery, summarizeReplenishment,\n} from '../lib/replenishment'")
+    expect(page).toContain("import {\n  ReplenishmentSignal, ReplenishmentStatus, STATUS_LABEL, buildRadarQuery, fetchReplenishmentSignals,\n  formatReplenishmentSummary, goToRadarForPerfume, goToRadarWithQuery, summarizeReplenishment,\n} from '../lib/replenishment'")
+  })
+})
+
+describe('ReplenishmentPage: Fase 9 — "Ver oportunidades" usa dados persistidos, nunca busca externa', () => {
+  it('goToRadarForPerfume é só navegação (perfume-scoped), nunca searchRadar/fetchBuyingContext direto na página', () => {
+    expect(page).toContain('goToRadarForPerfume(signal.perfume_id)')
+    expect(page).not.toContain('fetchBuyingContext')
+  })
+  it('a melhor oferta exibida nunca soma/gera preço — usa direto price_native/price_brl já persistidos na oferta', () => {
+    expect(page).toContain('bestOffer.price_native')
+    expect(page).toContain('bestOffer.price_brl')
   })
 })
 

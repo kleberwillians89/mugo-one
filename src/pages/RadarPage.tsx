@@ -7,8 +7,11 @@ import {
   normalizeSearchQuery, parsePerfumeQuery, promoteSource, removeWatchItem, searchRadar, summarizeRadar, updateWatchStatus,
 } from '../lib/radar'
 import { findExistingSourceByDomain, normalizeDomain, prefillFromShoppingResult } from '../lib/radar-source-prefill'
+import { BUYING_SIGNAL_LABEL, BuyingContext, BuyingSignal, fetchBuyingContext } from '../lib/radar-buying'
+import { STATUS_LABEL, buildRadarQuery } from '../lib/replenishment'
+import { brl } from '../lib/format'
 import { Metric } from '../components/shared/Metric'
-import { EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
+import { DefinitionGroup, EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import './RadarPage.css'
 
 type Sort = 'score'|'price'|'country'|'recent'
@@ -46,7 +49,47 @@ function goToSuppliers() {
   dispatchEvent(new PopStateEvent('popstate'))
 }
 
-export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
+function buyingSignalTone(signal:BuyingSignal):'success'|'warning'|'danger'|'neutral' {
+  if (signal === 'forte_oportunidade') return 'success'
+  if (signal === 'investigar') return 'warning'
+  return 'neutral'
+}
+
+// Fase 9 (Radar Buying Intelligence) — "O que precisa ser comprado? Onde
+// comprar? Quanto custa?": combina reposição + margem + radar, tudo já
+// persistido (ver lib/radar-buying.ts — nenhuma chamada externa aqui).
+// "Buscar novamente no mundo" é a ÚNICA ação que pode gastar cota do
+// provedor externo, e só dispara com um clique explícito do humano.
+function PerfumeBuyingContext({ context, onSearchAgain }:{ context:BuyingContext; onSearchAgain:()=>void }) {
+  const offer = context.bestOffer
+  return <section className="card radar-buying-context">
+    <div className="clients-caption">
+      <strong>{context.perfumeName}</strong>
+      <StatusBadge tone={buyingSignalTone(context.signal)}>{BUYING_SIGNAL_LABEL[context.signal]}</StatusBadge>
+    </div>
+    <div className="radar-buying-groups">
+      <DefinitionGroup title="Estoque e venda" items={[
+        { label: 'Estoque', value: context.availableMl !== null ? `${context.availableMl.toLocaleString('pt-BR')} ml` : null },
+        { label: 'Venda 30d', value: context.ml30d !== null ? `${context.ml30d.toLocaleString('pt-BR')} ml` : null },
+        { label: 'Velocidade', value: context.velocityMlPerDay !== null ? `${context.velocityMlPerDay.toFixed(2)} ml/dia` : null },
+        { label: 'Cobertura', value: context.coverageDays !== null ? `~${Math.round(context.coverageDays)} dias` : null },
+        { label: 'Reposição', value: context.replenishmentStatus ? STATUS_LABEL[context.replenishmentStatus] : null },
+      ]} />
+      <DefinitionGroup title="Custo e margem" items={[
+        { label: 'Custo/ml', value: context.costPerMl !== null ? brl(context.costPerMl) : null },
+        { label: 'Margem', value: context.marginPct !== null ? `${context.marginPct.toFixed(1).replace('.', ',')}%` : null },
+      ]} />
+      <DefinitionGroup title="Radar" items={[
+        { label: 'Ofertas salvas', value: String(context.offerCount) },
+        { label: 'Melhor oferta observada', value: offer ? `${offer.currency} ${Number(offer.price_native).toLocaleString('pt-BR')}` : null },
+        { label: 'Fonte', value: offer?.source_name ?? offer?.seller_name ?? null },
+        { label: 'Confiança', value: offer ? (offer.source_trusted ? 'Fonte confiável' : 'Fonte não validada') : null },
+      ]} action={<SecondaryButton icon={<Search size={14} />} onClick={onSearchAgain}>Buscar novamente no mundo</SecondaryButton>} />
+    </div>
+  </section>
+}
+
+export function RadarPage({ initialQuery, initialPerfumeId }:{ initialQuery?:string; initialPerfumeId?:string }) {
   const [watchlist, setWatchlist] = useState<RadarWatchItem[]>([])
   const [offers, setOffers] = useState<RadarOffer[]>([])
   const [sources, setSources] = useState<RadarSource[]>([])
@@ -61,8 +104,11 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   const [showManualOffer, setShowManualOffer] = useState(false)
   const [promoting, setPromoting] = useState<{ item:ShoppingSearchResult; brand:string }|null>(null)
   const [sort, setSort] = useState<Sort>('score')
+  const [buyingContext, setBuyingContext] = useState<BuyingContext|null>(null)
 
-  const load = () => Promise.all([fetchWatchlist(), fetchOffersForPerfume({}), fetchSources(), fetchRadarRole()])
+  // Perfume conhecido: ofertas ficam ESCOPADAS a ele (não a lista geral do
+  // radar todo) — coerente com "perfume-scoped Radar navigation".
+  const load = () => Promise.all([fetchWatchlist(), fetchOffersForPerfume({ perfumeId: initialPerfumeId ?? undefined }), fetchSources(), fetchRadarRole()])
     .then(([watch, allOffers, sourceRows, currentRole]) => { setWatchlist(watch); setOffers(allOffers); setSources(sourceRows); setRole(currentRole); setError('') })
     .catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o radar.'))
     .finally(() => setLoading(false))
@@ -70,6 +116,21 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
   const canManageSources = role === 'admin' || role === 'manager'
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); if (initialQuery) queueMicrotask(() => handleSearch(initialQuery)) }, [])
+  // Dados persistidos, nunca busca externa (briefing: "must NOT
+  // automatically call Serper... simply because a page rendered" —
+  // fetchBuyingContext só lê replenishment_signals/perfume_margin_summary/
+  // radar_offers_for_perfume, os três já existentes e read-only).
+  useEffect(() => { if (initialPerfumeId) fetchBuyingContext(initialPerfumeId).then(setBuyingContext).catch(() => {}) }, [initialPerfumeId])
+
+  function searchAgainForBuyingContext() {
+    if (!buyingContext) return
+    const builtQuery = buildRadarQuery({
+      perfume: buyingContext.perfumeName, brand_house: buyingContext.brandHouse,
+      base_name: buyingContext.baseName ?? '', bottle_identifier: buyingContext.bottleIdentifier,
+    })
+    setQuery(builtQuery)
+    handleSearch(builtQuery)
+  }
 
   const metrics = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -124,6 +185,8 @@ export function RadarPage({ initialQuery }:{ initialQuery?:string }) {
     <PageHeader eyebrow="RUAH INTELLIGENCE" title="Radar Global" description="Radar mundial de abastecimento: pesquise um perfume e compare oportunidades por país e fornecedor." actions={
       <SecondaryButton onClick={goToSuppliers}>Ver fornecedores</SecondaryButton>
     } />
+
+    {initialPerfumeId && buyingContext && <PerfumeBuyingContext context={buyingContext} onSearchAgain={searchAgainForBuyingContext} />}
 
     <section className="metrics">
       <Metric label="Perfumes monitorados" value={String(metrics.monitored)} detail="Na watchlist ativa" icon={RadarIcon} />

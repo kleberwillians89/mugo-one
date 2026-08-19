@@ -54,6 +54,15 @@ export function goToRadarWithQuery(query:string) {
   dispatchEvent(new PopStateEvent('popstate'))
 }
 
+// Fase 9 (Radar Buying Intelligence) — abre o Radar já escopado ao perfume
+// conhecido, mostrando ofertas PERSISTIDAS na hora (sem gastar cota de
+// busca externa). Distinto de goToRadarWithQuery: aquele é sempre uma
+// busca NOVA no mundo; este nunca dispara busca nenhuma sozinho.
+export function goToRadarForPerfume(perfumeId:string) {
+  history.pushState({}, '', `/radar?perfume=${encodeURIComponent(perfumeId)}`)
+  dispatchEvent(new PopStateEvent('popstate'))
+}
+
 export function goToReplenishment() {
   history.pushState({}, '', '/estoque/reposicao')
   dispatchEvent(new PopStateEvent('popstate'))

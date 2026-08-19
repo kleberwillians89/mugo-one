@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
  * has no way to test a physical print against a physical camera, so the
  * fallback rule applies: standard QR wins).
  */
-export function QrCodeImage({ value, size = 176 }:{ value:string; size?:number }) {
+export function QrCodeImage({ value, size = 176, alt = 'QR do frasco' }:{ value:string; size?:number; alt?:string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -17,5 +17,5 @@ export function QrCodeImage({ value, size = 176 }:{ value:string; size?:number }
     return () => { cancelled = true }
   }, [value, size])
   if (!dataUrl) return <div className="qr-code-placeholder" style={{ width: size, height: size }} aria-hidden="true" />
-  return <img className="qr-code-image" src={dataUrl} width={size} height={size} alt={`QR do frasco`} />
+  return <img className="qr-code-image" src={dataUrl} width={size} height={size} alt={alt} />
 }

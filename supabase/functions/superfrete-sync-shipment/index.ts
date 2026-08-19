@@ -13,7 +13,24 @@ Deno.serve(async(req)=>{
     const provider=await superFreteRequest(`/api/v0/order/info/${encodeURIComponent(shipment.superfrete_order_id)}`,{method:'GET'})
     const state=extractOrderState(provider)
     const {error:applyError}=await ctx.client.rpc('apply_superfrete_state',{p_shipment_id:shipmentId,p_run_id:null,p_state:state})
-    if(applyError)throw new Error(applyError.message)
+    if(applyError){
+      // Correção final: a SuperFrete já reportou um estado externo que
+      // exigiria postar localmente, mas o gate defensivo de post_shipment
+      // bloqueou por falta de conferência física (frasco/split) — nunca
+      // silenciar isso como um erro genérico de sincronização. Persiste em
+      // integration_error (a mesma coluna já exibida na tela de envio via
+      // friendlyIntegrationError) para virar um estado operacional visível
+      // e recuperável, não um erro que desaparece com a resposta HTTP.
+      // Nada aqui inventa/força bottle_id nem contorna o gate — só torna o
+      // "aguardando conferência" visível; sincronizar de novo depois do
+      // bipe válido é idempotente (post_shipment já retorna cedo se o
+      // envio já estiver postado, e não faz nada até a conferência existir).
+      if(applyError.message.includes('physical_source_not_confirmed')){
+        await ctx.client.from('shipments').update({integration_error:'PHYSICAL_CONFERENCE_PENDING',superfrete_updated_at:new Date().toISOString()}).eq('id',shipmentId).eq('organization_id',ctx.organizationId)
+        return json({error:{code:'physical_conference_pending',message:'A SuperFrete já avançou este envio, mas a conferência física (frasco ou split) ainda não foi feita. Bipe o item pendente e sincronize novamente.'}},409,req)
+      }
+      throw new Error(applyError.message)
+    }
     const print=(state.print&&typeof state.print==='object'?state.print:{}) as Record<string,unknown>
     const rawPrintUrl=print.url??state.print_url??(typeof state.print==='string'?state.print:null)??shipment.print_url??shipment.label_pdf_url??''
     const trustedPrintUrl=officialPrintUrl(rawPrintUrl)?.href??''

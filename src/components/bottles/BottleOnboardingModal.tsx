@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ClipboardList, Printer, QrCode } from 'lucide-react'
+import { AlertTriangle, Check, ClipboardList, Printer, QrCode, Scissors } from 'lucide-react'
 import { Modal, PrimaryButton, SecondaryButton, StatusBadge } from '../ui'
 import {
   InventoryBottle, TrackingPreview, fetchBottlesForItem, fetchTrackingPreview,
@@ -7,6 +7,7 @@ import {
 } from '../../lib/inventory-bottles'
 import { apcLabel, computeTrackingReconciliation, formatMl } from '../../lib/bottle-scan'
 import { BottleLabelPrint } from './BottleLabelPrint'
+import { BottleSplitModal } from './BottleSplitModal'
 import './BottleOnboardingModal.css'
 
 function goToCount(itemId:string) {
@@ -31,6 +32,7 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
   const [finalizing, setFinalizing] = useState(false)
   const [printSelection, setPrintSelection] = useState<Set<string>>(new Set())
   const [printQueue, setPrintQueue] = useState<InventoryBottle[] | null>(null)
+  const [splittingBottle, setSplittingBottle] = useState<InventoryBottle | null>(null)
 
   const load = () => {
     Promise.all([fetchTrackingPreview(itemId), fetchBottlesForItem(itemId)])
@@ -97,7 +99,8 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
         <SecondaryButton onClick={close}>Fechar</SecondaryButton>
       </>
     }>
-      {printQueue && <BottleLabelPrint bottles={printQueue} brandHouse={preview?.brand_house ?? null} perfumeName={perfumeName} />}
+      {printQueue && <BottleLabelPrint bottles={printQueue} />}
+      {splittingBottle && <BottleSplitModal bottle={splittingBottle} perfumeName={perfumeName} close={() => setSplittingBottle(null)} onDone={reload} />}
 
       {error && <div className="notice"><AlertTriangle size={16} /><span>{error}</span></div>}
 
@@ -131,6 +134,7 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
                       <span>{bottle.bottle_code} · {formatMl(bottle.physical_ml)} · APC {apc.headline}</span>
                     </div>
                     <button className="bottle-onboarding-print-one" onClick={() => printOne(bottle)}><Printer size={14} /> Etiqueta</button>
+                    {canManage && <button className="bottle-onboarding-print-one" onClick={() => setSplittingBottle(bottle)}><Scissors size={14} /> Fracionar</button>}
                   </li>
                 )
               })}
@@ -147,6 +151,7 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
                 <SecondaryButton icon={<Printer size={16} />} onClick={printSelected} disabled={printSelection.size === 0}>Imprimir selecionadas ({printSelection.size})</SecondaryButton>
                 <PrimaryButton icon={<Check size={16} />} disabled={!reconciliation?.reconciled || activeBottles.length === 0} loading={finalizing} onClick={handleFinalize}>Finalizar identificação</PrimaryButton>
               </div>
+              <small className="bottle-onboarding-print-hint">Etiqueta é 30x10mm — na caixa de impressão, selecione "Tamanho real" (100%), nunca "Ajustar à página".</small>
             </div>
           )}
         </div>
