@@ -6,6 +6,7 @@ import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { QrBottlePage } from './pages/QrBottlePage'
 import { InventoryStationPage } from './pages/InventoryStationPage'
 import { InventoryCountPage } from './pages/InventoryCountPage'
+import { PrintLabelPage } from './pages/PrintLabelPage'
 
 const go = (path:string) => { window.history.pushState({},'',path); window.dispatchEvent(new PopStateEvent('popstate')) }
 // Só aceita um "next" relativo à própria origem (nunca "//host" nem uma URL
@@ -91,6 +92,10 @@ export function AuthRoot() {
   // (sem sidebar/header do CRM) — "deve parecer aplicativo".
   const qrMatch=path.match(/^\/q\/([^/]+)$/)
   if(qrMatch)return <QrBottlePage token={decodeURIComponent(qrMatch[1])}/>
+  // Documento de impressão isolado (seção 4 do briefing "finalizar fluxo
+  // físico"): rota própria, sem AppShell — ver PrintLabelPage.tsx.
+  const printMatch=path.match(/^\/print\/(bottle|split)$/)
+  if(printMatch)return <PrintLabelPage kind={printMatch[1] as 'bottle'|'split'}/>
   if(path==='/estoque/leitor')return <InventoryStationPage/>
   const countMatch=path.match(/^\/estoque\/([0-9a-f-]{36})\/contagem$/i)
   if(countMatch)return <InventoryCountPage itemId={countMatch[1]}/>

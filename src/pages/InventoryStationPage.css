@@ -82,15 +82,28 @@
 @keyframes station-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 .station-listening p { margin: 0; font: var(--fw-semibold) var(--fs-base) var(--font-ui); }
 
-.station-error {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  text-align: center;
+.station-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
 }
+
+.station-split-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+.station-split-facts > div { display: flex; justify-content: space-between; gap: var(--space-3); }
+.station-split-facts dt { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+.station-split-facts dd { margin: 0; font: var(--fw-semibold) var(--fs-sm) var(--font-ui); text-align: right; }
 
 .station-manual { display: flex; flex-direction: column; gap: var(--space-2); }
 .station-manual label {

@@ -35,3 +35,18 @@
   .stock-actions { flex-direction: column; align-items: stretch; flex-wrap: nowrap; width: 100%; }
   .stock-actions button { width: 100%; }
 }
+
+/* Campo de ml com sufixo visual — o operador digita só o número (o campo
+   já diz a unidade), evita repetir o bug de "100ml" preenchido no smoke do
+   Estoque. Mesmo padrão de container que .date-control já usa (borda no
+   wrapper, input sem borda própria). */
+.field-ml-suffix {
+  height: 42px;
+  border: 1px solid #ded8ce;
+  background: #fff;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+}
+.field-ml-suffix input { border: 0 !important; box-shadow: none !important; min-width: 0; }
+.field-ml-suffix span { padding: 0 12px 0 4px; color: #8a8174; font-size: 11px; font-weight: 600; }

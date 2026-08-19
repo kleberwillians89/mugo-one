@@ -51,6 +51,17 @@
   font-size: var(--fs-sm);
 }
 
+.qr-scanner-fallback-notice {
+  margin: 0;
+  max-width: 320px;
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  background: var(--warning-bg);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
 .qr-scanner--error {
   padding: var(--space-5);
   border: 1px dashed var(--line);

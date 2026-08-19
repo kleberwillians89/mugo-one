@@ -21,10 +21,12 @@
 .bottle-onboarding-generate { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .bottle-onboarding-generate input { flex: 1 1 200px; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-md); padding: 0 var(--space-4); font-size: var(--fs-base); background: var(--paper); }
 .bottle-onboarding-buttons { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+.bottle-onboarding-print-hint { display: block; text-align: right; color: var(--muted); font-size: var(--fs-xs); }
 
 @media (max-width: 480px) {
   .bottle-onboarding-list li { flex-wrap: wrap; }
   .bottle-onboarding-print-one { width: 100%; justify-content: center; }
   .bottle-onboarding-buttons { flex-direction: column; align-items: stretch; }
   .bottle-onboarding-buttons > * { width: 100%; }
+  .bottle-onboarding-print-hint { text-align: center; }
 }

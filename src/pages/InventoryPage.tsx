@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { AlertTriangle, Boxes, Check, Download, Plus, QrCode, TrendingUp, UserRound } from 'lucide-react'
-import { integer } from '../lib/format'
+import { brl, integer } from '../lib/format'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { exportCsv } from '../lib/csv'
@@ -9,7 +9,9 @@ import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
   adjustInventory, authenticatedOrganization, createInventoryItem, fetchInventory, fetchOperationalInventory, inventoryPerfumes,
 } from '../lib/records'
+import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
+import { setPerfumeCost } from '../lib/cost-margin'
 import { Metric } from '../components/shared/Metric'
 import { EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import { BottleOnboardingModal } from '../components/bottles/BottleOnboardingModal'
@@ -33,6 +35,9 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   useEffect(()=>{authenticatedOrganization().then((org)=>setCanManageBottles(org.role==='admin'||org.role==='manager')).catch(()=>{})},[])
   const replenishmentByItem=new Map(replenishment.map((signal)=>[signal.item_id,signal.status]))
   const adjust=async(row:InventoryRow,positive:boolean)=>{const raw=prompt(`${positive?'Entrada':'Ajuste negativo'} em ML para ${row.perfume}:`);if(!raw)return;const amount=Number(raw.replace(',','.'));if(!Number.isFinite(amount)||amount<=0)return alert('Informe uma quantidade válida.');const reason=prompt('Motivo obrigatório:')?.trim();if(!reason)return;if(!positive&&!confirm(`Confirma retirar ${amount} ML de ${row.perfume}?`))return;try{await adjustInventory(row.item_id,positive?amount:-amount,reason);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível registrar o movimento.')}}
+  // Fase 8 do roadmap operacional ("Quanto custa?"): custo médio por ML,
+  // mantido pela gestão — string vazia limpa o custo (volta a "não informado").
+  const editCost=async(balance:OperationalInventoryRow)=>{const raw=prompt(`Custo por ML para ${balance.perfume} (R$, vazio para limpar):`,balance.average_cost_per_ml!==null?String(balance.average_cost_per_ml):'');if(raw===null)return;const trimmed=raw.trim();if(trimmed===''){try{await setPerfumeCost(balance.perfume_id,null);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}return}const cost=Number(trimmed.replace(',','.'));if(!Number.isFinite(cost)||cost<0)return alert('Informe um custo válido.');try{await setPerfumeCost(balance.perfume_id,cost);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}}
 
   return <div className="page">
     {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{setShowCreate(false);reload()}}/>}
@@ -56,9 +61,10 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
           {key:'shipping_ml',label:'Em preparação',render:(balance)=>`${Number(balance.shipping_ml).toLocaleString('pt-BR')} ML`},
           {key:'available_ml',label:'Disponível',render:(balance)=><strong className="stock-available">{Number(balance.available_ml).toLocaleString('pt-BR')} ML</strong>},
           {key:'minimum_ml',label:'Mínimo',hideOnMobile:true,render:(balance)=>`${Number(balance.minimum_ml).toLocaleString('pt-BR')} ML`},
+          {key:'average_cost_per_ml',label:'Custo/ML',hideOnMobile:true,render:(balance)=>balance.average_cost_per_ml===null?'—':brl(balance.average_cost_per_ml)},
           {key:'situacao',label:'Situação',render:(balance)=>{const state=stockState(balance);return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>}},
           {key:'reposicao',label:'Reposição',render:(balance)=>{const status=replenishmentByItem.get(balance.item_id);return status==='critico'||status==='repor'?<StatusBadge tone={status==='critico'?'danger':'warning'}>REPOSIÇÃO</StatusBadge>:'—'}},
-          {key:'actions',label:'Ações',render:(balance)=><div className="stock-actions"><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,true)}>Entrada</button><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,false)}>Ajustar</button>{stockState(balance).tone!=='success'&&<button onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}<button onClick={()=>setQrItem(balance)}><QrCode size={13}/> QR</button></div>},
+          {key:'actions',label:'Ações',render:(balance)=><div className="stock-actions"><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,true)}>Entrada</button><button onClick={()=>adjust(rows.find((row)=>row.item_id===balance.item_id)!,false)}>Ajustar</button><button onClick={()=>editCost(balance)}>Custo</button>{stockState(balance).tone!=='success'&&<button onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}<button onClick={()=>setQrItem(balance)}><QrCode size={13}/> QR</button></div>},
         ]}
       />
     </div>}
@@ -69,11 +75,19 @@ function InventoryCreate({close,saved}:{close:()=>void;saved:()=>void}) {
   const [perfumes,setPerfumes]=useState<{id:string;full_name_raw:string}[]>([]),[perfumeId,setPerfumeId]=useState('')
   const [opening,setOpening]=useState(''),[minimum,setMinimum]=useState(''),[reference,setReference]=useState(format(new Date(),'yyyy-MM-dd')),[notes,setNotes]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false)
   useEffect(()=>{inventoryPerfumes().then((data)=>setPerfumes(data))},[])
-  const submit=async()=>{const openingMl=Number(opening.replace(',','.')),minimumMl=Number(minimum.replace(',','.'));if(!perfumeId||!Number.isFinite(openingMl)||openingMl<0||!Number.isFinite(minimumMl)||minimumMl<0||!reference)return setError('Preencha perfume, saldos e data corretamente.');setSaving(true);try{await createInventoryItem({perfumeId,openingMl,minimumMl,referenceDate:reference,notes});saved()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}}
+  const submit=async()=>{
+    if(!perfumeId||!reference)return setError('Preencha perfume e data corretamente.')
+    const openingMl=parseMlAmount(opening)
+    if(openingMl===null||openingMl<0)return setError(looksLikeMlWithUnitSuffix(opening)?'Informe apenas o valor numérico. Ex.: 100':'Informe um saldo inicial válido em ml.')
+    const minimumMl=parseMlAmount(minimum)
+    if(minimumMl===null||minimumMl<0)return setError(looksLikeMlWithUnitSuffix(minimum)?'Informe apenas o valor numérico. Ex.: 100':'Informe um limite mínimo válido em ml.')
+    setSaving(true)
+    try{await createInventoryItem({perfumeId,openingMl,minimumMl,referenceDate:reference,notes});saved()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}
+  }
   return <Modal open onClose={close} eyebrow="CONTROLE DE ESTOQUE" title="Cadastrar perfume" footer={<>
       <SecondaryButton onClick={close}>Cancelar</SecondaryButton>
       <PrimaryButton loading={saving} onClick={submit}>Cadastrar estoque</PrimaryButton>
     </>}>
-    <div className="record-form"><div className="form-grid"><label className="field wide"><span>Perfume existente</span><select value={perfumeId} onChange={(event)=>setPerfumeId(event.target.value)}><option value="">Selecione…</option>{perfumes.map((perfume)=><option key={perfume.id} value={perfume.id}>{perfume.full_name_raw}</option>)}</select></label><label className="field"><span>Saldo inicial em ML</span><input inputMode="decimal" value={opening} onChange={(event)=>setOpening(event.target.value)}/></label><label className="field"><span>Limite mínimo em ML</span><input inputMode="decimal" value={minimum} onChange={(event)=>setMinimum(event.target.value)}/></label><label className="field"><span>Data de referência</span><input type="date" value={reference} onChange={(event)=>setReference(event.target.value)}/></label><label className="field wide"><span>Observação</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)}/></label></div>{error&&<div className="form-error">{error}</div>}</div>
+    <div className="record-form"><div className="form-grid"><label className="field wide"><span>Perfume existente</span><select value={perfumeId} onChange={(event)=>setPerfumeId(event.target.value)}><option value="">Selecione…</option>{perfumes.map((perfume)=><option key={perfume.id} value={perfume.id}>{perfume.full_name_raw}</option>)}</select></label><label className="field"><span>Saldo inicial</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="100" value={opening} onChange={(event)=>setOpening(event.target.value)} aria-label="Saldo inicial em ml"/><span>ml</span></div></label><label className="field"><span>Limite mínimo</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="5" value={minimum} onChange={(event)=>setMinimum(event.target.value)} aria-label="Limite mínimo em ml"/><span>ml</span></div></label><label className="field"><span>Data de referência</span><input type="date" value={reference} onChange={(event)=>setReference(event.target.value)}/></label><label className="field wide"><span>Observação</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)}/></label></div>{error&&<div className="form-error">{error}</div>}</div>
   </Modal>
 }

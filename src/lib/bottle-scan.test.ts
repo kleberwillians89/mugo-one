@@ -33,6 +33,22 @@ describe('parseScannedValue', () => {
   it('rejeita string vazia', () => {
     expect(parseScannedValue('   ')).toBeNull()
   })
+
+  describe('split (L/N/O — resolvedor canônico também cobre split, não só frasco)', () => {
+    it('reconhece o valor completo do barcode do split (RUAH-S000185-001)', () => {
+      expect(parseScannedValue('RUAH-S000185-001')).toEqual({ kind: 'split', value: 'S000185-001' })
+    })
+    it('reconhece o split_code curto digitado manualmente, sem o prefixo RUAH-', () => {
+      expect(parseScannedValue('S000185-001')).toEqual({ kind: 'split', value: 'S000185-001' })
+    })
+    it('reconhece em minúsculas', () => {
+      expect(parseScannedValue('ruah-s000185-001')).toEqual({ kind: 'split', value: 'S000185-001' })
+    })
+    it('nunca confunde um código de split com um código de frasco — prefixos S/F são mutuamente exclusivos', () => {
+      expect(parseScannedValue('RUAH-S000185-001')?.kind).toBe('split')
+      expect(parseScannedValue('RUAH-F000185')?.kind).toBe('code')
+    })
+  })
 })
 
 describe('computeConferenceDiff', () => {

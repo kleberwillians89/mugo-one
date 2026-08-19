@@ -6,7 +6,12 @@ import {
   ExternalLink,
   Printer,
 } from "lucide-react";
-import type { OperationalShipment } from "../lib/records";
+import type { BottleScanResult, OperationalShipment } from "../lib/records";
+import { ShipmentBottleScan } from "./bottles/ShipmentBottleScan";
+import { QrCodeImage } from "./bottles/QrCodeImage";
+import { BarcodeImage } from "./bottles/BarcodeImage";
+import { isBottleTrackedItem, unassignedBottleItems } from "../lib/shipment-bottle-scan";
+import { shipmentControlDeepLink } from "../lib/shipment-queue";
 import { brl, shortDate } from "../lib/format";
 import { friendlyIntegrationError, operationalLabel } from "../lib/presentation";
 import { getLabelUiState, shipmentHumanState } from "../lib/superfrete";
@@ -26,6 +31,16 @@ function nextStep(shipment: OperationalShipment): { description: string; button:
   if (!conferred)
     return {
       description: "Separe e confira os itens abaixo antes de seguir para o frete.",
+      button: null,
+    };
+  // Roadmap Fase 3 (Final Shipping Audit) — "Esse pedido pode ser enviado?":
+  // mesma lógica consultiva já usada acima para checked_at/divergence_note,
+  // só que agora também olhando o frasco físico bipado na Fase 1. Nunca
+  // bloqueia a cotação/etiqueta em si (igual ao "conferred" acima, que
+  // também é só consultivo) — apenas avisa com precisão o que falta.
+  if (unassignedBottleItems(shipment.shipment_items).length > 0)
+    return {
+      description: "Bipe o frasco de cada item identificado antes de seguir para o frete.",
       button: null,
     };
   if (!shipment.selected_quote_id)
@@ -69,6 +84,7 @@ type Props = {
   onAssumeConference: () => void;
   onChange: (item: Item, kind: "separated" | "checked", value: boolean) => void;
   onDivergence: (item: Item, value: string) => void;
+  onScanBottle: (item: Item, rawValue: string) => Promise<BottleScanResult>;
 };
 
 export function RuahBrand({ print = false }: { print?: boolean }) {
@@ -244,6 +260,7 @@ export function ShipmentChecklist({
   onAssumeConference,
   onChange,
   onDivergence,
+  onScanBottle,
 }: {
   shipment: OperationalShipment;
   items: Item[];
@@ -251,6 +268,7 @@ export function ShipmentChecklist({
   onAssumeConference: () => void;
   onChange: Props["onChange"];
   onDivergence: Props["onDivergence"];
+  onScanBottle: (item: Item, rawValue: string) => Promise<BottleScanResult>;
 }) {
   const separated = items.filter((i) => i.separated_at).length,
     checked = items.filter((i) => i.checked_at).length,
@@ -299,6 +317,19 @@ export function ShipmentChecklist({
           </div>
         </div>
       )}
+      {unassignedBottleItems(items).length > 0 && (
+        <div className="divergence-callout">
+          <AlertTriangle />
+          <div>
+            <strong>FALTA BIPAR O FRASCO</strong>
+            {unassignedBottleItems(items).map((i) => (
+              <p key={i.allocation_id}>
+                {i.sales?.perfume_name_raw || "Produto"}: ainda sem frasco físico vinculado.
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
       <div
         className="premium-checklist"
         role="table"
@@ -315,6 +346,15 @@ export function ShipmentChecklist({
                 {item.quantity_ml} ML ·{" "}
                 {item.sales?.sale_type || "Tipo não informado"}
               </span>
+              {isBottleTrackedItem(item) && (
+                <ShipmentBottleScan
+                  bottleId={item.bottle_id}
+                  bottle={item.inventory_bottles}
+                  splitUnitId={item.split_unit_id}
+                  splitUnit={item.inventory_split_units}
+                  onScan={(rawValue) => onScanBottle(item, rawValue)}
+                />
+              )}
             </div>
             <button
               disabled={shipment.conference_owner_user_id!==currentUserId}
@@ -717,6 +757,18 @@ export function ShipmentPrintView({
         <h2>{shipment.recipient_name}</h2>
         <p>{shortDate(shipment.created_at)}</p>
       </header>
+      {/* Identidade da NOTA DE CONTROLE (pedido/envio) — nunca a identidade
+          do frasco físico (essa é a etiqueta 28x10mm de /print/bottle,
+          um objeto de impressão totalmente diferente). QR aponta para o
+          próprio Envio 360 autenticado (nunca dados do cliente/financeiro
+          no payload); Code128 carrega o mesmo shipment.id — o identificador
+          canônico que já existe, sem inventar um segundo esquema de ID só
+          para impressão. */}
+      <div className="print-codes">
+        <QrCodeImage value={shipmentControlDeepLink(shipment.id)} size={132} alt="QR do envio" />
+        <BarcodeImage value={shipment.id} height={40} />
+        <span>Bipe para abrir este envio</span>
+      </div>
       <div className="print-summary">
         <h3>SEPARAÇÃO E CONFERÊNCIA</h3>
         <dl>
@@ -778,6 +830,7 @@ export function Shipment360View(props: Props) {
           onAssumeConference={props.onAssumeConference}
           onChange={props.onChange}
           onDivergence={props.onDivergence}
+          onScanBottle={props.onScanBottle}
         />
         <ShipmentFacts shipment={props.shipment} onEdit={props.onEdit} />
         <ShipmentLabelCenter

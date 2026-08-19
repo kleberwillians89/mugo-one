@@ -1,0 +1,80 @@
+.bottle-scan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  min-height: 28px;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--success-bg);
+  color: var(--success);
+  font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
+  overflow-wrap: anywhere;
+}
+
+.bottle-scan-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--gold-deep);
+  font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
+  cursor: pointer;
+}
+
+.bottle-scan-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--cream);
+  max-width: 340px;
+}
+
+.bottle-scan-feedback {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+.bottle-scan-feedback--success { color: var(--success); }
+.bottle-scan-feedback--warning { color: var(--warning); }
+.bottle-scan-feedback--error { color: var(--danger); }
+
+.bottle-scan-manual { display: flex; gap: var(--space-2); }
+.bottle-scan-manual input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-3);
+  font-size: var(--fs-sm);
+  background: var(--paper);
+}
+.bottle-scan-manual button {
+  min-height: 44px;
+  min-width: 64px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
+  cursor: pointer;
+}
+.bottle-scan-manual button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.bottle-scan-cancel {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: var(--fw-semibold) var(--fs-xs) var(--font-ui);
+  cursor: pointer;
+}

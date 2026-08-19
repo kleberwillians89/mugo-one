@@ -1,10 +1,12 @@
 import {useEffect,useMemo,useState} from 'react'
 import {AlertTriangle,Copy,ExternalLink,RefreshCw,Truck,X} from 'lucide-react'
 import {brl,shortDate} from '../lib/format'
-import {approveShipmentForLabel,assumeShipmentConference,authenticatedOrganization,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
-import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,shipmentStatusLabels} from '../lib/superfrete'
+import {approveShipmentForLabel,assumeShipmentConference,authenticatedOrganization,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,scanShipmentItemBottle,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
+import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,Stage,shipmentStage,shipmentStatusLabels,stageLabels} from '../lib/superfrete'
+import {sortShipmentQueue,isUrgentShipment,shipmentIdFromScan} from '../lib/shipment-queue'
 import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
 import {Shipment360View} from './Shipment360View'
+import {useKeyboardWedgeListener} from './bottles/useKeyboardWedgeListener'
 import {Divider, EmptyState, Modal} from './ui'
 import './ShipmentOperations.css'
 
@@ -13,28 +15,35 @@ const nextActionCopy:Record<string,string>={create_label:'Criar etiqueta',checko
 const emptySettings:Partial<ShippingSettings>={default_format:'box',calculator_services:'1,2,17,3,31'}
 const shipmentKeys=['recipient_name','recipient_phone','recipient_document','recipient_email','recipient_postal_code','recipient_address','recipient_number','recipient_complement','recipient_district','recipient_city','recipient_state','package_weight','package_height','package_width','package_length','declared_value'] as const
 
-type Stage='preparing'|'conference'|'freight'|'label'|'posted'|'delivered'
-const stageLabels:Record<Stage,string>={preparing:'Em preparação',conference:'Conferência',freight:'Frete',label:'Etiqueta',posted:'Postado',delivered:'Entregue'}
-function shipmentStage(row:OperationalShipment):Stage{
-  if(row.status==='delivered')return 'delivered'
-  if(row.status==='posted')return 'posted'
-  if(row.status==='label_pending'||row.status==='label_released'||row.superfrete_order_id)return 'label'
-  if(row.status==='awaiting_customer_approval'||row.status==='customer_approved'||row.selected_quote_id)return 'freight'
-  const conferred=row.shipment_items.length>0&&row.shipment_items.every(item=>item.checked_at&&!item.divergence_note)
-  return conferred?'conference':'preparing'
-}
+function openShipment(id:string){history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}
 
 export function OperationalShipments(){
   const [rows,setRows]=useState<OperationalShipment[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[stageFilter,setStageFilter]=useState<Stage|''>('')
+  const [scanNotice,setScanNotice]=useState('')
   const reload=()=>fetchOperationalShipments().then(data=>{setRows(data);setError('')}).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar os envios.')).finally(()=>setLoading(false))
   useEffect(()=>{reload()},[])
+  // Priority 0 (nota de controle impressa): Code128 carrega o shipment.id
+  // inteiro — bipar aqui abre o envio direto, sem precisar procurar na
+  // lista. Um código de frasco (RUAH-Fxxxxxx) nunca casa com a forma de
+  // UUID, então os dois tipos de bipagem nunca se confundem.
+  useKeyboardWedgeListener((value)=>{
+    const shipmentId=shipmentIdFromScan(value)
+    if(!shipmentId){setScanNotice(`"${value.trim()}" não é um código de envio.`);return}
+    openShipment(shipmentId)
+  })
+  useEffect(()=>{if(!scanNotice)return;const timer=setTimeout(()=>setScanNotice(''),4000);return()=>clearTimeout(timer)},[scanNotice])
   const counts=useMemo(()=>rows.reduce((acc,row)=>{const stage=shipmentStage(row);acc[stage]=(acc[stage]||0)+1;return acc},{} as Record<string,number>),[rows])
-  const visible=stageFilter?rows.filter(row=>shipmentStage(row)===stageFilter):rows
+  // Fase 4 do roadmap operacional ("Qual pedido preparo agora?"): urgente
+  // primeiro, depois quem precisa de mais trabalho, depois o mais antigo —
+  // nunca mais só "mais recente primeiro".
+  const queue=useMemo(()=>sortShipmentQueue(rows),[rows])
+  const visible=stageFilter?queue.filter(row=>shipmentStage(row)===stageFilter):queue
   return <section className="shipment-operations">
     <div className="shipment-stage-tabs">
       <button className={stageFilter===''?'active':''} onClick={()=>setStageFilter('')}>Todos<i>{rows.length}</i></button>
       {(Object.keys(stageLabels) as Stage[]).map(stage=>counts[stage]?<button key={stage} className={stageFilter===stage?'active':''} onClick={()=>setStageFilter(stage)}>{stageLabels[stage]}<i>{counts[stage]}</i></button>:null)}
     </div>
+    {scanNotice&&<div className="notice"><AlertTriangle/><span>{scanNotice}</span></div>}
     {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="inline-empty">Carregando envios…</div>:visible.length===0?<EmptyState icon={Truck} title="Nenhum envio nesta etapa" description="Use “Novo envio” para selecionar produtos reservados e iniciar uma etiqueta."/>:
     <div className="shipment-op-card-list">
       {visible.map(row=>{
@@ -46,6 +55,7 @@ export function OperationalShipments(){
             <div><strong>{row.clients?.name||row.recipient_name}</strong><span>Envio #{row.id.slice(0,8).toUpperCase()} · {items} {items===1?'item':'itens'} · {ml} ml</span></div>
             <span className={`badge ${['posted','delivered'].includes(row.status)?'paid':'pending'}`}>{shipmentStatusLabels[row.status]||row.status}</span>
           </div>
+          {isUrgentShipment(row)&&<span className="badge cancelled shipment-op-urgent">PRAZO PRÓXIMO — PREPARAR AGORA</span>}
           <div className="shipment-op-card-foot">
             <span>{row.service?`${row.carrier||''} ${row.service}`.trim():'Serviço não selecionado'}</span>
             {row.tracking_code&&<span>Rastreio: {row.tracking_code}</span>}
@@ -94,12 +104,13 @@ export function ShipmentDetailsPage({shipmentId}:{shipmentId:string}){
   const items=[...shipment.shipment_items].sort((a,b)=>String(a.sales?.perfume_name_raw||'').localeCompare(String(b.sales?.perfume_name_raw||''),'pt-BR'))
   const change=async(item:typeof items[number],kind:'separated'|'checked',value:boolean)=>{try{await updateShipmentItemCheck(shipment.id,item.allocation_id,kind==='separated'?value:Boolean(item.separated_at),kind==='checked'?value:Boolean(item.checked_at),item.divergence_note||'');await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível atualizar a conferência.')}}
   const divergence=async(item:typeof items[number],value:string)=>{try{await updateShipmentItemCheck(shipment.id,item.allocation_id,Boolean(item.separated_at),Boolean(item.checked_at),value);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível registrar a divergência.')}}
+  const scanBottle=async(item:typeof items[number],rawValue:string)=>{const result=await scanShipmentItemBottle(shipment.id,item.allocation_id,rawValue);if(result.ok)await reload();return result}
   const assumeConference=async()=>{if(!confirm('ASSUMIR CONFERÊNCIA\n\nAo confirmar, você ficará registrado como responsável por esta conferência e não poderá ser alterado.'))return;try{await assumeShipmentConference(shipment.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível assumir a conferência.')}}
   const sync=async()=>{if(busy)return;const before=[shipment.superfrete_status,shipment.tracking_code,shipment.print_url,shipment.print_available].join('|');setBusy('sync');setError('');setFeedback('');try{await syncSuperFreteShipment(shipment.id);const updated=await fetchShipment360(shipment.id);setShipment(updated);const after=[updated.superfrete_status,updated.tracking_code,updated.print_url,updated.print_available].join('|');setFeedback(before===after?'Etiqueta atualizada. Nenhuma alteração encontrada na SuperFrete.':'Etiqueta atualizada. Status atualizado.')}catch{setError('Não foi possível atualizar a etiqueta. Tente novamente. A etiqueta existente continua preservada.')}finally{setBusy('')}}
   const checkout=async()=>{if(!confirm(`CONFIRMAR COMPRA REAL DA ETIQUETA\n\nCliente: ${shipment.recipient_name}\nServiço: ${shipment.carrier||''} ${shipment.service||''}\nValor: ${brl(Number(shipment.shipping_price||0))}\n\nEsta ação utilizará saldo real da SuperFrete. Continuar?`))return;setBusy('checkout');setError('');try{await checkoutSuperFreteLabel(shipment.id);await syncSuperFreteShipment(shipment.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'A compra pode exigir reconciliação. Não tente novamente antes de atualizar o pedido.')}finally{setBusy('')}}
   const copyTracking=async()=>{const code=String(shipment.tracking_code||'');if(!code)return;setFeedback('');try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(code);else{const input=document.createElement('textarea');input.value=code;input.style.position='fixed';input.style.opacity='0';document.body.appendChild(input);input.select();if(!document.execCommand('copy'))throw new Error('copy_failed');input.remove()}setFeedback('Código de rastreio copiado.')}catch{setFeedback(`Não foi possível copiar automaticamente. Código: ${code}`)}}
   const printLabel=()=>{const url=shipment.print_url||shipment.label_pdf_url;if(!shipment.print_available||!url){setFeedback('A SuperFrete ainda não liberou o arquivo para impressão.');return}const tab=window.open('','_blank');if(!tab){setFeedback('O navegador bloqueou a nova aba. Permita pop-ups para imprimir.');return}tab.opener=null;tab.location.href=url;setFeedback('Etiqueta aberta em uma nova aba.')}
-  return <div className="page shipment-360">{editing&&<ShipmentEditor shipment={shipment} close={()=>setEditing(false)} saved={async()=>{setEditing(false);await reload()}} refreshed={reload}/>}<button className="back-link" onClick={()=>history.back()}>← Voltar para entregas</button>{error&&<div className="notice shipment-page-error"><AlertTriangle/><span>{error}</span></div>}<Shipment360View shipment={shipment} items={items} onEdit={()=>setEditing(true)} onSync={sync} onCheckout={checkout} onPrint={printLabel} onCopy={copyTracking} busy={busy} feedback={feedback} isAdmin={isAdmin} currentUserId={currentUserId} onAssumeConference={assumeConference} onChange={change} onDivergence={divergence}/></div>
+  return <div className="page shipment-360">{editing&&<ShipmentEditor shipment={shipment} close={()=>setEditing(false)} saved={async()=>{setEditing(false);await reload()}} refreshed={reload}/>}<button className="back-link" onClick={()=>history.back()}>← Voltar para entregas</button>{error&&<div className="notice shipment-page-error"><AlertTriangle/><span>{error}</span></div>}<Shipment360View shipment={shipment} items={items} onEdit={()=>setEditing(true)} onSync={sync} onCheckout={checkout} onPrint={printLabel} onCopy={copyTracking} busy={busy} feedback={feedback} isAdmin={isAdmin} currentUserId={currentUserId} onAssumeConference={assumeConference} onChange={change} onDivergence={divergence} onScanBottle={scanBottle}/></div>
 }
 
 export function ShipmentEditor({shipment,close,saved,refreshed}:{shipment:OperationalShipment;close:()=>void;saved:()=>void;refreshed:()=>Promise<void>}){

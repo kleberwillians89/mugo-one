@@ -58,6 +58,10 @@
 .shipment-op-card-head strong { display: block; font: var(--fw-semibold) var(--fs-base) var(--font-ui); }
 .shipment-op-card-head span { font-size: var(--fs-sm); color: var(--muted); }
 
+/* Fase 4 (Smart Shipping Queue): reaproveita o tom .badge.cancelled já
+   existente para "urgente" — sem inventar uma cor nova. */
+.shipment-op-urgent { align-self: flex-start; }
+
 .shipment-op-card-foot {
   display: flex;
   flex-direction: column;

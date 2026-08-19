@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowLeft, Compass, Radar as RadarIcon, Sparkles } from 'lucide-react'
 import {
   ReplenishmentSignal, ReplenishmentStatus, STATUS_LABEL, buildRadarQuery, fetchReplenishmentSignals,
-  formatReplenishmentSummary, goToRadarWithQuery, summarizeReplenishment,
+  formatReplenishmentSummary, goToRadarForPerfume, goToRadarWithQuery, summarizeReplenishment,
 } from '../lib/replenishment'
 import { RadarOffer, RadarWatchItem, fetchOffersForPerfume, fetchWatchlist } from '../lib/radar'
+import { pickBestOffer } from '../lib/radar-buying'
+import { brl } from '../lib/format'
 import { EmptyState, PageHeader, PrimaryButton, SecondaryButton, StatusBadge } from '../components/ui'
 import './ReplenishmentPage.css'
 
@@ -99,6 +101,13 @@ function ReplenishmentCard({ signal, watch, relatedOffers }:{ signal:Replenishme
 
   const trustedOffers = relatedOffers.filter((offer) => offer.source_trusted)
   const mostRecentCheck = relatedOffers.reduce<string|null>((latest, offer) => (!latest || offer.last_checked_at > latest ? offer.last_checked_at : latest), null)
+  // Fase 9 — handoff pra Radar mais forte que só "N oportunidades salvas":
+  // mostra a melhor oferta persistida (fonte, confiança, preço nativo +
+  // BRL quando a própria oferta já traz um price_brl válido — nunca
+  // calculado aqui). "Ver oportunidades" nunca gasta cota de busca
+  // externa; "Buscar reposição" (abaixo, inalterado) continua sendo a
+  // única ação que dispara uma busca nova no mundo.
+  const bestOffer = useMemo(() => pickBestOffer(relatedOffers), [relatedOffers])
 
   async function handleSearchIntelligence() {
     setSummarizing(true)
@@ -124,6 +133,11 @@ function ReplenishmentCard({ signal, watch, relatedOffers }:{ signal:Replenishme
 
     <p className="replenishment-summary">{summary}</p>
 
+    {bestOffer && <div className="replenishment-best-offer">
+      <span>Melhor oferta observada</span>
+      <strong>{bestOffer.currency} {Number(bestOffer.price_native).toLocaleString('pt-BR')}{bestOffer.price_brl !== null && ` · ${brl(bestOffer.price_brl)}`}</strong>
+      <span>{bestOffer.source_name ?? bestOffer.seller_name ?? 'Fonte não identificada'} · {bestOffer.source_trusted ? 'fonte confiável' : 'fonte não validada'}</span>
+    </div>}
     {relatedOffers.length > 0 && <p className="replenishment-offers-note">
       {relatedOffers.length} oportunidade{relatedOffers.length === 1 ? '' : 's'} salva{relatedOffers.length === 1 ? '' : 's'} no Radar
       {trustedOffers.length > 0 && ` (${trustedOffers.length} de fonte${trustedOffers.length === 1 ? '' : 's'} confiável)`}
@@ -131,6 +145,7 @@ function ReplenishmentCard({ signal, watch, relatedOffers }:{ signal:Replenishme
     </p>}
 
     <footer className="replenishment-actions">
+      <SecondaryButton icon={<RadarIcon size={14} />} onClick={() => goToRadarForPerfume(signal.perfume_id)}>Ver oportunidades</SecondaryButton>
       <PrimaryButton onClick={() => goToRadarWithQuery(buildRadarQuery(signal))}>Buscar reposição</PrimaryButton>
       {watch ? <StatusBadge tone="neutral">JÁ MONITORADO</StatusBadge> :
         <SecondaryButton icon={<RadarIcon size={14} />} onClick={() => goToRadarWithQuery(buildRadarQuery(signal))}>Acompanhar no Radar</SecondaryButton>}

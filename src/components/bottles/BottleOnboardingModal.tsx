@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ClipboardList, Printer, QrCode } from 'lucide-react'
+import { AlertTriangle, Check, ClipboardList, Printer, QrCode, Scissors } from 'lucide-react'
 import { Modal, PrimaryButton, SecondaryButton, StatusBadge } from '../ui'
 import {
-  InventoryBottle, TrackingPreview, fetchBottlesForItem, fetchTrackingPreview,
+  InventoryBottle, TrackingPreview, bottleDeepLink, fetchBottlesForItem, fetchTrackingPreview,
   finalizeTracking, generateBottle,
 } from '../../lib/inventory-bottles'
 import { apcLabel, computeTrackingReconciliation, formatMl } from '../../lib/bottle-scan'
-import { BottleLabelPrint } from './BottleLabelPrint'
+import { printBottleLabels } from '../../lib/print-labels'
+import { BottleSplitModal } from './BottleSplitModal'
+import { PhysicalIdentityView } from './PhysicalIdentityView'
 import './BottleOnboardingModal.css'
 
 function goToCount(itemId:string) {
@@ -30,7 +32,9 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
   const [generating, setGenerating] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
   const [printSelection, setPrintSelection] = useState<Set<string>>(new Set())
-  const [printQueue, setPrintQueue] = useState<InventoryBottle[] | null>(null)
+  const [splittingBottle, setSplittingBottle] = useState<InventoryBottle | null>(null)
+  const [identityBottle, setIdentityBottle] = useState<InventoryBottle | null>(null)
+  const [identityIsFresh, setIdentityIsFresh] = useState(false)
 
   const load = () => {
     Promise.all([fetchTrackingPreview(itemId), fetchBottlesForItem(itemId)])
@@ -48,14 +52,23 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
     if (!newLabel.trim()) return
     setGenerating(true); setError('')
     try {
-      await generateBottle(itemId, newLabel.trim())
+      const bottle = await generateBottle(itemId, newLabel.trim())
       setNewLabel('')
       reload()
+      // Fluxo ensinado (briefing seção 3/9): mostrar QR+Code128 na tela
+      // imediatamente após criar a identidade, antes de imprimir/colar/bipar.
+      setIdentityIsFresh(true); setIdentityBottle(bottle)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível gerar esta identidade.')
     } finally {
       setGenerating(false)
     }
+  }
+
+  function bottleStatusView(bottle: InventoryBottle) {
+    if (bottle.status === 'empty') return { tone: 'warning' as const, label: 'VAZIO' }
+    if (bottle.status === 'retired') return { tone: 'neutral' as const, label: 'RETIRADO' }
+    return { tone: 'success' as const, label: 'ATIVO' }
   }
 
   async function handleFinalize() {
@@ -79,15 +92,13 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
   }
 
   function printOne(bottle: InventoryBottle) {
-    setPrintQueue([bottle])
-    requestAnimationFrame(() => window.print())
+    printBottleLabels(perfumeName, [bottle.bottle_code])
   }
 
   function printSelected() {
     const chosen = activeBottles.filter((bottle) => printSelection.has(bottle.id))
     if (chosen.length === 0) return
-    setPrintQueue(chosen)
-    requestAnimationFrame(() => window.print())
+    printBottleLabels(perfumeName, chosen.map((bottle) => bottle.bottle_code))
   }
 
   return (
@@ -97,7 +108,24 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
         <SecondaryButton onClick={close}>Fechar</SecondaryButton>
       </>
     }>
-      {printQueue && <BottleLabelPrint bottles={printQueue} brandHouse={preview?.brand_house ?? null} perfumeName={perfumeName} />}
+      {splittingBottle && <BottleSplitModal bottle={splittingBottle} perfumeName={perfumeName} close={() => setSplittingBottle(null)} onDone={reload} />}
+      {identityBottle && (() => {
+        const view = bottleStatusView(identityBottle)
+        return (
+          <PhysicalIdentityView
+            eyebrow={`FRASCO ${identityBottle.bottle_code}`}
+            title={perfumeName}
+            volumeLabel={formatMl(identityBottle.physical_ml)}
+            statusLabel={view.label}
+            statusTone={view.tone}
+            code={identityBottle.barcode_value}
+            qrValue={bottleDeepLink(identityBottle.qr_token)}
+            showGuide={identityIsFresh}
+            onPrint={() => printOne(identityBottle)}
+            onClose={() => { setIdentityBottle(null); setIdentityIsFresh(false) }}
+          />
+        )
+      })()}
 
       {error && <div className="notice"><AlertTriangle size={16} /><span>{error}</span></div>}
 
@@ -130,7 +158,9 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
                       <strong>{bottle.bottle_label}</strong>
                       <span>{bottle.bottle_code} · {formatMl(bottle.physical_ml)} · APC {apc.headline}</span>
                     </div>
+                    <button className="bottle-onboarding-print-one" onClick={() => { setIdentityIsFresh(false); setIdentityBottle(bottle) }}><QrCode size={14} /> Identidade</button>
                     <button className="bottle-onboarding-print-one" onClick={() => printOne(bottle)}><Printer size={14} /> Etiqueta</button>
+                    {canManage && <button className="bottle-onboarding-print-one" onClick={() => setSplittingBottle(bottle)}><Scissors size={14} /> Fracionar</button>}
                   </li>
                 )
               })}
@@ -147,6 +177,7 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
                 <SecondaryButton icon={<Printer size={16} />} onClick={printSelected} disabled={printSelection.size === 0}>Imprimir selecionadas ({printSelection.size})</SecondaryButton>
                 <PrimaryButton icon={<Check size={16} />} disabled={!reconciliation?.reconciled || activeBottles.length === 0} loading={finalizing} onClick={handleFinalize}>Finalizar identificação</PrimaryButton>
               </div>
+              <small className="bottle-onboarding-print-hint">Etiqueta é 28x10mm, aberta numa aba nova — na caixa de impressão, selecione "Tamanho real" (100%), nunca "Ajustar à página". Se a impressora mostrar A4, cadastre um papel personalizado 28×10mm no driver.</small>
             </div>
           )}
         </div>

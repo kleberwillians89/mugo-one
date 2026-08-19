@@ -63,3 +63,18 @@ export function missingLabelFields(value:ShippingFields){
 }
 export const canQuoteShipment=(status:string)=>['draft','requested'].includes(status)
 export const canBuyLabel=(status:string,missing:string[])=>status==='customer_approved'&&missing.length===0
+
+// Movido de components/ShipmentOperations.tsx (Fase 4 do roadmap operacional
+// — Smart Shipping Queue) para poder ser reutilizado por lib/shipment-queue.ts
+// sem criar um import circular entre um componente e a lib que ele usa.
+export type Stage='preparing'|'conference'|'freight'|'label'|'posted'|'delivered'
+export const stageLabels:Record<Stage,string>={preparing:'Em preparação',conference:'Conferência',freight:'Frete',label:'Etiqueta',posted:'Postado',delivered:'Entregue'}
+type StageShipment=ShipmentActionState&{selected_quote_id:string|null;shipment_items:{checked_at:string|null;divergence_note:string|null}[]}
+export function shipmentStage(row:StageShipment):Stage{
+  if(row.status==='delivered')return 'delivered'
+  if(row.status==='posted')return 'posted'
+  if(row.status==='label_pending'||row.status==='label_released'||row.superfrete_order_id)return 'label'
+  if(row.status==='awaiting_customer_approval'||row.status==='customer_approved'||row.selected_quote_id)return 'freight'
+  const conferred=row.shipment_items.length>0&&row.shipment_items.every(item=>item.checked_at&&!item.divergence_note)
+  return conferred?'conference':'preparing'
+}

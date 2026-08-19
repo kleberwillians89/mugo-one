@@ -4,7 +4,7 @@ import {normalizeInventoryPerfumeName,reconcileInventoryGroup} from './ai-invent
 import type {AiSalesBatchGroup,OperationalInventoryRow} from './records'
 
 const group=(name:string):AiSalesBatchGroup=>({perfume:name,raw_perfume_name:name,normalized_perfume_name:normalizeInventoryPerfumeName(name),display_name:name.replace(/\s*\(FRASCO \d+\)$/i,''),brand:null,bottle_number:null,inventory_item_id:null,perfume_id:null,perfume_match_status:'new',perfume_matches:[],inventory:null,sales:[],availability_rows:0,totals:{sales:8,volume_ml:50,amount:2458}})
-const item=(id:string,name:string):OperationalInventoryRow=>({item_id:id,perfume_id:`perfume-${id}`,perfume:name,physical_ml:23,reserved_ml:0,shipping_ml:0,available_ml:23,minimum_ml:0,reconciliation_status:'reconciled'})
+const item=(id:string,name:string):OperationalInventoryRow=>({item_id:id,perfume_id:`perfume-${id}`,perfume:name,physical_ml:23,reserved_ml:0,shipping_ml:0,available_ml:23,minimum_ml:0,reconciliation_status:'reconciled',average_cost_per_ml:null})
 
 describe('resolução do inventário na preview',()=>{
   it.each([['FÈVE NECTAR - PLACE DE LA RÊVERIE','Fève Nectar — Place de la Rêverie'],['THAYS - FUEGUIA 1833','thays — fueguia 1833'],['BLOCKADE - MIND GAMES (FRASCO 2)','Blockade — Mind Games'],['BLONDE  AMBER - CLIVE CHRISTIAN','blonde amber — clive christian']])('faz match forte de %s',(raw,canonical)=>expect(reconcileInventoryGroup(group(raw),[item('1',canonical)])).toMatchObject({inventory_item_id:'1',perfume_match_status:'found'}))

@@ -8,7 +8,8 @@ import { operationalLabel, statusLabel } from '../lib/presentation'
 import { exportCsv } from '../lib/csv'
 import { deliveryLabel } from '../lib/delivery'
 import { CommercialSale, SaleFilters, fetchSalesPage } from '../lib/records'
-import { Drawer, PageHeader, PrimaryButton, SearchInput, SecondaryButton, Table } from '../components/ui'
+import { BlockedSale, assignBlockedSale, blockingReasonLabels, fetchSalesValidationQueue } from '../lib/sales-validation'
+import { Drawer, PageHeader, PrimaryButton, SearchInput, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import { AiSalesBatchImport } from '../components/AiSalesBatchImport'
 import './SalesPage.css'
 
@@ -20,13 +21,26 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const [page,setPage]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState('')
   const [filters,setFilters]=useState<SaleFilters>({period,sort:'sale_date_desc'})
   const [filtersOpen,setFiltersOpen]=useState(false)
+  const [tab,setTab]=useState<'todas'|'bloqueadas'>(new URLSearchParams(location.search).get('filtro')==='bloqueadas'?'bloqueadas':'todas')
+  const [blocked,setBlocked]=useState<BlockedSale[]>([]),[blockedLoading,setBlockedLoading]=useState(true)
   const details:CommercialSale|null=null
   const setDetails=(sale:CommercialSale|null)=>{if(sale){history.pushState({},'',`/vendas/${sale.id}`);dispatchEvent(new PopStateEvent('popstate'))}}
+  const openBlockedSale=(sale:BlockedSale)=>{history.pushState({},'',`/vendas/${sale.sale_id}`);dispatchEvent(new PopStateEvent('popstate'))}
   const setFilter=(key:keyof SaleFilters,value:string)=>{setPage(0);setFilters((current)=>({...current,[key]:value||undefined}))}
   const activeFilterCount=Object.entries(filters).filter(([key,value])=>key!=='period'&&key!=='sort'&&key!=='search'&&value!==undefined&&value!=='').length
   const clearFilters=()=>{setPage(0);setFilters({period,sort:'sale_date_desc'})}
   const refresh=useCallback(()=>fetchSalesPage({...filters,period},page,50).then((result)=>{setSales(result.rows);setCount(result.count)}).catch(()=>setError('Não foi possível consultar as vendas.')).finally(()=>setLoading(false)),[filters,page,period])
   useEffect(()=>{refresh()},[refresh])
+  // Fase 2 do roadmap operacional ("Qual venda está bloqueada?"): a contagem
+  // carrega sempre, independente da aba ativa, para o rótulo "Bloqueadas (N)"
+  // já avisar o Davi antes de ele precisar clicar.
+  const reloadBlocked=()=>fetchSalesValidationQueue().then(setBlocked).catch(()=>setError('Não foi possível consultar as vendas bloqueadas.')).finally(()=>setBlockedLoading(false))
+  useEffect(()=>{reloadBlocked()},[])
+  // Fase 5 (Task Delegation): assumir não "resolve" a pendência sozinho — a
+  // venda só sai da lista quando o dado que falta é realmente corrigido (a
+  // consulta já reflete isso ao vivo). Assumir só evita duas pessoas
+  // mexerem na mesma venda ao mesmo tempo.
+  const assignBlocked=async(sale:BlockedSale)=>{try{await assignBlockedSale(sale.sale_id);await reloadBlocked()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível assumir esta venda.')}}
   const total=sales.reduce((sum,sale)=>sum+Number(sale.amount),0)
 
   return <div className="page">
@@ -40,6 +54,26 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setModal(true)}>Nova venda</PrimaryButton>
     </>}/>
 
+    <div className="tabs sales-tabs">
+      <button className={tab==='todas'?'selected':''} onClick={()=>setTab('todas')}>Todas</button>
+      <button className={tab==='bloqueadas'?'selected':''} onClick={()=>setTab('bloqueadas')}>Bloqueadas {!blockedLoading&&`(${blocked.length})`}</button>
+    </div>
+
+    {tab==='bloqueadas'?
+      blockedLoading?<div className="empty card"><h3>Carregando vendas bloqueadas…</h3></div>:
+      blocked.length===0?<div className="empty card"><h3>Nenhuma venda bloqueada</h3><p>Todas as vendas pagas ou aguardando têm os dados necessários para seguir para o envio.</p></div>:
+      <div className="card clients-table"><div className="clients-caption"><strong>{integer(blocked.length)} vendas precisam de atenção</strong></div>
+        <Table rowKey={(sale)=>sale.sale_id} rows={blocked} onRowClick={openBlockedSale} columns={[
+          {key:'sale_date',label:'Data',render:(sale)=>shortDate(sale.sale_date)},
+          {key:'client',label:'Cliente',render:(sale)=><strong>{sale.client_name}</strong>},
+          {key:'perfume',label:'Perfume',render:(sale)=>sale.perfume_name??'—'},
+          {key:'amount',label:'Valor',render:(sale)=>brl(Number(sale.amount))},
+          {key:'reasons',label:'Motivo',render:(sale)=><div className="sales-blocking-reasons">{blockingReasonLabels(sale.blocking_reasons).map((label)=><StatusBadge key={label} tone="warning">{label}</StatusBadge>)}</div>},
+          {key:'assignee',label:'Responsável',render:(sale)=>sale.assigned_to_name?<StatusBadge tone="neutral">{sale.assigned_to_name}</StatusBadge>:<button onClick={(event)=>{event.stopPropagation();assignBlocked(sale)}}>Assumir</button>},
+          {key:'actions',label:'Ações',render:(sale)=><button onClick={(event)=>{event.stopPropagation();openBlockedSale(sale)}}>Resolver</button>},
+        ]}/>
+      </div>
+    :<>
     <div className="sales-toolbar">
       <SearchInput value={filters.search??''} onChange={(value)=>setFilter('search',value)} placeholder="Buscar cliente, perfume ou observação…"/>
       <select value={filters.status??''} onChange={(event)=>setFilter('status',event.target.value)}><option value="">Todos os pagamentos</option><option value="paid">Pago</option><option value="pending">Aguardando</option><option value="cancelled">Cancelado</option><option value="unknown">Revisão</option></select>
@@ -87,6 +121,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
       />
       <div className="table-foot"><button disabled={page===0} onClick={()=>setPage(page-1)}>Anterior</button><span>Página {page+1} de {Math.max(1,Math.ceil(count/50))}</span><button disabled={(page+1)*50>=count} onClick={()=>setPage(page+1)}>Próxima</button></div>
     </div>}
+    </>}
   </div>
 }
 

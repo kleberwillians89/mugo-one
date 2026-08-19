@@ -1,0 +1,26 @@
+.scan-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  font: var(--fw-semibold) var(--fs-md) var(--font-ui);
+}
+.scan-feedback-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.scan-feedback-body strong { font-size: var(--fs-lg); }
+.scan-feedback-body span,
+.scan-feedback-body p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  overflow-wrap: anywhere;
+}
+
+.scan-feedback--success { background: var(--success-bg); color: var(--success); }
+.scan-feedback--warning { background: var(--warning-bg); color: var(--warning); }
+.scan-feedback--error { background: var(--danger-bg); color: var(--danger); }
