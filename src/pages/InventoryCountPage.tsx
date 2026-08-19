@@ -34,6 +34,7 @@ export function InventoryCountPage({ itemId }: { itemId: string }) {
     setCamera(false)
     const parsed = parseScannedValue(raw)
     if (!parsed) { setNote('Não reconhecemos este frasco.'); return }
+    if (parsed.kind === 'split') { setNote('Isto é um split, não um frasco — não faz parte deste inventário por frasco.'); return }
     try {
       const result = parsed.kind === 'token' ? await resolveBottleByToken(parsed.value) : await resolveBottleByCode(parsed.value)
       if (!result) { setNote('Não reconhecemos este frasco.'); return }

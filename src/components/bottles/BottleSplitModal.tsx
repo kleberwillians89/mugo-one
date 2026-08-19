@@ -4,7 +4,7 @@ import { Modal, PrimaryButton, SecondaryButton } from '../ui'
 import { InventoryBottle, InventorySplitUnit, splitBottle } from '../../lib/inventory-bottles'
 import { computeSplitPreview } from '../../lib/split-units'
 import { formatMl } from '../../lib/bottle-scan'
-import { SplitLabelPrint } from './SplitLabelPrint'
+import { printSplitLabels } from '../../lib/print-labels'
 import { PhysicalIdentityView } from './PhysicalIdentityView'
 import './BottleSplitModal.css'
 
@@ -22,7 +22,6 @@ export function BottleSplitModal({ bottle, perfumeName, close, onDone }: Props) 
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState<InventorySplitUnit[] | null>(null)
-  const [printQueue, setPrintQueue] = useState<InventorySplitUnit[] | null>(null)
   const [identityUnit, setIdentityUnit] = useState<InventorySplitUnit | null>(null)
 
   const qty = Number(quantityPerVial.replace(',', '.'))
@@ -45,8 +44,7 @@ export function BottleSplitModal({ bottle, perfumeName, close, onDone }: Props) 
 
   function printLabels() {
     if (!created) return
-    setPrintQueue(created)
-    requestAnimationFrame(() => window.print())
+    printSplitLabels(perfumeName, created.map((unit) => unit.split_code))
   }
 
   return <Modal open onClose={close} eyebrow="ESTOQUE · FRACIONAMENTO" title={`Fracionar ${bottle.bottle_label} — ${perfumeName}`} footer={
@@ -58,7 +56,6 @@ export function BottleSplitModal({ bottle, perfumeName, close, onDone }: Props) 
       <PrimaryButton icon={<Scissors size={16} />} loading={creating} disabled={!preview.valid} onClick={handleCreate}>Gerar {Number.isFinite(cnt) && cnt > 0 ? cnt : ''} splits</PrimaryButton>
     </>
   }>
-    {printQueue && <SplitLabelPrint units={printQueue} perfumeName={perfumeName} />}
     {identityUnit && (
       <PhysicalIdentityView
         eyebrow={`SPLIT ${identityUnit.split_code}`}
@@ -68,7 +65,7 @@ export function BottleSplitModal({ bottle, perfumeName, close, onDone }: Props) 
         statusTone={identityUnit.status === 'available' ? 'success' : 'neutral'}
         code={identityUnit.barcode_value}
         qrValue={identityUnit.barcode_value}
-        onPrint={() => { setPrintQueue([identityUnit]); requestAnimationFrame(() => window.print()) }}
+        onPrint={() => printSplitLabels(perfumeName, [identityUnit.split_code])}
         onClose={() => setIdentityUnit(null)}
       />
     )}

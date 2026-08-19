@@ -56,6 +56,7 @@ export function QrCameraScanner({ onScan, onClose }: Props) {
   const [error, setError] = useState(supported ? '' : 'Este navegador não permite abrir a câmera aqui. Use a câmera normal do celular para ler o QR.')
   const [active, setActive] = useState(false)
   const [dualFormat, setDualFormat] = useState(false)
+  const [formatCheckDone, setFormatCheckDone] = useState(false)
 
   useEffect(() => {
     if (!supported) return
@@ -63,7 +64,7 @@ export function QrCameraScanner({ onScan, onClose }: Props) {
     let detector: DetectorLike | null = null
     let detecting = false
 
-    buildBarcodeDetector().then((result) => { if (!cancelled) { detector = result; setDualFormat(Boolean(result)) } })
+    buildBarcodeDetector().then((result) => { if (!cancelled) { detector = result; setDualFormat(Boolean(result)); setFormatCheckDone(true) } })
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then((stream) => {
       if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return }
@@ -142,6 +143,14 @@ export function QrCameraScanner({ onScan, onClose }: Props) {
         {onClose && <button className="qr-scanner-close" aria-label="Fechar câmera" onClick={onClose}><X size={18} /></button>}
       </div>
       <p className="qr-scanner-hint"><Camera size={14} /> {active ? (dualFormat ? 'Aponte para o QR ou o código de barras' : 'Aponte para o QR do frasco') : 'Abrindo câmera…'}</p>
+      {/* iPhone/Safari tipicamente não suporta BarcodeDetector para Code128
+          (briefing seção 10: "Não tratar isso como bug da aplicação") — QR
+          continua funcionando (jsQR, sempre disponível); só avisamos que o
+          código de barras físico precisa de outro caminho, sem deixar
+          nenhum botão quebrado. */}
+      {active && formatCheckDone && !dualFormat && (
+        <p className="qr-scanner-fallback-notice">Seu navegador lê QR Code nesta tela. Para código de barras use um scanner físico ou digite o código.</p>
+      )}
     </div>
   )
 }

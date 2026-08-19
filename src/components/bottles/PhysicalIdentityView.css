@@ -34,6 +34,13 @@
   border-radius: var(--radius-lg);
 }
 
+.identity-view-hint {
+  margin: calc(var(--space-3) * -1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.identity-view-hint strong { color: var(--ink-soft); }
+
 .identity-view-code {
   margin: 0;
   font: var(--fw-semibold) var(--fs-sm) var(--font-ui);

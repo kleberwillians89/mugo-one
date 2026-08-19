@@ -6,7 +6,7 @@ import {
   finalizeTracking, generateBottle,
 } from '../../lib/inventory-bottles'
 import { apcLabel, computeTrackingReconciliation, formatMl } from '../../lib/bottle-scan'
-import { BottleLabelPrint } from './BottleLabelPrint'
+import { printBottleLabels } from '../../lib/print-labels'
 import { BottleSplitModal } from './BottleSplitModal'
 import { PhysicalIdentityView } from './PhysicalIdentityView'
 import './BottleOnboardingModal.css'
@@ -32,7 +32,6 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
   const [generating, setGenerating] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
   const [printSelection, setPrintSelection] = useState<Set<string>>(new Set())
-  const [printQueue, setPrintQueue] = useState<InventoryBottle[] | null>(null)
   const [splittingBottle, setSplittingBottle] = useState<InventoryBottle | null>(null)
   const [identityBottle, setIdentityBottle] = useState<InventoryBottle | null>(null)
   const [identityIsFresh, setIdentityIsFresh] = useState(false)
@@ -93,15 +92,13 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
   }
 
   function printOne(bottle: InventoryBottle) {
-    setPrintQueue([bottle])
-    requestAnimationFrame(() => window.print())
+    printBottleLabels(perfumeName, [bottle.bottle_code])
   }
 
   function printSelected() {
     const chosen = activeBottles.filter((bottle) => printSelection.has(bottle.id))
     if (chosen.length === 0) return
-    setPrintQueue(chosen)
-    requestAnimationFrame(() => window.print())
+    printBottleLabels(perfumeName, chosen.map((bottle) => bottle.bottle_code))
   }
 
   return (
@@ -111,7 +108,6 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
         <SecondaryButton onClick={close}>Fechar</SecondaryButton>
       </>
     }>
-      {printQueue && <BottleLabelPrint bottles={printQueue} />}
       {splittingBottle && <BottleSplitModal bottle={splittingBottle} perfumeName={perfumeName} close={() => setSplittingBottle(null)} onDone={reload} />}
       {identityBottle && (() => {
         const view = bottleStatusView(identityBottle)
@@ -181,7 +177,7 @@ export function BottleOnboardingModal({ itemId, perfumeName, close, canManage }:
                 <SecondaryButton icon={<Printer size={16} />} onClick={printSelected} disabled={printSelection.size === 0}>Imprimir selecionadas ({printSelection.size})</SecondaryButton>
                 <PrimaryButton icon={<Check size={16} />} disabled={!reconciliation?.reconciled || activeBottles.length === 0} loading={finalizing} onClick={handleFinalize}>Finalizar identificação</PrimaryButton>
               </div>
-              <small className="bottle-onboarding-print-hint">Etiqueta é 24x10mm — na caixa de impressão, selecione "Tamanho real" (100%), nunca "Ajustar à página".</small>
+              <small className="bottle-onboarding-print-hint">Etiqueta é 28x10mm, aberta numa aba nova — na caixa de impressão, selecione "Tamanho real" (100%), nunca "Ajustar à página". Se a impressora mostrar A4, cadastre um papel personalizado 28×10mm no driver.</small>
             </div>
           )}
         </div>

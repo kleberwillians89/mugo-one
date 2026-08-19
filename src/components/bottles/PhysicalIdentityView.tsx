@@ -83,9 +83,11 @@ export function PhysicalIdentityView({ eyebrow, title, volumeLabel, statusLabel,
         <div className="identity-view-qr">
           <QrCodeImage value={qrValue} size={220} alt={`QR de ${code}`} />
         </div>
+        <p className="identity-view-hint"><strong>QR Code</strong> — leia com a câmera do celular</p>
 
         <p className="identity-view-code">{code}</p>
         <div className="identity-view-barcode"><BarcodeImage value={code} /></div>
+        <p className="identity-view-hint"><strong>Código de barras</strong> — leia com scanner físico</p>
 
         <div className="identity-view-actions">
           <SecondaryButton icon={<Camera size={16} />} onClick={goToScanner}>Ler com câmera</SecondaryButton>

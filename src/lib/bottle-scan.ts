@@ -8,11 +8,16 @@
 export type ScanLookup =
   | { kind: 'token'; value: string }
   | { kind: 'code'; value: string }
+  | { kind: 'split'; value: string }
 
 /**
  * A QR decode yields a full deep-link URL; a physical barcode scanner types
  * "RUAH-F000185" + Enter; manual entry may be either the bare code
- * ("F000185") or the full barcode value. All four collapse to one lookup.
+ * ("F000185") or the full barcode value. A split code ("S000185-001",
+ * bare or "RUAH-"-prefixed) resolves as its own kind — a split is never a
+ * bottle, so it is never a "kind: code" match — one canonical parser, used
+ * by camera/HID/manual entry alike (briefing seção 9: "resolvedor
+ * canônico", nunca lógica duplicada por componente).
  */
 export function parseScannedValue(raw: string): ScanLookup | null {
   const value = raw.trim()
@@ -24,6 +29,9 @@ export function parseScannedValue(raw: string): ScanLookup | null {
   // A bare token (no URL wrapper) still routes as a token lookup — same
   // shape a deep link resolves to once the /q/:token path segment is peeled off.
   if (/^[0-9a-f]{64}$/i.test(value)) return { kind: 'token', value }
+
+  const splitMatch = value.match(/^(?:RUAH-)?(S\d{6}-\d{3})$/i)
+  if (splitMatch) return { kind: 'split', value: splitMatch[1].toUpperCase() }
 
   const codeMatch = value.match(/^(?:RUAH-)?(F\d{6})$/i)
   if (codeMatch) return { kind: 'code', value: codeMatch[1].toUpperCase() }

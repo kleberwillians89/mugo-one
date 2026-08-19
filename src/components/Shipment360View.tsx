@@ -758,7 +758,7 @@ export function ShipmentPrintView({
         <p>{shortDate(shipment.created_at)}</p>
       </header>
       {/* Identidade da NOTA DE CONTROLE (pedido/envio) — nunca a identidade
-          do frasco físico (essa é a etiqueta 30x10mm, BottleLabelPrint,
+          do frasco físico (essa é a etiqueta 28x10mm de /print/bottle,
           um objeto de impressão totalmente diferente). QR aponta para o
           próprio Envio 360 autenticado (nunca dados do cliente/financeiro
           no payload); Code128 carrega o mesmo shipment.id — o identificador

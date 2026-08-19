@@ -4,11 +4,13 @@ import JsBarcode from 'jsbarcode'
 type Props = { value:string; displayValue?:boolean; height?:number; width?:number; fontSize?:number }
 
 /**
- * Code128 rendering only — reading happens via a physical USB/BT scanner
- * acting as a keyboard, never by camera decode. displayValue/height/width
- * default to the original sizing used everywhere except the 30x10mm bottle
- * label (BottleLabelPrint passes displayValue=false there — see its
- * comment for why the human-readable caption is dropped at that scale).
+ * Code128 rendering — read via a physical USB/BT scanner acting as a
+ * keyboard, camera decode (BarcodeDetector, when supported), or manual
+ * entry. displayValue/height/width default to the original sizing used
+ * everywhere except the 28x10mm physical label (PrintLabelPage passes
+ * displayValue=false there — the label prints its own human-readable code
+ * as separate text, so the barcode itself needs no caption competing for
+ * height).
  */
 export function BarcodeImage({ value, displayValue = true, height = 46, width = 2, fontSize = 13 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
