@@ -70,11 +70,11 @@ describe('tests 6-7-8 — early external state is recoverable, not erased or fak
     expect(syncFn).not.toMatch(/\bsplit_unit_id\s*[:=]/)
     expect(syncFn).toContain("integration_error:'PHYSICAL_CONFERENCE_PENDING'")
   })
-  it('the pending state is a distinct, named operational exception, not a generic swallowed error — the specific applyError is checked before falling through to the generic throw', () => {
+  it('the pending state is a distinct, named operational exception, not a generic swallowed error — the specific applyError is checked before falling through to its own distinct error code (no longer a bare rethrow — see superfrete-sync-print.test.ts for why: a rethrow used to get mislabeled as a network error by safeProviderError)', () => {
     const specificCheckIndex = syncFn.indexOf("applyError.message.includes('physical_source_not_confirmed')")
-    const genericThrowIndex = syncFn.indexOf('throw new Error(applyError.message)')
+    const distinctErrorCodeIndex = syncFn.indexOf("code:'SUPERFRETE_STATE_APPLY_ERROR'")
     expect(specificCheckIndex).toBeGreaterThan(-1)
-    expect(genericThrowIndex).toBeGreaterThan(specificCheckIndex)
+    expect(distinctErrorCodeIndex).toBeGreaterThan(specificCheckIndex)
   })
   it('test 7: retrying sync after a valid scan resolves normally — nothing in the sync path special-cases "already tried once", so a later call with the gate now satisfied just succeeds via the normal apply_superfrete_state path', () => {
     // The recovery mechanism is the ABSENCE of blocking state on retry, not

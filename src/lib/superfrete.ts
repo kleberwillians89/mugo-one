@@ -5,7 +5,7 @@ export const shipmentStatusLabels:Record<string,string>={
 }
 
 export type ShipmentNextAction='create_label'|'checkout'|'sync'|'print'|'track'|'none'
-export type ShipmentActionState={status:string;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null;print_available:boolean;print_url:string|null;label_pdf_url:string|null;tracking_code:string|null}
+export type ShipmentActionState={status:string;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null;print_available:boolean;print_url:string|null;label_pdf_url:string|null;tracking_code:string|null;integration_error?:string|null}
 const cancelledStatuses=new Set(['canceled','cancelled','cancelado','cancelada'])
 const isCancelled=(status:string|null)=>cancelledStatuses.has(String(status||'').trim().toLowerCase())
 
@@ -39,7 +39,20 @@ export function getLabelUiState(shipment:ShipmentActionState):LabelUiState{
   if(isCancelled(shipment.superfrete_status))return {title:'ETIQUETA CANCELADA',description:'Esta etiqueta foi cancelada na SuperFrete. Nenhum arquivo de impressão está disponível.',canSync:false,canPrint:false,canCopyTracking:hasTracking,primaryAction:'none',printUnavailableReason:'Esta etiqueta foi cancelada na SuperFrete.',isCancelled:true}
   if(primaryAction==='checkout')return {title:'ETIQUETA AGUARDANDO PAGAMENTO',description:'O pedido foi criado na SuperFrete, mas a compra ainda não foi concluída.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction,printUnavailableReason:'A compra precisa ser confirmada antes da impressão.',isCancelled:false}
   if(canPrint)return {title:'ETIQUETA PRONTA',description:'A compra foi concluída e o arquivo oficial está disponível.',canSync:true,canPrint:true,canCopyTracking:hasTracking,primaryAction:'print',printUnavailableReason:null,isCancelled:false}
-  if(hasOrder&&printableStatus)return {title:'ETIQUETA CRIADA',description:'A compra foi concluída e o rastreio já foi gerado. O arquivo ainda está sendo preparado pela SuperFrete.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.',isCancelled:false}
+  if(hasOrder&&printableStatus){
+    // released/posted/delivered já dispara uma sondagem real do arquivo a
+    // cada sincronização (ver superfrete-sync-shipment) — então, se já foi
+    // sincronizado ao menos uma vez, integration_error SEMPRE reflete o
+    // resultado real dessa sondagem (nulo quando disponível, um dos
+    // SUPERFRETE_FILE_* quando não). "Ainda sendo preparado" só é verdade
+    // antes da primeira sincronização; depois disso, dizer isso quando na
+    // verdade JÁ tentamos e falhamos estaria mentindo sobre o estado real
+    // (bug relatado: painel oficial já libera impressão, RUAH insiste que
+    // "está sendo preparado" mesmo depois de sincronizar).
+    const probedAndUnavailable=Boolean(shipment.integration_error)&&shipment.integration_error!=='SUPERFRETE_PROVIDER_PROCESSING'
+    if(probedAndUnavailable)return {title:'ETIQUETA LIBERADA — ARQUIVO PENDENTE',description:'A etiqueta foi emitida na SuperFrete, mas o RUAH ainda não conseguiu obter o arquivo oficial para impressão.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'O RUAH ainda não conseguiu obter o arquivo oficial da SuperFrete. Tente sincronizar novamente.',isCancelled:false}
+    return {title:'ETIQUETA CRIADA',description:'A compra foi concluída e o rastreio já foi gerado. O arquivo ainda está sendo preparado pela SuperFrete.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.',isCancelled:false}
+  }
   if(hasOrder)return {title:'ETIQUETA SENDO PREPARADA',description:'A SuperFrete ainda está processando o arquivo. Você não precisa criar outra etiqueta.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.',isCancelled:false}
   return {title:'CRIAR ETIQUETA',description:'Prepare o pedido da etiqueta depois da conferência e aprovação.',canSync:false,canPrint:false,canCopyTracking:false,primaryAction:'create_label',printUnavailableReason:'Crie o pedido antes de imprimir.',isCancelled:false}
 }

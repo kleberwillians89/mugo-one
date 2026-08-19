@@ -21,5 +21,5 @@ describe('handlers reais da central de etiqueta',()=>{
 
 describe('impressão SuperFrete sem nova compra',()=>{
   it('sincroniza somente order/info e testa o arquivo oficial',()=>{expect(sync).toContain('/api/v0/order/info/');expect(sync).toContain('probeOfficialPrintFile');expect(sync).not.toContain('/api/v0/cart');expect(sync).not.toContain('/api/v0/checkout')})
-  it('não responde sucesso quando a saúde de impressão não foi persistida',()=>{expect(sync).toContain('print_health_persist_failed');expect(sync).toContain(".select('*').single()");expect(sync).toContain('data:updated')})
+  it('não responde sucesso quando a saúde de impressão não foi persistida',()=>{expect(sync).toContain("code:'SUPERFRETE_PRINT_PERSIST_ERROR'");expect(sync).toContain(".select('*').single()");expect(sync).toContain('data:updated')})
 })

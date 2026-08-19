@@ -39,6 +39,11 @@ export const isTimeout=(error:unknown)=>error instanceof DOMException&&error.nam
 export function safeProviderError(error:unknown):SafeProviderError{
   if(isTimeout(error))return {code:'SUPERFRETE_TIMEOUT',message:'A SuperFrete não confirmou a operação dentro do tempo limite.',httpStatus:504,uncertain:true}
   if(error instanceof Error&&error.message==='superfrete_not_configured')return {code:'SUPERFRETE_NOT_CONFIGURED',message:'A integração SuperFrete ainda não está configurada.',httpStatus:500,uncertain:false}
+  // A SuperFrete respondeu (não é timeout, não é HTTP de erro) mas o corpo
+  // não é JSON válido — contrato quebrado, não "rede". uncertain:true
+  // porque não dá para saber se a operação remota realmente aconteceu só
+  // por não conseguir ler a confirmação.
+  if(error instanceof Error&&(error as Error&{invalidResponse?:boolean}).invalidResponse)return {code:'SUPERFRETE_INVALID_RESPONSE',message:'A SuperFrete respondeu, mas em um formato inesperado. Tente sincronizar novamente.',httpStatus:502,uncertain:true}
   const status=Number((error as {status?:number})?.status||0)
   if(status===401||status===403)return {code:'SUPERFRETE_AUTH',message:'A autenticação da SuperFrete precisa ser revisada.',httpStatus:502,uncertain:false}
   if(status===429)return {code:'SUPERFRETE_RATE_LIMIT',message:'A SuperFrete limitou temporariamente as solicitações.',httpStatus:503,uncertain:false}

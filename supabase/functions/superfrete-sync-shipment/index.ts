@@ -9,28 +9,51 @@ Deno.serve(async(req)=>{
   const {data:shipment,error}=await ctx.client.from('shipments').select('id,superfrete_order_id,print_url,label_pdf_url').eq('id',shipmentId).eq('organization_id',ctx.organizationId).single()
   if(error||!shipment)return json({error:{code:'shipment_not_found',message:'Envio não encontrado.'}},404,req)
   if(!shipment.superfrete_order_id)return json({error:{code:'order_not_created',message:'Este envio ainda não possui pedido na SuperFrete.'}},409,req)
+
+  // Etapa 1 — a chamada de rede de verdade. Só um erro AQUI significa
+  // realmente "a SuperFrete não confirmou" (timeout/HTTP/DNS/resposta
+  // ilegível). Um erro DEPOIS desta etapa nunca deve reusar essa mensagem:
+  // a SuperFrete já respondeu com sucesso, quem falhou foi o RUAH ao
+  // processar a resposta localmente — ver etapas 2 e 3 abaixo.
+  let provider:unknown
   try{
-    const provider=await superFreteRequest(`/api/v0/order/info/${encodeURIComponent(shipment.superfrete_order_id)}`,{method:'GET'})
-    const state=extractOrderState(provider)
-    const {error:applyError}=await ctx.client.rpc('apply_superfrete_state',{p_shipment_id:shipmentId,p_run_id:null,p_state:state})
-    if(applyError){
-      // Correção final: a SuperFrete já reportou um estado externo que
-      // exigiria postar localmente, mas o gate defensivo de post_shipment
-      // bloqueou por falta de conferência física (frasco/split) — nunca
-      // silenciar isso como um erro genérico de sincronização. Persiste em
-      // integration_error (a mesma coluna já exibida na tela de envio via
-      // friendlyIntegrationError) para virar um estado operacional visível
-      // e recuperável, não um erro que desaparece com a resposta HTTP.
-      // Nada aqui inventa/força bottle_id nem contorna o gate — só torna o
-      // "aguardando conferência" visível; sincronizar de novo depois do
-      // bipe válido é idempotente (post_shipment já retorna cedo se o
-      // envio já estiver postado, e não faz nada até a conferência existir).
-      if(applyError.message.includes('physical_source_not_confirmed')){
-        await ctx.client.from('shipments').update({integration_error:'PHYSICAL_CONFERENCE_PENDING',superfrete_updated_at:new Date().toISOString()}).eq('id',shipmentId).eq('organization_id',ctx.organizationId)
-        return json({error:{code:'physical_conference_pending',message:'A SuperFrete já avançou este envio, mas a conferência física (frasco ou split) ainda não foi feita. Bipe o item pendente e sincronize novamente.'}},409,req)
-      }
-      throw new Error(applyError.message)
+    provider=await superFreteRequest(`/api/v0/order/info/${encodeURIComponent(shipment.superfrete_order_id)}`,{method:'GET'})
+  }catch(cause){
+    const safe=safeProviderError(cause)
+    return json({error:{code:safe.code,message:safe.message}},safe.httpStatus,req)
+  }
+  const state=extractOrderState(provider)
+
+  // Etapa 2 — aplicar o estado JÁ confirmado pela SuperFrete no banco
+  // local. Correção final: a SuperFrete já reportou um estado externo que
+  // exigiria postar localmente, mas o gate defensivo de post_shipment
+  // bloqueou por falta de conferência física (frasco/split) — nunca
+  // silenciar isso como um erro genérico de sincronização. Persiste em
+  // integration_error (a mesma coluna já exibida na tela de envio via
+  // friendlyIntegrationError) para virar um estado operacional visível e
+  // recuperável, não um erro que desaparece com a resposta HTTP. Nada
+  // aqui inventa/força bottle_id nem contorna o gate — só torna o
+  // "aguardando conferência" visível; sincronizar de novo depois do bipe
+  // válido é idempotente (post_shipment já retorna cedo se o envio já
+  // estiver postado, e não faz nada até a conferência existir). Qualquer
+  // OUTRA falha aqui (RLS, cast de campo secundário, etc.) é um problema
+  // do RUAH em salvar um estado que a SuperFrete já confirmou — nunca
+  // "erro de rede".
+  const {error:applyError}=await ctx.client.rpc('apply_superfrete_state',{p_shipment_id:shipmentId,p_run_id:null,p_state:state})
+  if(applyError){
+    if(applyError.message.includes('physical_source_not_confirmed')){
+      await ctx.client.from('shipments').update({integration_error:'PHYSICAL_CONFERENCE_PENDING',superfrete_updated_at:new Date().toISOString()}).eq('id',shipmentId).eq('organization_id',ctx.organizationId)
+      return json({error:{code:'physical_conference_pending',message:'A SuperFrete já avançou este envio, mas a conferência física (frasco ou split) ainda não foi feita. Bipe o item pendente e sincronize novamente.'}},409,req)
     }
+    console.error(JSON.stringify({stage:'apply_superfrete_state',shipment_id:shipmentId,order_id_suffix:String(shipment.superfrete_order_id).slice(-6),db_error_code:applyError.code??null}))
+    return json({error:{code:'SUPERFRETE_STATE_APPLY_ERROR',message:'A SuperFrete confirmou o pedido, mas o RUAH não conseguiu salvar o novo estado agora. Nada foi comprado ou postado de novo — sincronize novamente.'}},502,req)
+  }
+
+  // Etapa 3 — descobrir/persistir o status do arquivo de impressão. Também
+  // isolada: um erro aqui significa que o estado principal (status,
+  // rastreio) já foi salvo com sucesso na etapa 2; só a checagem do
+  // arquivo é que não pôde ser concluída.
+  try{
     const print=(state.print&&typeof state.print==='object'?state.print:{}) as Record<string,unknown>
     const rawPrintUrl=print.url??state.print_url??(typeof state.print==='string'?state.print:null)??shipment.print_url??shipment.label_pdf_url??''
     const trustedPrintUrl=officialPrintUrl(rawPrintUrl)?.href??''
@@ -38,11 +61,21 @@ Deno.serve(async(req)=>{
     const probe=printableStatus?await probeOfficialPrintFile(rawPrintUrl):{available:false,httpStatus:null,contentType:null,reason:'missing_url' as const}
     const printError=!printableStatus?'SUPERFRETE_PROVIDER_PROCESSING':probe.available?null:probe.reason==='missing_url'?'SUPERFRETE_FILE_MISSING':probe.httpStatus===401||probe.httpStatus===403?'SUPERFRETE_FILE_AUTH_OR_EXPIRED':probe.reason==='not_pdf'&&String(probe.contentType).includes('text/html')?'SUPERFRETE_FILE_HTML':probe.reason==='invalid_url'||probe.reason==='untrusted_source'?'SUPERFRETE_FILE_INVALID_URL':'SUPERFRETE_FILE_EXTERNAL_ERROR'
     const {data:updated,error:updateError}=await ctx.client.from('shipments').update({print_url:trustedPrintUrl||null,label_pdf_url:trustedPrintUrl||null,print_available:probe.available,print_http_status:probe.httpStatus,print_content_type:probe.contentType,print_checked_at:new Date().toISOString(),integration_error:printError}).eq('id',shipmentId).eq('organization_id',ctx.organizationId).select('*').single()
-    if(updateError||!updated)throw new Error(`print_health_persist_failed:${updateError?.code||'no_row'}`)
+    if(updateError||!updated){
+      console.error(JSON.stringify({stage:'print_health_persist',shipment_id:shipmentId,db_error_code:updateError?.code??'no_row'}))
+      return json({error:{code:'SUPERFRETE_PRINT_PERSIST_ERROR',message:'O estado da SuperFrete foi sincronizado, mas o RUAH não conseguiu salvar o status de impressão agora. Sincronize novamente.'}},502,req)
+    }
     let printHost:string|null=null,printPath:string|null=null
     try{const safeUrl=officialPrintUrl(rawPrintUrl);printHost=safeUrl?.hostname??null;printPath=safeUrl?.pathname??null}catch{/* URL externa inválida; nunca registrar o valor bruto */}
     console.log(JSON.stringify({stage:'print_health',shipment_id:shipmentId,order_id_suffix:String(shipment.superfrete_order_id).slice(-6),external_status:state.status??null,has_tracking:Boolean(state.tracking),has_print_url:Boolean(rawPrintUrl),print_url_host:printHost,print_url_path:printPath,print_http_status:probe.httpStatus,print_content_type:probe.contentType,print_available:probe.available,print_probe_reason:probe.reason}))
     await audit(ctx.client,ctx.organizationId,ctx.user.id,'superfrete_sync','shipment',shipmentId,{status:state.status??null,has_tracking:Boolean(state.tracking),has_print_url:Boolean(rawPrintUrl),print_http_status:probe.httpStatus,print_available:probe.available,print_probe_reason:probe.reason})
     return json({data:updated},200,req)
-  }catch(cause){const safe=safeProviderError(cause);return json({error:{code:safe.code,message:safe.message}},safe.httpStatus,req)}
+  }catch(cause){
+    // probeOfficialPrintFile nunca lança (captura os próprios erros); se
+    // algo inesperado ainda assim escapar aqui, o estado principal da
+    // etapa 2 já foi persistido com sucesso — nunca reusar o rótulo de
+    // erro de rede do provedor para isto.
+    console.error(JSON.stringify({stage:'print_health_unexpected',shipment_id:shipmentId,message:cause instanceof Error?cause.message:'unknown'}))
+    return json({error:{code:'SUPERFRETE_PRINT_PERSIST_ERROR',message:'O estado da SuperFrete foi sincronizado, mas o RUAH não conseguiu concluir a checagem do arquivo de impressão. Sincronize novamente.'}},502,req)
+  }
 })

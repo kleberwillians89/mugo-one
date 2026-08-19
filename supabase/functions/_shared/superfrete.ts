@@ -16,9 +16,15 @@ export async function superFreteRequest(path:string,init:RequestInit,timeoutMs=2
     const response=await fetch(`${config.baseUrl}${path}`,{...init,signal:controller.signal,headers:{
       accept:'application/json','content-type':'application/json',authorization:`Bearer ${config.token}`,'user-agent':config.userAgent,...(init.headers||{}),
     }})
-    const raw=await response.text();let body:unknown=null
-    try{body=raw?JSON.parse(raw):null}catch{/* resposta não JSON descartada */}
+    const raw=await response.text();let body:unknown=null,parseFailed=false
+    if(raw){try{body=JSON.parse(raw)}catch{parseFailed=true}}
     if(!response.ok){const error=new Error(`superfrete_http_${response.status}`) as Error&{status:number;providerBody:unknown};error.status=response.status;error.providerBody=body;throw error}
+    // Resposta 2xx mas corpo não é JSON válido: não é rede/timeout (a
+    // SuperFrete respondeu) nem um HTTP 4xx/5xx — é um contrato quebrado que
+    // não pode virar "network error" nem ser silenciosamente tratado como
+    // corpo vazio (extractOrderState nunca deve receber um body ilegível
+    // como se fosse um estado real e vazio).
+    if(parseFailed){const error=new Error('superfrete_invalid_response') as Error&{invalidResponse:true};error.invalidResponse=true;throw error}
     return body
   }finally{clearTimeout(timer)}
 }

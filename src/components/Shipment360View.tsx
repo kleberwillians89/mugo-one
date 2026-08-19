@@ -62,7 +62,13 @@ function nextStep(shipment: OperationalShipment): { description: string; button:
   if (labelAction === "print")
     return { description: "O arquivo oficial está pronto para impressão.", button: "IMPRIMIR ETIQUETA" };
   if (labelAction === "sync")
-    return { description: "A SuperFrete ainda está preparando o arquivo da etiqueta.", button: "ATUALIZAR ETIQUETA" };
+    return {
+      description:
+        shipment.integration_error && shipment.integration_error !== "SUPERFRETE_PROVIDER_PROCESSING"
+          ? "A etiqueta foi liberada na SuperFrete, mas o RUAH ainda não conseguiu obter o arquivo oficial."
+          : "A SuperFrete ainda está preparando o arquivo da etiqueta.",
+      button: "ATUALIZAR ETIQUETA",
+    };
   if (labelAction === "create_label")
     return { description: "Aprove o frete selecionado para liberar a etiqueta.", button: "CONFIRMAR FRETE" };
   return { description: "A operação atual está preservada. Continue pela ação indicada.", button: "REVISAR ENVIO" };
