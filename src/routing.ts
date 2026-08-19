@@ -37,4 +37,10 @@ export const pagePermission:Record<Page,string[]>={
   'Interessados':['waitlist.view'],'Configurações':['settings.view','team.view','team.manage'],
 }
 
-export const pageFromPath=()=>location.pathname.startsWith('/clientes/')?'Clientes':location.pathname.startsWith('/vendas/')?'Vendas':location.pathname.startsWith('/entregas/')?'Entregas':location.pathname.startsWith('/radar')?'Radar':location.pathname.startsWith('/estoque')?'Estoque':location.pathname.startsWith('/relatorios')?'Relatórios':Object.entries(routes).find(([,path])=>path===location.pathname)?.[0] as Page||'Visão Geral'
+// '/configuracoes/equipe' (aba Equipe, ver TeamSettingsPage) não é uma rota
+// exata do mapa `routes` (que só tem '/configuracoes') — sem este prefixo,
+// pageFromPath cairia no fallback 'Visão Geral' tanto ao recarregar a URL
+// direto quanto ao clicar "Equipe e acessos" (que navega via
+// pushState+popstate, reusando esta função), jogando o usuário de volta
+// para o Dashboard mesmo com a rota certa na barra de endereço.
+export const pageFromPath=()=>location.pathname.startsWith('/clientes/')?'Clientes':location.pathname.startsWith('/vendas/')?'Vendas':location.pathname.startsWith('/entregas/')?'Entregas':location.pathname.startsWith('/radar')?'Radar':location.pathname.startsWith('/estoque')?'Estoque':location.pathname.startsWith('/relatorios')?'Relatórios':location.pathname.startsWith('/configuracoes')?'Configurações':Object.entries(routes).find(([,path])=>path===location.pathname)?.[0] as Page||'Visão Geral'
