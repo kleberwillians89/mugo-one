@@ -1,16 +1,23 @@
 import { MoreHorizontal } from 'lucide-react'
-import { Page, navigation } from '../routing'
+import { Page, navigation, pagePermission } from '../routing'
+import { usePermissions } from '../lib/PermissionsContext'
 import { Drawer } from './ui/Drawer'
 import './Sidebar.css'
 
 type Props = { page: Page; setPage: (p: Page) => void; open: boolean; close: () => void }
 
 function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Page) => void; onNavigate?: () => void }) {
+  const { loading, permissions } = usePermissions()
+  // Esconder o item, não só desabilitar — mas nunca a única linha de
+  // defesa (has_org_permission no backend continua negando de qualquer
+  // forma). Enquanto carrega, nada extra aparece: melhor um menu quase
+  // vazio por um instante do que mostrar e depois sumir itens.
+  const visible = loading ? [] : navigation.filter(({ label }) => pagePermission[label].some((code) => permissions.has(code)))
   return (
     <>
       <div className="brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums" /><div><strong>RUAH</strong><span>INTELLIGENCE</span></div></div>
       <nav>
-        {navigation.map(({ label, icon: Icon }) => (
+        {visible.map(({ label, icon: Icon }) => (
           <button
             key={label}
             className={page === label ? 'active' : ''}

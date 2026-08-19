@@ -3,6 +3,8 @@ import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucid
 import type { Session } from '@supabase/supabase-js'
 import { App } from './App'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { PermissionsProvider } from './lib/PermissionsContext'
+import { normalizeLoginIdentifier } from './lib/permissions'
 import { QrBottlePage } from './pages/QrBottlePage'
 import { InventoryStationPage } from './pages/InventoryStationPage'
 import { InventoryCountPage } from './pages/InventoryCountPage'
@@ -34,10 +36,14 @@ export function LoginPage() {
   const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[show,setShow]=useState(false),[remember,setRemember]=useState(true)
   const [loading,setLoading]=useState(false),[error,setError]=useState('')
   const submit=async(e:FormEvent)=>{e.preventDefault();if(!supabase)return;setLoading(true);setError('')
-    const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password})
+    // "davi.vendas" vira e-mail interno só aqui, na hora de autenticar — a
+    // pessoa nunca vê nem digita esse e-mail (briefing "LOGIN POR
+    // USUÁRIO"). E-mail de verdade (contém "@") passa direto, preservando
+    // o login de contas antigas sem qualquer mudança de comportamento.
+    const {error}=await supabase.auth.signInWithPassword({email:normalizeLoginIdentifier(email),password})
     if(error)setError(message(error));else{localStorage.setItem('ruah_remember',String(remember));sessionStorage.setItem('ruah_session','active');go(safeNext(new URLSearchParams(location.search).get('next')))}setLoading(false)}
   return <AuthLayout title="Bem-vinda de volta" subtitle="Entre para acessar o CRM e a inteligência comercial."><form className="auth-form" onSubmit={submit}>
-    <label><span>E-mail</span><div><Mail/><input type="email" autoComplete="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="seu@email.com"/></div></label>
+    <label><span>Usuário ou e-mail</span><div><Mail/><input type="text" autoComplete="username" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="usuario ou seu@email.com"/></div></label>
     <label><span>Senha</span><div><LockKeyhole/><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Sua senha"/><button type="button" onClick={()=>setShow(!show)} aria-label={show?'Ocultar senha':'Mostrar senha'}>{show?<EyeOff/>:<Eye/>}</button></div></label>
     <div className="auth-options"><label><input type="checkbox" checked={remember} onChange={(e)=>setRemember(e.target.checked)}/> Manter conectado</label><button type="button" onClick={()=>go('/recuperar-senha')}>Esqueci minha senha</button></div>
     {error&&<div className="auth-error">{error}</div>}<button className="auth-submit" disabled={loading||!isSupabaseConfigured}>{loading?<LoaderCircle className="spin"/>:'Entrar'}</button>
@@ -99,5 +105,5 @@ export function AuthRoot() {
   if(path==='/estoque/leitor')return <InventoryStationPage/>
   const countMatch=path.match(/^\/estoque\/([0-9a-f-]{36})\/contagem$/i)
   if(countMatch)return <InventoryCountPage itemId={countMatch[1]}/>
-  return <App/>
+  return <PermissionsProvider><App/></PermissionsProvider>
 }
