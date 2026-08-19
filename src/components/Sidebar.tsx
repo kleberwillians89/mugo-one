@@ -7,12 +7,15 @@ import './Sidebar.css'
 type Props = { page: Page; setPage: (p: Page) => void; open: boolean; close: () => void }
 
 function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Page) => void; onNavigate?: () => void }) {
-  const { loading, permissions } = usePermissions()
+  const { loading, can } = usePermissions()
   // Esconder o item, não só desabilitar — mas nunca a única linha de
   // defesa (has_org_permission no backend continua negando de qualquer
   // forma). Enquanto carrega, nada extra aparece: melhor um menu quase
-  // vazio por um instante do que mostrar e depois sumir itens.
-  const visible = loading ? [] : navigation.filter(({ label }) => pagePermission[label].some((code) => permissions.has(code)))
+  // vazio por um instante (nunca PERMANENTE — loading sempre resolve para
+  // false, com sucesso ou erro) do que mostrar e depois sumir itens.
+  // can() já concede tudo automaticamente quando access_total=true, sem
+  // depender do código específico estar no conjunto plano.
+  const visible = loading ? [] : navigation.filter(({ label }) => pagePermission[label].some((code) => can(code)))
   return (
     <>
       <div className="brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums" /><div><strong>RUAH</strong><span>INTELLIGENCE</span></div></div>

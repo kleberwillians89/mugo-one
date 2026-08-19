@@ -5,7 +5,7 @@ import {approveShipmentForLabel,assumeShipmentConference,authenticatedOrganizati
 import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,Stage,shipmentStage,shipmentStatusLabels,stageLabels} from '../lib/superfrete'
 import {sortShipmentQueue,isUrgentShipment,shipmentIdFromScan} from '../lib/shipment-queue'
 import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
-import {useHasPermission} from '../lib/PermissionsContext'
+import {usePermissions} from '../lib/PermissionsContext'
 import {Shipment360View} from './Shipment360View'
 import {useKeyboardWedgeListener} from './bottles/useKeyboardWedgeListener'
 import {Divider, EmptyState, Modal} from './ui'
@@ -148,7 +148,8 @@ export function ShippingSettingsPage(){
   const required:[keyof ShippingSettings,string][]=[['sender_name','Nome / razão social'],['sender_document','CPF/CNPJ'],['sender_email','E-mail'],['sender_phone','Telefone'],['sender_postal_code','CEP'],['sender_address','Endereço'],['sender_number','Número'],['sender_district','Bairro'],['sender_city','Cidade'],['sender_state','UF'],['default_weight','Peso padrão'],['default_height','Altura padrão'],['default_width','Largura padrão'],['default_length','Comprimento padrão']]
   const missing=required.filter(([key])=>!String(form[key]??'').trim()).map(([,label])=>label)
   const submit=async()=>{if(missing.length){setMessage(`Preencha os campos obrigatórios: ${missing.join(', ')}.`);return}setSaving(true);setMessage('');try{await saveShippingSettings(form);setConfigured(true);setMessage('Configuração salva e persistida. O token continua somente nos Secrets do Supabase.')}catch(reason){setMessage(reason instanceof Error?reason.message:'Falha ao salvar.')}finally{setSaving(false)}}
-  const canSeeTeam=useHasPermission('team.view')
+  const {can}=usePermissions()
+  const canSeeTeam=can('team.view')||can('team.manage')
   return <div className="page">{canSeeTeam&&<div className="team-tabs"><button className="active">Frete</button><button onClick={()=>{history.pushState({},'','/configuracoes/equipe');dispatchEvent(new PopStateEvent('popstate'))}}>Equipe e acessos</button></div>}<div className="page-lead"><div><h2>Configurações</h2><p>Remetente e pacote padrão da operação logística.</p></div></div><div className="card settings-card"><div className="card-title"><div><h3>SuperFrete — Produção</h3><p>Nenhuma credencial é armazenada ou exibida no navegador.</p></div><span className="live-dot">{configured?'CONFIGURADO':'CONFIGURAÇÃO PENDENTE'}</span></div>{loading?<div className="inline-empty">Carregando…</div>:<div className="record-form">{!configured&&<div className="incomplete-data"><AlertTriangle/><div><strong>SUPERFRETE AINDA NÃO ESTÁ PRONTA PARA USO</strong><span>Preencha o remetente real e o pacote padrão. Sem isso, o cálculo de frete será bloqueado com segurança.</span></div></div>}
     <Divider label="Remetente"/>
     <div className="form-grid">{([['sender_name','Nome do remetente'],['sender_document','CPF/CNPJ'],['sender_email','E-mail'],['sender_phone','Telefone'],['sender_postal_code','CEP'],['sender_address','Endereço'],['sender_number','Número'],['sender_complement','Complemento'],['sender_district','Bairro'],['sender_city','Cidade'],['sender_state','UF']] as [keyof ShippingSettings,string][]).map(([key,label])=><label className={`field ${key==='sender_address'?'wide':''}`} key={key}><span>{label}{required.some(([requiredKey])=>requiredKey===key)&&' *'}</span><input value={String(form[key]??'')} onChange={event=>set(key,event.target.value)}/></label>)}</div>

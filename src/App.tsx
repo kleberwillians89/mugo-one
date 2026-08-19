@@ -32,21 +32,26 @@ export function App() {
   const [routePath,setRoutePath]=useState(location.pathname)
   const [period,setPeriod]=useState<PeriodValue>(defaultPeriod())
   const [menuOpen, setMenuOpen] = useState(false)
-  const { loading: permissionsLoading, permissions } = usePermissions()
+  const { loading: permissionsLoading, can } = usePermissions()
   useEffect(()=>{const change=()=>{setPage(pageFromPath());setRoutePath(location.pathname)};addEventListener('popstate',change);return()=>removeEventListener('popstate',change)},[])
   const navigate=(next:Page)=>{history.pushState({},'',routes[next]);setRoutePath(location.pathname);setPage(next)}
   const content = useMemo<ReactNode>(() => {
     // Rota digitada direto sem permissão: "ACESSO RESTRITO", nunca 404
     // (briefing "ROTAS E MENU"). Configurações tem duas abas com
     // permissões distintas (Frete=settings.view, Equipe=team.view), então
-    // é checada por aba, não pelo gate genérico da página.
+    // é checada por aba, não pelo gate genérico da página. can() já
+    // concede tudo quando access_total=true, mesmo que o código
+    // específico não esteja no conjunto plano vindo do backend.
     if (page === 'Configurações') {
       const wantsTeam = routePath === '/configuracoes/equipe'
-      const required = wantsTeam ? 'team.view' : 'settings.view'
-      if (!permissionsLoading && !permissions.has(required)) return <AccessRestricted/>
+      // Equipe: team.view OU team.manage (quem administra a equipe
+      // precisa conseguir vê-la, mesmo numa combinação incomum onde só
+      // team.manage foi concedido). Frete: só settings.view mesmo.
+      const allowed = wantsTeam ? can('team.view') || can('team.manage') : can('settings.view')
+      if (!permissionsLoading && !allowed) return <AccessRestricted/>
       return wantsTeam ? <TeamSettingsPage/> : <ShippingSettingsPage/>
     }
-    if (!permissionsLoading && !pagePermission[page].some((code) => permissions.has(code))) return <AccessRestricted/>
+    if (!permissionsLoading && !pagePermission[page].some((code) => can(code))) return <AccessRestricted/>
     if (page === 'Visão Geral') return <Dashboard period={period} setPeriod={setPeriod}/>
     if (page === 'Torre de Controle') return <ControlTowerPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
@@ -60,6 +65,6 @@ export function App() {
     if (page === 'Radar') return routePath === '/radar/fornecedores' ? <RadarSuppliersPage/> : <RadarPage initialQuery={new URLSearchParams(location.search).get('q')??undefined} initialPerfumeId={new URLSearchParams(location.search).get('perfume')??undefined}/>
     if (page === 'Interessados') return <WaitlistPage/>
     return <GenericPage page={page}/>
-  }, [page,period,routePath,permissionsLoading,permissions])
+  }, [page,period,routePath,permissionsLoading,can])
   return <div className="app-shell"><Sidebar page={page} setPage={navigate} open={menuOpen} close={()=>setMenuOpen(false)}/><main><Header page={page} menu={()=>setMenuOpen(true)}/>{content}<footer className="internal-mugo-signature"><img src="/mugo-logo.png" alt="Mugô"/><span>RUAH Intelligence — desenvolvido pela Mugô</span></footer></main></div>
 }

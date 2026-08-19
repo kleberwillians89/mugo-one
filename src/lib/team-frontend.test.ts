@@ -44,19 +44,20 @@ describe('A — admin cria davi.vendas: a Edge Function faz exatamente os passos
 })
 
 describe('V — rota direta sem permissão mostra ACESSO RESTRITO, nunca 404', () => {
-  it('App.tsx checa a permissão da página ANTES de despachar qualquer componente de página', () => {
+  it('App.tsx checa a permissão da página ANTES de despachar qualquer componente de página, via can() (concede tudo automaticamente sob access_total — ver permissions-can.test.ts)', () => {
     expect(appTsx).toContain('return <AccessRestricted/>')
-    expect(appTsx).toContain('pagePermission[page].some((code) => permissions.has(code))')
+    expect(appTsx).toContain('pagePermission[page].some((code) => can(code))')
   })
-  it('Configurações tem checagem própria por aba (Frete=settings.view, Equipe=team.view) — não é só o gate genérico da página', () => {
+  it('Configurações tem checagem própria por aba (Frete=settings.view, Equipe=team.view OU team.manage) — não é só o gate genérico da página', () => {
     const configBlock = appTsx.slice(appTsx.indexOf("if (page === 'Configurações')"), appTsx.indexOf('if (!permissionsLoading && !pagePermission'))
-    expect(configBlock).toContain("wantsTeam ? 'team.view' : 'settings.view'")
+    expect(configBlock).toContain("can('team.view') || can('team.manage')")
+    expect(configBlock).toContain("can('settings.view')")
   })
 })
 
 describe('W — menu esconde módulo proibido', () => {
-  it('Sidebar filtra a navegação pela mesma tabela pagePermission usada nas rotas — uma única fonte de verdade, não duas listas divergentes', () => {
-    expect(sidebar).toContain('pagePermission[label].some((code) => permissions.has(code))')
+  it('Sidebar filtra a navegação pela mesma tabela pagePermission usada nas rotas — uma única fonte de verdade, não duas listas divergentes — via can()', () => {
+    expect(sidebar).toContain('pagePermission[label].some((code) => can(code))')
     expect(routing).toContain('export const pagePermission')
   })
   it('enquanto carrega, nada extra aparece (nunca mostra tudo e depois esconde, o que pareceria um bug)', () => {

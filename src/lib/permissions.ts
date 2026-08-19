@@ -27,6 +27,53 @@ export function usernameFromEmail(email: string): string {
   return email.toLowerCase().endsWith(`@${INTERNAL_LOGIN_DOMAIN}`) ? email.slice(0, -(INTERNAL_LOGIN_DOMAIN.length + 1)) : email
 }
 
+export type MembershipFlags = { status: string; accessTotal: boolean; viewAll: boolean }
+
+/**
+ * Lido direto de organization_members (select simples, RLS já permite o
+ * próprio membro ler sua linha — memberships_select) — não uma RPC nova,
+ * não mexe em backend. Serve como camada de robustez independente de
+ * my_permission_summary: se por qualquer motivo o conjunto de códigos
+ * concedidos vier incompleto/desatualizado num instante, o flag bruto
+ * access_total ainda garante "vê tudo" imediatamente, sem depender de
+ * nenhum código individual ter chegado certo no Set.
+ */
+export async function fetchMyMembershipFlags(organizationId: string): Promise<MembershipFlags | null> {
+  const { data: { user } } = await supabase!.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase!
+    .from('organization_members')
+    .select('status,access_total,view_all')
+    .eq('organization_id', organizationId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (error || !data) return null
+  return { status: String(data.status), accessTotal: Boolean(data.access_total), viewAll: Boolean(data.view_all) }
+}
+
+const VIEW_ALL_EXCLUDED = new Set(['team.view', 'audit.view'])
+
+/**
+ * Espelha, no frontend, a MESMA ordem de resolução de has_org_permission
+ * (backend, fonte real de autoridade — isto aqui nunca autoriza uma
+ * escrita sozinho). access_total concede qualquer código, sem exceção —
+ * "REGRA OBRIGATÓRIA": nunca depende do conjunto plano ter aquele código
+ * específico. view_all concede *.view, exceto team.view/audit.view
+ * (mesma exceção do backend). Sem flags carregados (fetch falhou, ou
+ * ainda não chegou), cai no conjunto plano — nunca finge access_total
+ * quando não sabe.
+ */
+export function computeCan(code: string, flags: MembershipFlags | null, granted: Set<string>): boolean {
+  // Mesma ordem do backend: status inativo nega tudo primeiro, antes de
+  // sequer olhar access_total — um access_total=true numa linha inativa
+  // (ex.: alguém desativado enquanto ainda tinha o flag ligado) nunca
+  // deve passar por aqui.
+  if (flags?.status !== 'active') return granted.has(code)
+  if (flags.accessTotal) return true
+  if (flags.viewAll && code.endsWith('.view') && !VIEW_ALL_EXCLUDED.has(code)) return true
+  return granted.has(code)
+}
+
 export async function fetchMyPermissions(organizationId: string): Promise<Set<string>> {
   const { data, error } = await supabase!.rpc('my_permission_summary', { org_id: organizationId })
   if (error) throw new Error(error.message)
