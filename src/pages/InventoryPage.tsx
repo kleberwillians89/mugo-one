@@ -9,6 +9,7 @@ import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
   adjustInventory, authenticatedOrganization, createInventoryItem, fetchInventory, fetchOperationalInventory, inventoryPerfumes,
 } from '../lib/records'
+import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
 import { setPerfumeCost } from '../lib/cost-margin'
 import { Metric } from '../components/shared/Metric'
@@ -74,11 +75,19 @@ function InventoryCreate({close,saved}:{close:()=>void;saved:()=>void}) {
   const [perfumes,setPerfumes]=useState<{id:string;full_name_raw:string}[]>([]),[perfumeId,setPerfumeId]=useState('')
   const [opening,setOpening]=useState(''),[minimum,setMinimum]=useState(''),[reference,setReference]=useState(format(new Date(),'yyyy-MM-dd')),[notes,setNotes]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false)
   useEffect(()=>{inventoryPerfumes().then((data)=>setPerfumes(data))},[])
-  const submit=async()=>{const openingMl=Number(opening.replace(',','.')),minimumMl=Number(minimum.replace(',','.'));if(!perfumeId||!Number.isFinite(openingMl)||openingMl<0||!Number.isFinite(minimumMl)||minimumMl<0||!reference)return setError('Preencha perfume, saldos e data corretamente.');setSaving(true);try{await createInventoryItem({perfumeId,openingMl,minimumMl,referenceDate:reference,notes});saved()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}}
+  const submit=async()=>{
+    if(!perfumeId||!reference)return setError('Preencha perfume e data corretamente.')
+    const openingMl=parseMlAmount(opening)
+    if(openingMl===null||openingMl<0)return setError(looksLikeMlWithUnitSuffix(opening)?'Informe apenas o valor numérico. Ex.: 100':'Informe um saldo inicial válido em ml.')
+    const minimumMl=parseMlAmount(minimum)
+    if(minimumMl===null||minimumMl<0)return setError(looksLikeMlWithUnitSuffix(minimum)?'Informe apenas o valor numérico. Ex.: 100':'Informe um limite mínimo válido em ml.')
+    setSaving(true)
+    try{await createInventoryItem({perfumeId,openingMl,minimumMl,referenceDate:reference,notes});saved()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}
+  }
   return <Modal open onClose={close} eyebrow="CONTROLE DE ESTOQUE" title="Cadastrar perfume" footer={<>
       <SecondaryButton onClick={close}>Cancelar</SecondaryButton>
       <PrimaryButton loading={saving} onClick={submit}>Cadastrar estoque</PrimaryButton>
     </>}>
-    <div className="record-form"><div className="form-grid"><label className="field wide"><span>Perfume existente</span><select value={perfumeId} onChange={(event)=>setPerfumeId(event.target.value)}><option value="">Selecione…</option>{perfumes.map((perfume)=><option key={perfume.id} value={perfume.id}>{perfume.full_name_raw}</option>)}</select></label><label className="field"><span>Saldo inicial em ML</span><input inputMode="decimal" value={opening} onChange={(event)=>setOpening(event.target.value)}/></label><label className="field"><span>Limite mínimo em ML</span><input inputMode="decimal" value={minimum} onChange={(event)=>setMinimum(event.target.value)}/></label><label className="field"><span>Data de referência</span><input type="date" value={reference} onChange={(event)=>setReference(event.target.value)}/></label><label className="field wide"><span>Observação</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)}/></label></div>{error&&<div className="form-error">{error}</div>}</div>
+    <div className="record-form"><div className="form-grid"><label className="field wide"><span>Perfume existente</span><select value={perfumeId} onChange={(event)=>setPerfumeId(event.target.value)}><option value="">Selecione…</option>{perfumes.map((perfume)=><option key={perfume.id} value={perfume.id}>{perfume.full_name_raw}</option>)}</select></label><label className="field"><span>Saldo inicial</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="100" value={opening} onChange={(event)=>setOpening(event.target.value)} aria-label="Saldo inicial em ml"/><span>ml</span></div></label><label className="field"><span>Limite mínimo</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="5" value={minimum} onChange={(event)=>setMinimum(event.target.value)} aria-label="Limite mínimo em ml"/><span>ml</span></div></label><label className="field"><span>Data de referência</span><input type="date" value={reference} onChange={(event)=>setReference(event.target.value)}/></label><label className="field wide"><span>Observação</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)}/></label></div>{error&&<div className="form-error">{error}</div>}</div>
   </Modal>
 }
