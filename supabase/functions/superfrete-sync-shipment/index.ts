@@ -42,7 +42,10 @@ Deno.serve(async(req)=>{
   const {error:applyError}=await ctx.client.rpc('apply_superfrete_state',{p_shipment_id:shipmentId,p_run_id:null,p_state:state})
   if(applyError){
     if(applyError.message.includes('physical_source_not_confirmed')){
-      await ctx.client.from('shipments').update({integration_error:'PHYSICAL_CONFERENCE_PENDING',superfrete_updated_at:new Date().toISOString()}).eq('id',shipmentId).eq('organization_id',ctx.organizationId)
+      // Mesma correção do 42501 de baixo (print_health_persist): update
+      // direto em shipments nunca teve GRANT para authenticated — passa
+      // pela RPC estreita em vez do .update() direto.
+      await ctx.client.rpc('shipment_mark_superfrete_pending_conference',{p_shipment_id:shipmentId})
       return json({error:{code:'physical_conference_pending',message:'A SuperFrete já avançou este envio, mas a conferência física (frasco ou split) ainda não foi feita. Bipe o item pendente e sincronize novamente.'}},409,req)
     }
     console.error(JSON.stringify({stage:'apply_superfrete_state',shipment_id:shipmentId,order_id_suffix:String(shipment.superfrete_order_id).slice(-6),db_error_code:applyError.code??null}))
@@ -60,7 +63,12 @@ Deno.serve(async(req)=>{
     const printableStatus=['released','posted','delivered'].includes(String(state.status??'').toLowerCase())
     const probe=printableStatus?await probeOfficialPrintFile(rawPrintUrl):{available:false,httpStatus:null,contentType:null,reason:'missing_url' as const}
     const printError=!printableStatus?'SUPERFRETE_PROVIDER_PROCESSING':probe.available?null:probe.reason==='missing_url'?'SUPERFRETE_FILE_MISSING':probe.httpStatus===401||probe.httpStatus===403?'SUPERFRETE_FILE_AUTH_OR_EXPIRED':probe.reason==='not_pdf'&&String(probe.contentType).includes('text/html')?'SUPERFRETE_FILE_HTML':probe.reason==='invalid_url'||probe.reason==='untrusted_source'?'SUPERFRETE_FILE_INVALID_URL':'SUPERFRETE_FILE_EXTERNAL_ERROR'
-    const {data:updated,error:updateError}=await ctx.client.from('shipments').update({print_url:trustedPrintUrl||null,label_pdf_url:trustedPrintUrl||null,print_available:probe.available,print_http_status:probe.httpStatus,print_content_type:probe.contentType,print_checked_at:new Date().toISOString(),integration_error:printError}).eq('id',shipmentId).eq('organization_id',ctx.organizationId).select('*').single()
+    // Escritas em shipments passam só por RPC security definer (contrato do
+    // projeto desde 202608130001 — authenticated não tem INSERT/UPDATE/
+    // DELETE direto na tabela). Um UPDATE direto aqui é exatamente o que
+    // causava 42501 em produção: o client usa o JWT do chamador (não
+    // service_role), e a tabela nunca concedeu esse GRANT a "authenticated".
+    const {data:updated,error:updateError}=await ctx.client.rpc('shipment_set_superfrete_print_health',{p_shipment_id:shipmentId,p_print_url:trustedPrintUrl||null,p_label_pdf_url:trustedPrintUrl||null,p_print_available:probe.available,p_print_http_status:probe.httpStatus,p_print_content_type:probe.contentType,p_integration_error:printError})
     if(updateError||!updated){
       console.error(JSON.stringify({stage:'print_health_persist',shipment_id:shipmentId,db_error_code:updateError?.code??'no_row'}))
       return json({error:{code:'SUPERFRETE_PRINT_PERSIST_ERROR',message:'O estado da SuperFrete foi sincronizado, mas o RUAH não conseguiu salvar o status de impressão agora. Sincronize novamente.'}},502,req)

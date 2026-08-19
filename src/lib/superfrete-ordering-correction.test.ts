@@ -20,6 +20,7 @@ const quoteFn = readFileSync(new URL('../../supabase/functions/superfrete-quote/
 const createLabelFn = readFileSync(new URL('../../supabase/functions/superfrete-create-label/index.ts', import.meta.url), 'utf8')
 const syncFn = readFileSync(new URL('../../supabase/functions/superfrete-sync-shipment/index.ts', import.meta.url), 'utf8')
 const splitUnitsMigration = readFileSync(new URL('../../supabase/migrations/202608190007_split_units.sql', import.meta.url), 'utf8')
+const printHealthMigration = readFileSync(new URL('../../supabase/migrations/202608190015_shipment_print_health_rpc.sql', import.meta.url), 'utf8')
 
 describe('test 1 — freight quote remains available before physical scan (read-only)', () => {
   it('superfrete-quote never reads shipment_items conference/bottle state at all — it only calls the price calculator and saves the returned quotes', () => {
@@ -68,7 +69,11 @@ describe('tests 6-7-8 — early external state is recoverable, not erased or fak
   it('test 6: the sync path never sets bottle_id/split_unit_id itself — it only reads SuperFrete state and persists a visible pending marker, never fabricates a scan', () => {
     expect(syncFn).not.toMatch(/\bbottle_id\s*[:=]/)
     expect(syncFn).not.toMatch(/\bsplit_unit_id\s*[:=]/)
-    expect(syncFn).toContain("integration_error:'PHYSICAL_CONFERENCE_PENDING'")
+    // 202608190015: the direct .update({integration_error:'PHYSICAL_CONFERENCE_PENDING',...}) was replaced by a
+    // narrow RPC (see superfrete-print-health-rpc.test.ts for why: the direct write got 42501, "authenticated"
+    // never had UPDATE on shipments) — the marker itself is unchanged, just set inside the RPC instead of inline.
+    expect(syncFn).toContain("ctx.client.rpc('shipment_mark_superfrete_pending_conference'")
+    expect(printHealthMigration).toContain("integration_error = 'PHYSICAL_CONFERENCE_PENDING'")
   })
   it('the pending state is a distinct, named operational exception, not a generic swallowed error — the specific applyError is checked before falling through to its own distinct error code (no longer a bare rethrow — see superfrete-sync-print.test.ts for why: a rethrow used to get mislabeled as a network error by safeProviderError)', () => {
     const specificCheckIndex = syncFn.indexOf("applyError.message.includes('physical_source_not_confirmed')")
