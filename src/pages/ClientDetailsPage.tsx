@@ -3,7 +3,7 @@ import { AlertTriangle, Boxes, Filter, ShoppingBag } from 'lucide-react'
 import { brl, monthYearLabel, shortDate, integer } from '../lib/format'
 import { ClientModal } from '../components/RecordModals'
 import { operationalLabel, statusLabel } from '../lib/presentation'
-import { createDraftShipment, fetchClient360 } from '../lib/records'
+import { ClientPortalStatus, createDraftShipment, fetchClient360, fetchClientPortalStatus, inviteCustomerAccount } from '../lib/records'
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Drawer, EmptyState, Modal, PrimaryButton, SecondaryButton, SectionHeader, Stepper } from '../components/ui'
 import './ClientDetailsPage.css'
@@ -19,6 +19,29 @@ function journeyIndex(status: string) {
   if (status === 'label_pending' || status === 'label_released') return 2
   if (status === 'awaiting_customer_approval' || status === 'customer_approved') return 1
   return 0
+}
+
+/** Aba "Portal / Custódia": status da conta Minha RUAH + ativação
+ * ("ENVIAR ACESSO"). Nunca impersona a cliente — só lê o status via
+ * client_portal_status (RPC staff-only) e dispara o convite nativo do
+ * Supabase Auth via customer-account-invite (Edge Function). */
+function ClientPortalCard({clientId,defaultEmail}:{clientId:string;defaultEmail:string}) {
+  const [status,setStatus]=useState<ClientPortalStatus|null>(null)
+  const [email,setEmail]=useState(defaultEmail),[sending,setSending]=useState(false),[feedback,setFeedback]=useState('')
+  const reload=()=>fetchClientPortalStatus(clientId).then(setStatus).catch(()=>{})
+  useEffect(()=>{reload()},[clientId])
+  const invite=async()=>{if(!email.includes('@'))return;setSending(true);setFeedback('');try{await inviteCustomerAccount(clientId,email);setFeedback('Convite enviado.');await reload()}catch(reason){setFeedback(reason instanceof Error?reason.message:'Não foi possível enviar o acesso.')}finally{setSending(false)}}
+  const active=status?.account_status==='active'
+  return <section className="dossier-columns"><DefinitionGroup title="Portal Minha RUAH" items={[
+    {label:'Conta',value:active?'ATIVA':status?.account_status==='pending_verification'?'CONVITE ENVIADO':'NÃO ATIVADA'},
+    {label:'Solicitações abertas',value:integer(status?.open_requests??0)},
+    {label:'Tickets abertos',value:integer(status?.open_tickets??0)},
+  ]}/>
+  <div>
+    {!active&&<><div className="field"><span>E-mail para envio do acesso</span><input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="cliente@email.com"/></div>
+      <SecondaryButton disabled={sending||!email.includes('@')} loading={sending} onClick={invite}>{status?.account_status==='pending_verification'?'Reenviar acesso':'Enviar acesso / Ativar conta'}</SecondaryButton></>}
+    {feedback&&<small>{feedback}</small>}
+  </div></section>
 }
 
 export function ClientDetailsPage({clientId}:{clientId:string}) {
@@ -125,6 +148,9 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     </section>
 
     {error&&<div className="notice"><AlertTriangle/><span>{error}</span></div>}
+
+    <Divider label="Portal / Custódia"/>
+    <ClientPortalCard clientId={clientId} defaultEmail={client.email??''}/>
 
     <Divider label="Produtos aguardando envio"/>
     <SectionHeader title={`${integer(waitingSorted.length)} ${waitingSorted.length===1?'produto':'produtos'} na RUAH`} description="Selecione as compras que devem sair juntas em um único envio." action={

@@ -9,6 +9,7 @@ import { QrBottlePage } from './pages/QrBottlePage'
 import { InventoryStationPage } from './pages/InventoryStationPage'
 import { InventoryCountPage } from './pages/InventoryCountPage'
 import { PrintLabelPage } from './pages/PrintLabelPage'
+import { CustomerPortalRoot } from './portal/CustomerPortalRoot'
 
 const go = (path:string) => { window.history.pushState({},'',path); window.dispatchEvent(new PopStateEvent('popstate')) }
 // Só aceita um "next" relativo à própria origem (nunca "//host" nem uma URL
@@ -84,6 +85,11 @@ export function AuthRoot() {
     supabase.auth.getSession().then(async({data})=>{if(data.session&&localStorage.getItem('ruah_remember')==='false'&&!sessionStorage.getItem('ruah_session'))await supabase!.auth.signOut();else setSession(data.session);setReady(true)})
     const {data}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));return()=>{removeEventListener('popstate',change);data.subscription.unsubscribe()}},[])
   if(!ready)return <div className="app-loading"><LoaderCircle className="spin"/></div>
+  // Portal da cliente ("Minha RUAH"): gerencia a própria sessão do zero,
+  // nunca passa pelo gate de sessão STAFF abaixo (cliente final não é
+  // organization_member — nunca teria uma "sessão válida" nesse sentido —
+  // e não deve, de jeito nenhum, cair no shell administrativo <App/>).
+  if(path.startsWith('/minha-ruah'))return <CustomerPortalRoot/>
   const publicRoute=['/login','/recuperar-senha','/auth/callback','/definir-senha','/atualizar-senha'].includes(path)
   // Ler um QR sem sessão ativa deve voltar para o MESMO frasco depois do
   // login (briefing "Modo Ilde", seção 3) — nunca perder o destino original.

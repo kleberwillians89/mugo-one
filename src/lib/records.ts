@@ -136,6 +136,21 @@ export async function createDraftShipment(clientId:string,allocationIds:string[]
   return data as string
 }
 
+export type ClientPortalStatus={account_status:string|null;claim_email:string|null;verified_at:string|null;open_requests:number;open_tickets:number}
+export async function fetchClientPortalStatus(clientId:string) {
+  await currentOrganization()
+  const {data,error}=await supabase!.rpc('client_portal_status',{p_client_id:clientId})
+  if(error)throw new Error(error.message)
+  const row=(data??[])[0]
+  return (row??{account_status:null,claim_email:null,verified_at:null,open_requests:0,open_tickets:0}) as ClientPortalStatus
+}
+
+export async function inviteCustomerAccount(clientId:string,email:string) {
+  const {organizationId}=await currentOrganization()
+  const {error}=await supabase!.functions.invoke('customer-account-invite',{body:{organization_id:organizationId,client_id:clientId,email}})
+  if(error){const response=(error as {context?:Response}).context;let message='Não foi possível enviar o acesso.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
+}
+
 export type CommercialSale = {
   id:string; client_id:string|null; perfume_id?:string|null; sale_date:string|null; amount:number; payment_status:string
   payment_method:string|null; paid_at:string|null; original_client:string|null

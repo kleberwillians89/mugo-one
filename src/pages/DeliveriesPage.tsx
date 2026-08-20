@@ -5,6 +5,7 @@ import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { todayIso, deliveryState, deliveryLabels, deliveryLabel } from '../lib/delivery'
 import { NewShipmentModal, OperationalShipments } from '../components/ShipmentOperations'
+import { CustomerRequestsQueue } from '../components/CustomerRequestsQueue'
 import {
   CommercialSale, LogisticsSummary, fetchDeliveryRows, fetchLogisticsSummary, updateShipment,
 } from '../lib/records'
@@ -41,6 +42,9 @@ export function DeliveriesPage({period,setPeriod}:{period:PeriodValue;setPeriod:
       <PeriodFilter value={period} onApply={setPeriod}/>
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setNewShipment(true)}>Novo envio</PrimaryButton>
     </>}/>
+
+    <SectionHeader title="Solicitações de clientes" description="Pedidos de envio feitos pela cliente no Minha RUAH — cote o frete para continuar pelo fluxo normal."/>
+    <CustomerRequestsQueue/>
 
     <SectionHeader title="Envios em andamento" description="Operação atual — cada etiqueta pode reunir várias compras do mesmo cliente."/>
     <OperationalShipments/>
