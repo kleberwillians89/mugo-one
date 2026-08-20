@@ -62,7 +62,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
         {sale.client_id&&<SecondaryButton onClick={goToClient}>Ver cliente</SecondaryButton>}
         {canConfirm&&<PrimaryButton onClick={()=>setConfirming(true)}>Confirmar produto</PrimaryButton>}
         {allocation?.status==='reserved'&&<PrimaryButton disabled={missingFields.length>0} loading={preparing} onClick={prepare}>Preparar envio</PrimaryButton>}
-        {shipment&&<a className="button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>}
+        {shipment&&<a className="ui-btn ui-btn--primary button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>}
       </div>
     </header>
 

@@ -1,6 +1,9 @@
 .ficha-head {
-  padding-bottom: var(--space-5);
-  margin-bottom: var(--space-2);
+  padding: clamp(22px, 3vw, 38px);
+  margin: var(--space-3) 0 var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid #40392f;
+  box-shadow: 0 14px 34px #1d18120f;
 }
 
 .ficha-eyebrow {
@@ -12,7 +15,7 @@
 }
 
 .ficha-client {
-  font: var(--fw-medium) var(--fs-2xl) var(--font-serif);
+  font: var(--fw-medium) clamp(1.75rem, 4vw, 2.75rem) var(--font-serif);
   margin: 0 0 var(--space-1);
   color: var(--surface-text-primary);
 }
@@ -79,4 +82,7 @@
 @media (max-width: 700px) {
   .ficha-columns { grid-template-columns: 1fr; }
   .ficha-client { font-size: var(--fs-xl); }
+  .ficha-head{padding:var(--space-5);border-radius:var(--radius-md)}
+  .ficha-actions{display:grid;grid-template-columns:1fr}
+  .ficha-actions>*{width:100%}
 }

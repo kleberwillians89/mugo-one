@@ -20,17 +20,19 @@ function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Pa
     <>
       <div className="brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums" /><div><strong>RUAH</strong><span>INTELLIGENCE</span></div></div>
       <nav>
-        {visible.map(({ label, icon: Icon }) => (
+        {visible.map(({ label, icon: Icon }) => {
+          const displayLabel = label === 'Visão Geral' ? 'Visão 360' : label === 'Torre de Controle' ? 'Tarefas' : label
+          return (
           <button
             key={label}
             className={page === label ? 'active' : ''}
-            aria-label={label}
+            aria-label={displayLabel}
             aria-current={page === label ? 'page' : undefined}
             onClick={() => { setPage(label); onNavigate?.() }}
           >
-            <Icon size={19} /><span>{label}</span>{label === 'IA' && <i>IA</i>}
+            <Icon size={19} /><span>{displayLabel}</span>{label === 'IA' && <i>IA</i>}
           </button>
-        ))}
+        )})}
       </nav>
       <div className="sidebar-foot">
         <div className="workspace-mark">RP</div>

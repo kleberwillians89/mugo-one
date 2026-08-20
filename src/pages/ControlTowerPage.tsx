@@ -38,7 +38,7 @@ export function ControlTowerPage() {
   useEffect(() => { fetchControlTowerSummary().then(setSummary).catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar a torre de controle.')).finally(() => setLoading(false)) }, [])
 
   return <div className="page control-tower-page">
-    <PageHeader eyebrow="RUAH INTELLIGENCE" title="Torre de Controle" description="Onde a operação está travando — em três perguntas, uma por pessoa." />
+    <PageHeader eyebrow="OPERAÇÃO" title="Tarefas" />
     {error && <div className="notice"><span>{error}</span></div>}
     {loading ? <div className="empty card"><h3>Carregando torre de controle…</h3></div> :
       summary && <div className="control-tower-grid">

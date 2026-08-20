@@ -1,10 +1,9 @@
-import { Bell, CircleHelp, LogOut, Menu } from 'lucide-react'
-import { Page } from '../routing'
+import { LogOut, Menu } from 'lucide-react'
 import { IconButton } from './ui/IconButton'
 import { supabase } from '../lib/supabase'
 import './Header.css'
 
-type Props = { page: Page; menu: () => void }
+type Props = { menu: () => void }
 
 /**
  * Signs out and returns to /login — same behavior the old floating
@@ -18,16 +17,13 @@ const logout = async () => {
   dispatchEvent(new PopStateEvent('popstate'))
 }
 
-export function Header({ page, menu }: Props) {
+export function Header({ menu }: Props) {
   return (
-    <header>
+    <header className="app-header">
       <IconButton className="header-menu-btn" icon={Menu} aria-label="Abrir menu" onClick={menu} />
-      <div><p>CRM E INTELIGÊNCIA COMERCIAL</p><h1>{page}</h1></div>
+      <div className="header-brand-mobile" aria-hidden="true"><strong>RUAH</strong><span>INTELLIGENCE</span></div>
       <div className="header-actions">
-        <IconButton icon={CircleHelp} aria-label="Ajuda" />
-        <IconButton icon={Bell} aria-label="Notificações" badge className="header-notification" />
-        <span className="avatar" aria-hidden="true">KP</span>
-        <IconButton icon={LogOut} aria-label="Sair" onClick={logout} className="header-logout"/>
+        <button type="button" onClick={logout} className="header-logout"><LogOut size={16}/><span>Sair</span></button>
       </div>
     </header>
   )
