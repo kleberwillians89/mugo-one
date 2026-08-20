@@ -5,7 +5,7 @@ import { ClientModal } from '../components/RecordModals'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { fetchClientPeriodSummaries } from '../lib/records'
-import { PageHeader, PrimaryButton, StatusBadge, Table } from '../components/ui'
+import { PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
 
 export function ClientsPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const [modal,setModal]=useState(false)
@@ -17,7 +17,7 @@ export function ClientsPage({period,setPeriod}:{period:PeriodValue;setPeriod:(va
   const visible=clients.filter((client)=>String(client.client).toLowerCase().includes(search.toLowerCase())&&(!status||client.relationship_status===status))
     .sort((a,b)=>order==='name'?String(a.client).localeCompare(String(b.client),'pt-BR'):Number(b[order])-Number(a[order]))
   return <div className="page clients-page">{modal&&<ClientModal close={()=>setModal(false)}/>}
-    <PageHeader eyebrow="PRIVATE CLIENT SERVICE" title="Clientes" description="Relacionamento, recorrência e histórico no período." actions={<><PeriodFilter value={period} onApply={setPeriod}/><PrimaryButton icon={<Plus size={16}/>} onClick={()=>setModal(true)}>Adicionar cliente</PrimaryButton></>}/>
+    <PageHeader eyebrow="PRIVATE CLIENT SERVICE" title="Clientes" description="Relacionamento, recorrência e histórico no período." actions={<><PeriodFilter value={period} onApply={setPeriod}/><SecondaryButton onClick={()=>{history.pushState({},'','/clientes/acessos-minha-ruah');dispatchEvent(new PopStateEvent('popstate'))}}>Acessos em análise</SecondaryButton><PrimaryButton icon={<Plus size={16}/>} onClick={()=>setModal(true)}>Adicionar cliente</PrimaryButton></>}/>
     <div className="toolbar card"><div className="search"><Search size={18}/><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Buscar cliente…"/></div>
       <select value={status} onChange={(event)=>setStatus(event.target.value)}><option value="">Todos os status</option><option value="new">Novo</option><option value="recurring">Recorrente</option><option value="active">Ativo</option><option value="inactive">Inativo</option></select>
       <select value={order} onChange={(event)=>setOrder(event.target.value)}><option value="paid">Maior valor pago</option><option value="total_purchased">Maior valor total</option><option value="item_count">Mais compras</option><option value="average_ticket">Maior ticket</option><option value="name">Nome</option></select></div>

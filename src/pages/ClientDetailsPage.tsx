@@ -25,22 +25,33 @@ function journeyIndex(status: string) {
  * ("ENVIAR ACESSO"). Nunca impersona a cliente — só lê o status via
  * client_portal_status (RPC staff-only) e dispara o convite nativo do
  * Supabase Auth via customer-account-invite (Edge Function). */
-function ClientPortalCard({clientId,defaultEmail}:{clientId:string;defaultEmail:string}) {
+function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;defaultEmail:string;phone:string}) {
   const [status,setStatus]=useState<ClientPortalStatus|null>(null)
-  const [email,setEmail]=useState(defaultEmail),[sending,setSending]=useState(false),[feedback,setFeedback]=useState('')
+  const [email,setEmail]=useState(defaultEmail),[sending,setSending]=useState(false),[feedback,setFeedback]=useState(''),[inviteOpen,setInviteOpen]=useState(false)
+  const [emailChannel,setEmailChannel]=useState(true),[whatsappChannel,setWhatsappChannel]=useState(Boolean(phone))
   const reload=()=>fetchClientPortalStatus(clientId).then(setStatus).catch(()=>{})
   useEffect(()=>{reload()},[clientId])
-  const invite=async()=>{if(!email.includes('@'))return;setSending(true);setFeedback('');try{await inviteCustomerAccount(clientId,email);setFeedback('Convite enviado.');await reload()}catch(reason){setFeedback(reason instanceof Error?reason.message:'Não foi possível enviar o acesso.')}finally{setSending(false)}}
+  const invite=async()=>{if((emailChannel&&!email.includes('@'))||(!emailChannel&&!whatsappChannel))return;setSending(true);setFeedback('');try{const result=await inviteCustomerAccount(clientId,email,{email:emailChannel,whatsapp:whatsappChannel});const label=(channel:{status:string})=>channel.status==='sent'?'enviado':channel.status==='not_configured'?'não configurado':channel.status==='unavailable'?'indisponível':'falhou';setFeedback(`E-mail: ${label(result.channels.email)} · WhatsApp: ${label(result.channels.whatsapp)}`);setInviteOpen(false);await reload()}catch(reason){setFeedback(reason instanceof Error?reason.message:'Não foi possível enviar o acesso.')}finally{setSending(false)}}
   const active=status?.account_status==='active'
   return <section className="dossier-columns"><DefinitionGroup title="Portal Minha RUAH" items={[
     {label:'Conta',value:active?'ATIVA':status?.account_status==='pending_verification'?'CONVITE ENVIADO':'NÃO ATIVADA'},
+    {label:'E-mail',value:status?.sent_email_at?'ENVIADO':'NÃO ENVIADO'},
+    {label:'WhatsApp',value:status?.sent_whatsapp_at?'ENVIADO':phone?'NÃO ENVIADO':'INDISPONÍVEL'},
+    {label:'Último convite',value:status?.last_invited_at?new Date(status.last_invited_at).toLocaleString('pt-BR'):'—'},
     {label:'Solicitações abertas',value:integer(status?.open_requests??0)},
     {label:'Tickets abertos',value:integer(status?.open_tickets??0)},
   ]}/>
   <div>
-    {!active&&<><div className="field"><span>E-mail para envio do acesso</span><input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="cliente@email.com"/></div>
-      <SecondaryButton disabled={sending||!email.includes('@')} loading={sending} onClick={invite}>{status?.account_status==='pending_verification'?'Reenviar acesso':'Enviar acesso / Ativar conta'}</SecondaryButton></>}
+    {!active&&<SecondaryButton onClick={()=>setInviteOpen(true)}>{status?.account_status==='pending_verification'?'Reenviar convite':'Convidar para Minha RUAH'}</SecondaryButton>}
     {feedback&&<small>{feedback}</small>}
+    <Modal open={inviteOpen} onClose={()=>setInviteOpen(false)} eyebrow="MINHA RUAH" title="Enviar convite">
+      <div className="record-form"><p>Escolha os canais para este mesmo acesso. Cada canal terá resultado independente.</p>
+        <label className="confirm-checkbox"><input type="checkbox" checked={emailChannel} onChange={event=>setEmailChannel(event.target.checked)}/><span><strong>E-mail</strong><br/>{email||'E-mail não cadastrado'}</span></label>
+        <label className="field"><span>E-mail do convite</span><input value={email} onChange={event=>setEmail(event.target.value)} placeholder="cliente@email.com"/></label>
+        <label className="confirm-checkbox"><input type="checkbox" disabled={!phone} checked={whatsappChannel} onChange={event=>setWhatsappChannel(event.target.checked)}/><span><strong>WhatsApp</strong><br/>{phone||'WhatsApp indisponível'}</span></label>
+        <div className="form-actions"><SecondaryButton onClick={()=>setInviteOpen(false)}>Cancelar</SecondaryButton><PrimaryButton loading={sending} disabled={(!emailChannel&&!whatsappChannel)||(emailChannel&&!email.includes('@'))} onClick={invite}>Enviar convite</PrimaryButton></div>
+      </div>
+    </Modal>
   </div></section>
 }
 
@@ -150,7 +161,7 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     {error&&<div className="notice"><AlertTriangle/><span>{error}</span></div>}
 
     <Divider label="Portal / Custódia"/>
-    <ClientPortalCard clientId={clientId} defaultEmail={client.email??''}/>
+    <ClientPortalCard clientId={clientId} defaultEmail={client.email??''} phone={client.whatsapp_phone||client.phone||''}/>
 
     <Divider label="Produtos aguardando envio"/>
     <SectionHeader title={`${integer(waitingSorted.length)} ${waitingSorted.length===1?'produto':'produtos'} na RUAH`} description="Selecione as compras que devem sair juntas em um único envio." action={
@@ -171,7 +182,7 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
         return <article className="shipment-card" key={String(shipment.id)}>
           <div className="shipment-card-head">
             <div><strong>Envio #{String(shipment.id).slice(0,8).toUpperCase()}</strong><span>{items.length>1?`${integer(items.length)} compras enviadas juntas`:`${integer(items.length)} produto`}</span></div>
-            <a className="button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>
+            <a className="ui-btn ui-btn--tertiary button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>
           </div>
           {items.length>1&&<p className="shipment-card-items">{perfumeNames.join(' · ')}</p>}
           <Stepper steps={JOURNEY_STEPS} currentIndex={journeyIndex(String(shipment.status))} compact/>
@@ -192,7 +203,7 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
           return <article className="shipment-card shipment-card--done" key={String(shipment.id)}>
             <div className="shipment-card-head">
               <div><strong>Envio #{String(shipment.id).slice(0,8).toUpperCase()}</strong><span>{integer(items.length)} {items.length===1?'produto':'produtos'}</span></div>
-              <a className="button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>
+              <a className="ui-btn ui-btn--tertiary button-link" href={`/entregas/${shipment.id}`}>Abrir envio</a>
             </div>
             <div className="shipment-card-foot">
               <span>{shipment.status==='delivered'?`✓ Entregue${shipment.delivered_at?` em ${new Date(String(shipment.delivered_at)).toLocaleDateString('pt-BR')}`:''}`:operationalLabel(shipment.status)}</span>

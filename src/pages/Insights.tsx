@@ -4,6 +4,7 @@ import { brl, integer } from '../lib/format'
 import { PeriodValue } from '../lib/period'
 import { PeriodSummary, fetchPeriodSummary } from '../lib/records'
 import { EmptyConnect } from '../components/shared/EmptyConnect'
+import { PageHeader, PrimaryButton } from '../components/ui'
 
 export function Insights({period}:{period:PeriodValue}) {
   const [summary,setSummary]=useState<PeriodSummary|null>(null)
@@ -13,7 +14,7 @@ export function Insights({period}:{period:PeriodValue}) {
     ['Entregas atrasadas',`${integer(summary.deliveries_overdue)} itens exigem atenção`],
     ['Clientes recorrentes',`${integer(summary.recurring_clients)} clientes no período`],
   ]:[]
-  return <div className="page"><div className="page-lead"><div><h2>Insights comerciais</h2><p>Recomendações práticas geradas a partir de métricas oficiais.</p></div><button className="primary"><Sparkles size={17}/> Gerar novos insights</button></div>
+  return <div className="page"><PageHeader eyebrow="INTELIGÊNCIA COMERCIAL" title="Insights comerciais" description="Recomendações práticas geradas a partir de métricas oficiais." actions={<PrimaryButton icon={<Sparkles size={17}/>}>Gerar novos insights</PrimaryButton>}/>
     <div className="insight-grid">
       {blocks.map(([title,text],i)=><article className="card insight-skeleton" key={title}><div><span>{title}</span><i>{i===1?'ALTO':'REAL'}</i></div><h3>{text}</h3><p>Calculado diretamente no Supabase para {period.label.toLowerCase()}.</p><footer><Clock3 size={14}/> Atualizado agora</footer></article>)}
     </div>

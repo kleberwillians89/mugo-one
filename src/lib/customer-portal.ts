@@ -33,6 +33,16 @@ export async function completeAccountClaim(accountId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function startPublicRegistration(name:string,email:string,phone:string):Promise<void>{
+  await invoke('customer-registration-start',{name,email,phone})
+}
+
+export async function finalizeCustomerIdentity():Promise<'linked'|'review_required'>{
+  const {data,error}=await supabase!.rpc('customer_identity_finalize')
+  if(error)throw new Error(error.message)
+  return data as 'linked'|'review_required'
+}
+
 export async function resolveLoginEmail(identifier: string): Promise<string> {
   const trimmed = identifier.trim()
   if (trimmed.includes('@')) return trimmed

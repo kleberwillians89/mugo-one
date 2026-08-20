@@ -136,20 +136,25 @@ export async function createDraftShipment(clientId:string,allocationIds:string[]
   return data as string
 }
 
-export type ClientPortalStatus={account_status:string|null;claim_email:string|null;verified_at:string|null;open_requests:number;open_tickets:number}
+export type ClientPortalStatus={account_status:string|null;claim_email:string|null;verified_at:string|null;last_invited_at:string|null;sent_email_at:string|null;sent_whatsapp_at:string|null;invite_last_error:Record<string,string>|null;open_requests:number;open_tickets:number}
 export async function fetchClientPortalStatus(clientId:string) {
   await currentOrganization()
   const {data,error}=await supabase!.rpc('client_portal_status',{p_client_id:clientId})
   if(error)throw new Error(error.message)
   const row=(data??[])[0]
-  return (row??{account_status:null,claim_email:null,verified_at:null,open_requests:0,open_tickets:0}) as ClientPortalStatus
+  return (row??{account_status:null,claim_email:null,verified_at:null,last_invited_at:null,sent_email_at:null,sent_whatsapp_at:null,invite_last_error:null,open_requests:0,open_tickets:0}) as ClientPortalStatus
 }
 
-export async function inviteCustomerAccount(clientId:string,email:string) {
+export type CustomerInviteResult={status:string;channels:{email:{status:string;error?:string};whatsapp:{status:string;error?:string}}}
+export async function inviteCustomerAccount(clientId:string,email:string,channels={email:true,whatsapp:false}) {
   const {organizationId}=await currentOrganization()
-  const {error}=await supabase!.functions.invoke('customer-account-invite',{body:{organization_id:organizationId,client_id:clientId,email}})
+  const {data,error}=await supabase!.functions.invoke('customer-account-invite',{body:{organization_id:organizationId,client_id:clientId,email,channels_email:channels.email,channels_whatsapp:channels.whatsapp}})
   if(error){const response=(error as {context?:Response}).context;let message='Não foi possível enviar o acesso.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
+  return data?.data as CustomerInviteResult
 }
+export type CustomerIdentityReview={id:string;request_id:string;full_name:string;email:string;phone:string;reason:string;candidate_client_ids:string[];created_at:string}
+export async function fetchCustomerIdentityReviews(){await currentOrganization();const{data,error}=await supabase!.rpc('customer_identity_reviews_list');if(error)throw new Error(error.message);return(data??[])as CustomerIdentityReview[]}
+export async function decideCustomerIdentityReview(reviewId:string,action:'link'|'create'|'reject',clientId?:string){await currentOrganization();const{error}=await supabase!.rpc('customer_identity_review_decide',{p_review_id:reviewId,p_action:action,p_client_id:clientId??null});if(error)throw new Error(error.message)}
 
 export type CommercialSale = {
   id:string; client_id:string|null; perfume_id?:string|null; sale_date:string|null; amount:number; payment_status:string

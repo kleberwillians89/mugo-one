@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { Check, Home, HelpCircle, LoaderCircle, Package, Truck, UserRound } from 'lucide-react'
+import { Check, Home, HelpCircle, KeyRound, LoaderCircle, Package, Truck, UserRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
   AddressSnapshot, CustodyItem, PurchaseHistoryItem, DeliveryHistoryItem, ShipmentRequest, SupportTicket,
@@ -77,17 +77,17 @@ function RequestFlow({ perfumeName, allocations, onDone, onCancel }: { perfumeNa
   </div>
 }
 
-function HomePage({ custody, requests, onRequest }: { custody: CustodyItem[]; requests: ShipmentRequest[]; onRequest: (perfumeId: string) => void }) {
+function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipments, onHelp }: { custody: CustodyItem[]; requests: ShipmentRequest[]; onRequest: (perfumeId: string) => void;greeting:string;onPerfumes:()=>void;onShipments:()=>void;onHelp:()=>void }) {
   const groups = groupByPerfume(custody)
   const available = groups.reduce((sum, g) => sum + g.available_ml, 0)
   const preparing = requests.filter((r) => r.converted_shipment_id && !['posted', 'delivered', 'cancelled'].includes(r.shipment_status ?? '')).reduce((sum, r) => sum + (r.items?.reduce((s, i) => s + i.quantity_ml, 0) ?? 0), 0)
   const inTransit = requests.filter((r) => r.shipment_status === 'posted').reduce((sum, r) => sum + (r.items?.reduce((s, i) => s + i.quantity_ml, 0) ?? 0), 0)
   return <div className="portal-page">
-    <div className="portal-summary">
-      <div><strong>{available} ml</strong><span>Disponível para envio</span></div>
-      <div><strong>{preparing} ml</strong><span>Em preparação</span></div>
-      <div><strong>{inTransit} ml</strong><span>Em trânsito</span></div>
-    </div>
+    <section className="portal-welcome"><span>BEM-VINDA À SUA ÁREA PRIVADA</span><h1>Olá{greeting?`, ${greeting}`:''}.</h1><p>Aqui está a sua história com a RUAH, com a clareza e o cuidado que ela merece.</p></section>
+    <section className="portal-collection"><span>MEU ACERVO</span><strong>{groups.length} {groups.length===1?'perfume':'perfumes'} na RUAH</strong><p>{available+preparing+inTransit} ml sob seus cuidados</p><button onClick={onPerfumes}>Ver meus perfumes</button></section>
+    <h2>Agora na RUAH</h2>
+    <div className="portal-summary"><div><strong>{available} ml</strong><span>Disponível para envio</span></div><div><strong>{preparing} ml</strong><span>Em preparação</span></div><div><strong>{inTransit} ml</strong><span>Em transporte</span></div></div>
+    <div className="portal-home-links"><button onClick={onShipments}><strong>Meus envios</strong><span>Acompanhe cada etapa</span></button><button onClick={onHelp}><strong>Preciso de ajuda</strong><span>Fale diretamente com a RUAH</span></button></div>
     <h2>Meus perfumes</h2>
     {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
     {groups.map((g) => <div className="portal-card" key={g.perfume_name}>
@@ -149,6 +149,7 @@ function HelpPage({ tickets, reload }: { tickets: SupportTicket[]; reload: () =>
 
 function AccountPage({ onSignOut }: { onSignOut: () => void }) {
   const [profile, setProfile] = useState<Awaited<ReturnType<typeof fetchProfile>> | null>(null)
+  const [changing,setChanging]=useState(false),[password,setPassword]=useState(''),[message,setMessage]=useState('')
   useEffect(() => { fetchProfile().then(setProfile).catch(() => {}) }, [])
   return <div className="portal-page">
     <h2>Minha conta</h2>
@@ -159,6 +160,7 @@ function AccountPage({ onSignOut }: { onSignOut: () => void }) {
       <span>CPF {profile.cpf_masked ?? maskCpf('')}</span>
       <span>{[profile.address_line, profile.address_number, profile.district, profile.city, profile.state].filter(Boolean).join(', ') || 'Endereço não cadastrado'}</span>
     </div>}
+    {!changing?<button className="portal-account-action" onClick={()=>setChanging(true)}><KeyRound/>Alterar senha</button>:<form className="portal-form portal-card" onSubmit={async event=>{event.preventDefault();setMessage('');if(password.length<10||!/[A-Z]/.test(password)||!/[a-z]/.test(password)||!/\d/.test(password)||!/[^A-Za-z0-9]/.test(password))return setMessage('Use 10 caracteres com maiúscula, minúscula, número e símbolo.');const {error}=await supabase!.auth.updateUser({password});setMessage(error?'Não foi possível alterar a senha.':'Senha alterada com segurança.');if(!error)setPassword('')}}><label><span>Nova senha</span><input type="password" autoComplete="new-password" value={password} onChange={event=>setPassword(event.target.value)} required/></label>{message&&<div className={message.startsWith('Senha alterada')?'portal-success':'portal-error'}>{message}</div>}<button className="portal-submit">Salvar nova senha</button><button type="button" className="portal-link" onClick={()=>setChanging(false)}>Cancelar</button></form>}
     <button className="portal-submit portal-danger" onClick={onSignOut}>Sair</button>
   </div>
 }
@@ -168,18 +170,20 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
   const showHistory = path === '/minha-ruah/historico'
   const [custody, setCustody] = useState<CustodyItem[]>([]); const [requests, setRequests] = useState<ShipmentRequest[]>([]); const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [requesting, setRequesting] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [greeting, setGreeting] = useState('')
+  const [onboarding,setOnboarding]=useState(()=>localStorage.getItem('minha_ruah_onboarding_done')!=='true')
   const reload = () => Promise.all([fetchCustody(), fetchMyRequests(), fetchMyTickets()]).then(([c, r, t]) => { setCustody(c); setRequests(r); setTickets(t) })
   useEffect(() => { reload().finally(() => setLoading(false)); supabase?.auth.getUser().then(({ data }) => setGreeting(String(data.user?.user_metadata?.full_name ?? '').split(' ')[0] ?? '')) }, [])
   const groups = groupByPerfume(custody)
   const activeGroup = groups.find((g) => g.perfume_name === requesting)
   return <div className="portal-app">
+    {onboarding&&<div className="portal-onboarding" role="dialog" aria-modal="true" aria-label="Conheça o Minha RUAH"><section><span>MINHA RUAH</span><h2>Bem-vinda ao seu espaço.</h2><div><article><b>01</b><strong>Seu acervo</strong><p>Veja os perfumes que estão sob sua custódia.</p></article><article><b>02</b><strong>Seus envios</strong><p>Solicite e acompanhe seus perfumes.</p></article><article><b>03</b><strong>Atendimento RUAH</strong><p>Fale diretamente com nossa equipe.</p></article></div><button className="portal-submit" onClick={()=>{localStorage.setItem('minha_ruah_onboarding_done','true');setOnboarding(false)}}>Conhecer meu espaço</button><button className="portal-link" onClick={()=>{localStorage.setItem('minha_ruah_onboarding_done','true');setOnboarding(false)}}>Pular apresentação</button></section></div>}
     <header className="portal-header"><div><span>RUAH</span><strong>Minha RUAH</strong></div>{greeting && <em>Olá, {greeting}</em>}</header>
     <main className="portal-main">
       {loading ? <div className="portal-centered"><LoaderCircle className="spin" /></div> : showHistory ? <>
         <button className="portal-link" onClick={() => navigate('/minha-ruah')}>← Voltar</button>
         <HistoryPage />
       </> : <>
-        {tab === 'inicio' && <HomePage custody={custody} requests={requests} onRequest={setRequesting} />}
+        {tab === 'inicio' && <HomePage custody={custody} requests={requests} onRequest={setRequesting} greeting={greeting} onPerfumes={()=>setTab('perfumes')} onShipments={()=>setTab('envios')} onHelp={()=>setTab('ajuda')} />}
         {tab === 'perfumes' && <div className="portal-page">
           <h2>Meus perfumes</h2>
           {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
@@ -191,7 +195,6 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
       </>}
     </main>
     {activeGroup && <RequestFlow perfumeName={activeGroup.perfume_name} allocations={activeGroup.allocations} onDone={() => { setRequesting(null); reload(); setTab('envios') }} onCancel={() => setRequesting(null)} />}
-    <nav className="portal-bottom-nav">{tabs.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
+    <nav className="portal-bottom-nav" aria-label="Navegação Minha RUAH">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab===id?'page':undefined} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
   </div>
 }
-

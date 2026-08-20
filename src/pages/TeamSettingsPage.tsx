@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, ShieldCheck, UserX } from 'lucide-react'
-import { Modal, PrimaryButton, SecondaryButton, Select, StatusBadge } from '../components/ui'
+import { Modal, PageHeader, PrimaryButton, SecondaryButton, Select, StatusBadge } from '../components/ui'
 import { useHasPermission } from '../lib/PermissionsContext'
 import {
   PERMISSION_CATALOG, PERMISSION_MODULE_LABEL, PRESET_DEFAULT_FLAGS, PRESET_LABEL, Preset, isValidUsername,
@@ -46,10 +46,7 @@ export function TeamSettingsPage() {
         <button onClick={() => goToSettings('')}>Frete</button>
         <button className="active">Equipe e acessos</button>
       </div>
-      <div className="page-lead">
-        <div><h2>Equipe e acessos</h2><p>Quem entra no RUAH e o que cada pessoa pode ver, criar, editar e operar.</p></div>
-        {canManage && <PrimaryButton icon={<Plus size={17} />} onClick={() => setEditing('new')}>Novo usuário</PrimaryButton>}
-      </div>
+      <PageHeader eyebrow="CONFIGURAÇÕES" title="Equipe e acessos" description="Quem entra no RUAH e o que cada pessoa pode ver, criar, editar e operar." actions={canManage ? <PrimaryButton icon={<Plus size={17} />} onClick={() => setEditing('new')}>Novo usuário</PrimaryButton> : undefined}/>
 
       {editing && (
         <TeamMemberModal

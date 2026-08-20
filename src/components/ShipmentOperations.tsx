@@ -8,7 +8,7 @@ import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
 import {usePermissions} from '../lib/PermissionsContext'
 import {Shipment360View} from './Shipment360View'
 import {useKeyboardWedgeListener} from './bottles/useKeyboardWedgeListener'
-import {Divider, EmptyState, Modal} from './ui'
+import {Divider, EmptyState, Modal, PageHeader} from './ui'
 import './ShipmentOperations.css'
 
 const nextActionCopy:Record<string,string>={create_label:'Criar etiqueta',checkout:'Confirmar compra',sync:'Atualizar etiqueta',print:'Imprimir etiqueta',track:'Acompanhar rastreio',none:'Sem ação pendente'}
@@ -63,7 +63,7 @@ export function OperationalShipments(){
             <span>Criado em {shortDate(row.created_at)}</span>
             {nextAction&&nextAction!=='Sem ação pendente'&&<span className="shipment-op-next">Próxima ação: {nextAction}</span>}
           </div>
-          <a className="button-link" href={`/entregas/${row.id}`}>Abrir envio</a>
+          <a className="ui-btn ui-btn--tertiary button-link" href={`/entregas/${row.id}`}>Abrir envio</a>
         </article>
       })}
     </div>}
@@ -150,7 +150,7 @@ export function ShippingSettingsPage(){
   const submit=async()=>{if(missing.length){setMessage(`Preencha os campos obrigatórios: ${missing.join(', ')}.`);return}setSaving(true);setMessage('');try{await saveShippingSettings(form);setConfigured(true);setMessage('Configuração salva e persistida. O token continua somente nos Secrets do Supabase.')}catch(reason){setMessage(reason instanceof Error?reason.message:'Falha ao salvar.')}finally{setSaving(false)}}
   const {can}=usePermissions()
   const canSeeTeam=can('team.view')||can('team.manage')
-  return <div className="page">{canSeeTeam&&<div className="team-tabs"><button className="active">Frete</button><button onClick={()=>{history.pushState({},'','/configuracoes/equipe');dispatchEvent(new PopStateEvent('popstate'))}}>Equipe e acessos</button></div>}<div className="page-lead"><div><h2>Configurações</h2><p>Remetente e pacote padrão da operação logística.</p></div></div><div className="card settings-card"><div className="card-title"><div><h3>SuperFrete — Produção</h3><p>Nenhuma credencial é armazenada ou exibida no navegador.</p></div><span className="live-dot">{configured?'CONFIGURADO':'CONFIGURAÇÃO PENDENTE'}</span></div>{loading?<div className="inline-empty">Carregando…</div>:<div className="record-form">{!configured&&<div className="incomplete-data"><AlertTriangle/><div><strong>SUPERFRETE AINDA NÃO ESTÁ PRONTA PARA USO</strong><span>Preencha o remetente real e o pacote padrão. Sem isso, o cálculo de frete será bloqueado com segurança.</span></div></div>}
+  return <div className="page">{canSeeTeam&&<div className="team-tabs"><button className="active">Frete</button><button onClick={()=>{history.pushState({},'','/configuracoes/equipe');dispatchEvent(new PopStateEvent('popstate'))}}>Equipe e acessos</button></div>}<PageHeader eyebrow="CONFIGURAÇÕES" title="Frete" description="Remetente e pacote padrão da operação logística."/><div className="card settings-card"><div className="card-title"><div><h3>SuperFrete — Produção</h3><p>Nenhuma credencial é armazenada ou exibida no navegador.</p></div><span className="live-dot">{configured?'CONFIGURADO':'CONFIGURAÇÃO PENDENTE'}</span></div>{loading?<div className="inline-empty">Carregando…</div>:<div className="record-form">{!configured&&<div className="incomplete-data"><AlertTriangle/><div><strong>SUPERFRETE AINDA NÃO ESTÁ PRONTA PARA USO</strong><span>Preencha o remetente real e o pacote padrão. Sem isso, o cálculo de frete será bloqueado com segurança.</span></div></div>}
     <Divider label="Remetente"/>
     <div className="form-grid">{([['sender_name','Nome do remetente'],['sender_document','CPF/CNPJ'],['sender_email','E-mail'],['sender_phone','Telefone'],['sender_postal_code','CEP'],['sender_address','Endereço'],['sender_number','Número'],['sender_complement','Complemento'],['sender_district','Bairro'],['sender_city','Cidade'],['sender_state','UF']] as [keyof ShippingSettings,string][]).map(([key,label])=><label className={`field ${key==='sender_address'?'wide':''}`} key={key}><span>{label}{required.some(([requiredKey])=>requiredKey===key)&&' *'}</span><input value={String(form[key]??'')} onChange={event=>set(key,event.target.value)}/></label>)}</div>
     <Divider label="Pacote padrão"/>

@@ -19,6 +19,10 @@ otp_length = 8
 enroll_enabled = true
 verify_enabled = true
 
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
+
 [functions.process-import]
 verify_jwt = true
 [functions.confirm-import]
@@ -37,3 +41,9 @@ verify_jwt = true
 verify_jwt = true
 [functions.superfrete-sync-shipment]
 verify_jwt = true
+[functions.customer-registration-start]
+verify_jwt = false
+[functions.customer-claim-start]
+verify_jwt = false
+[functions.customer-resolve-login]
+verify_jwt = false

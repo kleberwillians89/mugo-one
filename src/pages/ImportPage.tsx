@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowUpRight, Check, FileSpreadsheet, UploadCloud, X } f
 import { brl, integer } from '../lib/format'
 import { ImportPreview, ParsedSale, readWorkbook } from '../lib/importer'
 import { statusLabel } from '../lib/presentation'
+import { PageHeader } from '../components/ui'
 
 export function ImportPage() {
   const [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -19,7 +20,7 @@ export function ImportPage() {
     finally { setLoading(false) }
   }
   return <div className="page">
-    <div className="page-lead"><div><h2>Importar dados comerciais</h2><p>Valide cada linha antes de levar as vendas ao Supabase.</p></div></div>
+    <PageHeader eyebrow="DADOS E QUALIDADE" title="Importar dados comerciais" description="Valide cada linha antes de levar as vendas ao Supabase." />
     {!preview ? <label className="dropzone">
       <input type="file" accept=".xlsx,.csv" onChange={handleFile}/>
       <div className="upload-icon"><UploadCloud/></div>

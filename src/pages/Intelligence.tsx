@@ -3,6 +3,7 @@ import { ArrowUpRight, Bot, LoaderCircle, RotateCcw, Sparkles } from 'lucide-rea
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { askIntelligence } from '../lib/records'
+import { PageHeader } from '../components/ui'
 
 export function Intelligence({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const suggestions = ['Como estão as vendas deste mês?', 'Quais perfumes estão acabando?', 'Quais entregas precisam de atenção?', 'Quem possui pagamento pendente?', 'O que devo repor primeiro?', 'Existem vendas sem estoque suficiente?']
@@ -16,7 +17,7 @@ export function Intelligence({period,setPeriod}:{period:PeriodValue;setPeriod:(v
   const submit=async(text=question)=>{const clean=text.trim();if(!clean||requestActive.current)return;requestActive.current=true;setQuestion(clean);setLastQuestion(clean);setWaitingMessage('Consultando as vendas…');setLoading(true);setError('');setMeta(null);try{const result=await askIntelligence(clean,period);setAnswer(result.answer);setMeta(result.meta);setQuestion('')}catch(err){setError(err instanceof Error?err.message:'A inteligência está indisponível.')}finally{requestActive.current=false;setWaitingMessage('');setLoading(false)}}
   const renderList=(value:unknown)=>Array.isArray(value)?<ul>{value.map((item,index)=><li key={index}>{String(item)}</li>)}</ul>:<p>{String(value??'')}</p>
   const numbers=Array.isArray(answer?.numeros_principais)?answer.numeros_principais as {rotulo:string;valor:string;explicacao:string}[]:[]
-  return <div className="page intelligence-page"><div className="page-lead"><div><span className="eyebrow">ASSISTENTE EXECUTIVO</span><h2>RUAH Intelligence</h2><p>Análise consultiva baseada apenas em agregados reais.</p></div><PeriodFilter value={period} onApply={setPeriod}/></div>
+  return <div className="page intelligence-page"><PageHeader eyebrow="ASSISTENTE EXECUTIVO" title="RUAH Intelligence" description="Análise consultiva baseada apenas em agregados reais." actions={<PeriodFilter value={period} onApply={setPeriod}/>}/>
     <div className="intelligence-hero"><div className="hero-spark"><Sparkles/></div><span>RUAH INTELLIGENCE</span><h2>Decisões mais claras começam<br/>com as perguntas certas.</h2><p>Respostas baseadas exclusivamente nos dados autorizados da sua operação.</p></div>
     <div className="chat-box card">
       {!answer&&!loading?<div className="chat-empty"><Bot/><h3>Como posso ajudar hoje?</h3><p>Escolha uma sugestão ou escreva uma pergunta sobre os dados da RUAH.</p></div>:null}

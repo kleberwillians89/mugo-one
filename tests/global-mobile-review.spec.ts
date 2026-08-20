@@ -25,7 +25,7 @@ const CSS_FILES = [
   'src/styles/rebrand-v2.css',
 ]
 
-const WIDTHS = [320, 375, 390, 430, 768, 820, 1024, 1280, 1440, 1920]
+const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1280, 1440, 1920]
 
 const markup = `
 <div class="page" data-fixture="clients-list">
@@ -210,7 +210,7 @@ for (const width of WIDTHS) {
     }
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1)
-    if ([320, 375, 390, 430, 768].includes(width)) await page.screenshot({ path: `tests/screenshots/global-review-${width}.png`, fullPage: true })
+    if ([320, 360, 375, 390, 430, 768, 1024, 1280, 1440, 1920].includes(width)) await page.screenshot({ path: `tests/screenshots/global-review-${width}.png`, fullPage: true })
   })
 }
 
