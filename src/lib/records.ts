@@ -256,7 +256,7 @@ export type OperationalShipment={
   recipient_number:string|null;recipient_complement:string|null;recipient_district:string|null;recipient_city:string|null;recipient_state:string|null
   package_weight:number|null;package_height:number|null;package_width:number|null;package_length:number|null;package_format:string|null
   declared_value:number|null;fiscal_mode:string;selected_quote_id:string|null;carrier:string|null;service:string|null;service_id:string|null
-  shipping_price:number|null;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null
+  shipping_price:number|null;customer_approved_at?:string|null;approved_by?:string|null;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null
   tracking_code:string|null;print_url:string|null;label_pdf_url:string|null;integration_error:string|null
   print_available:boolean;print_http_status:number|null;print_content_type:string|null;print_checked_at:string|null
   conference_owner_user_id:string|null;conference_owner_name_snapshot:string|null;conference_started_at:string|null;conference_completed_at:string|null
@@ -287,8 +287,6 @@ export async function assumeShipmentConference(shipmentId:string){await currentO
 export async function updateShipmentShippingData(shipmentId:string,data:Record<string,unknown>){await currentOrganization();const {data:shipment,error}=await supabase!.rpc('update_shipment_shipping_data',{p_shipment_id:shipmentId,p_data:data});if(error)throw new Error(error.message);return shipment as OperationalShipment}
 export async function refreshShipmentRecipient(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('refresh_shipment_recipient',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
 export async function selectShipmentQuote(shipmentId:string,quoteId:string){await currentOrganization();const {error}=await supabase!.rpc('select_shipment_quote',{p_shipment_id:shipmentId,p_quote_id:quoteId});if(error)throw new Error(error.message)}
-export async function approveShipmentForLabel(shipmentId:string){await currentOrganization();const {error}=await supabase!.rpc('approve_shipment_for_label',{p_shipment_id:shipmentId});if(error)throw new Error(error.message)}
-
 async function invokeShipmentFunction(name:string,shipmentId:string,extra:Record<string,unknown>={}){
   const {organizationId}=await currentOrganization(),{data,error}=await supabase!.functions.invoke(name,{body:{organization_id:organizationId,shipment_id:shipmentId,...extra}})
   if(error){const response=(error as {context?:Response}).context;let message='Não foi possível concluir a operação com a SuperFrete.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}const reference=response?.headers.get('x-request-id');throw new Error(`${message}${reference?` Referência: ${reference}.`:''}`)}

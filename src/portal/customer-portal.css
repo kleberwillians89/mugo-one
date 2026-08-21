@@ -73,6 +73,7 @@
 .portal-progress span{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--portal-muted)}
 .portal-progress span.done{color:#3f7350}
 .portal-quote{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--portal-cream);border-radius:8px;padding:10px 12px}
+.portal-quote>div{display:flex;min-width:0;flex-direction:column;gap:5px}.portal-quote>div>strong{font-size:11px;letter-spacing:.08em}.portal-quote>div>span{line-height:1.45}.portal-quote-approved{border:1px solid rgba(95,119,84,.28);background:#f3f6f0}.portal-quote-approved>div>strong{color:#526b49}
 .portal-quote button{min-height:40px;padding:0 14px;border:0;border-radius:7px;background:var(--portal-gold);color:#fff;font-weight:600;font-size:12px}
 .portal-tracking{display:flex;flex-direction:column;gap:2px;border-top:1px dashed var(--portal-line);padding-top:8px}
 .portal-tracking span{font-size:10px;text-transform:uppercase;color:var(--portal-muted)}

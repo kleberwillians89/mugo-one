@@ -16,8 +16,8 @@ const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
 const brl = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 const shortDate = (value: string | null) => value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(value)) : '—'
 const shipmentStatusLabel: Record<string, string> = {
-  draft: 'Em preparação', requested: 'Em preparação', awaiting_customer_approval: 'Aguardando sua confirmação',
-  customer_approved: 'Confirmado — preparando envio', label_pending: 'Emitindo etiqueta', label_released: 'Pronto para postar',
+  draft: 'Em preparação', requested: 'Em preparação', awaiting_customer_approval: 'Aguardando sua aprovação',
+  customer_approved: 'Envio aprovado', label_pending: 'Emitindo etiqueta', label_released: 'Pronto para postar',
   posted: 'Postado — a caminho', delivered: 'Entregue', cancelled: 'Cancelado',
 }
 
@@ -111,7 +111,8 @@ function ShipmentsPage({ requests, reload, onOpenHistory }: { requests: Shipment
           .map(([label, done]) => <span key={label as string} className={done ? 'done' : ''}>{done ? <Check size={12} /> : '○'} {label as string}</span>)}
       </div>
       {r.status === 'requested' && <button disabled={busy === r.request_id} onClick={() => act(() => cancelShipmentRequest(r.request_id), r.request_id)}>Cancelar solicitação</button>}
-      {r.awaiting_approval && <div className="portal-quote"><span>Frete: {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span><button disabled={busy === r.request_id} onClick={() => act(() => confirmShipmentRequest(r.request_id), r.request_id)}>Confirmar envio</button></div>}
+      {r.awaiting_approval && <div className="portal-quote"><div><strong>AGUARDANDO SUA APROVAÇÃO</strong><span>Frete<br/>{[r.carrier,r.service].filter(Boolean).join(' · ')} · {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span></div><button disabled={busy === r.request_id} onClick={() => act(() => confirmShipmentRequest(r.request_id), r.request_id)}>APROVAR ENVIO</button></div>}
+      {r.shipment_status === 'customer_approved' && <div className="portal-quote portal-quote-approved"><div><strong>✓ ENVIO APROVADO</strong><span>A equipe da RUAH seguirá com a preparação.</span></div></div>}
       {r.tracking_code && <div className="portal-tracking"><span>Rastreio</span><strong>{r.tracking_code}</strong></div>}
     </div>)}
   </div>

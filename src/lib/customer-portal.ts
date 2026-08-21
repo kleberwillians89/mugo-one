@@ -62,6 +62,7 @@ export type ShipmentRequest = {
   request_id: string; status: 'requested' | 'converted' | 'cancelled'; requested_at: string; cancelled_at: string | null
   items: RequestItem[] | null; converted_shipment_id: string | null
   shipment_status: string | null; awaiting_approval: boolean; shipping_price: number | null
+  carrier: string | null; service: string | null; selected_quote_id: string | null; customer_approved_at: string | null
   tracking_code: string | null; posted_at: string | null; delivered_at: string | null
 }
 export async function fetchMyRequests(): Promise<ShipmentRequest[]> {
