@@ -78,7 +78,7 @@
 }
 
 /* Mobile operational layout */
-html,body,#root{max-width:100%;overflow-x:hidden}
+html,body,#root{max-width:100%}
 button,a,input,select,textarea{touch-action:manipulation}
 @media(max-width:760px){
   .app-shell>main>header{gap:8px}

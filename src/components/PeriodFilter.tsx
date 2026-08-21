@@ -18,18 +18,20 @@ export function PeriodFilter({value,onApply}:{value:PeriodValue;onApply:(period:
   const root=useRef<HTMLDivElement>(null)
   useEffect(()=>{const media=matchMedia('(max-width: 760px)'),change=()=>setCompact(media.matches);media.addEventListener('change',change);return()=>media.removeEventListener('change',change)},[])
   useEffect(()=>{if(!open)return;const close=(event:MouseEvent)=>{if(!root.current?.contains(event.target as Node))setOpen(false)},escape=(event:KeyboardEvent)=>{if(event.key==='Escape')setOpen(false)};document.addEventListener('mousedown',close);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('mousedown',close);document.removeEventListener('keydown',escape)}},[open])
+  useEffect(()=>{if(!open||!compact)return;const previous=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.body.style.overflow=previous}},[open,compact])
   const selectPreset=(preset:Preset)=>{const next=presetPeriod(preset);setDraft(next);setStartText(isoToBrazilian(next.start));setEndText(isoToBrazilian(next.end));setError('')}
   const commitText=()=>{const start=brazilianToIso(startText),end=brazilianToIso(endText);if(!start||!end)return setError('Informe as duas datas no formato DD/MM/AAAA.');if(end<start)return setError('A data final não pode ser anterior à inicial.');setDraft({start,end,label:'Período personalizado'});setError('')}
   const selected:DateRange={from:parse(draft.start,'yyyy-MM-dd',new Date()),to:parse(draft.end,'yyyy-MM-dd',new Date())}
   const apply=()=>{commitText();const start=brazilianToIso(startText),end=brazilianToIso(endText);if(!start||!end||end<start)return;onApply({...draft,start,end,label:draft.label==='Todo o período'?'Todo o período':`${isoToBrazilian(start)} a ${isoToBrazilian(end)}`});setOpen(false)}
   return <div className="period-filter" ref={root}>
     <button type="button" className="date-filter" aria-haspopup="dialog" aria-expanded={open} onClick={()=>{if(!open){setDraft(value);setStartText(isoToBrazilian(value.start));setEndText(isoToBrazilian(value.end))}setOpen(!open)}}><CalendarDays size={17}/><span>{value.label}</span><ChevronDown size={16}/></button>
-    {open&&<div className="period-popover">
+    {open&&<div className="period-popover" role="dialog" aria-modal={compact} aria-label="Selecionar período">
+      <div className="period-mobile-head"><strong>Selecionar período</strong><button type="button" aria-label="Fechar filtro de período" onClick={()=>setOpen(false)}><X/></button></div>
       <div className="period-presets">{([
         ['today','Hoje'],['yesterday','Ontem'],['7d','Últimos 7 dias'],['30d','Últimos 30 dias'],
         ['month','Este mês'],['previous_month','Mês anterior'],['quarter','Este trimestre'],
         ['year','Este ano'],['all','Todo o período'],['custom','Período personalizado'],
-      ] as [Preset,string][]).map(([key,label])=><button key={key} onClick={()=>selectPreset(key)}>{label}</button>)}</div>
+      ] as [Preset,string][]).map(([key,label])=><button className={key==='custom'?'period-preset-custom':undefined} aria-pressed={draft.label===label} key={key} onClick={()=>selectPreset(key)}>{label}</button>)}</div>
       <div className="period-calendar">
         <div className="period-inputs"><label>Data inicial<input value={startText} inputMode="numeric" onChange={(event)=>setStartText(event.target.value.replace(/[^\d/]/g,'').slice(0,10))} onBlur={commitText}/></label><span>até</span><label>Data final<input value={endText} inputMode="numeric" onChange={(event)=>setEndText(event.target.value.replace(/[^\d/]/g,'').slice(0,10))} onBlur={commitText}/></label></div>
         <DayPicker mode="range" locale={ptBR} selected={selected} numberOfMonths={compact?1:2}
