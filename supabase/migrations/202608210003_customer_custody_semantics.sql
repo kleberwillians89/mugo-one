@@ -43,6 +43,7 @@ language sql stable security definer set search_path = public as $$
   select r.id, r.status, r.requested_at, r.cancelled_at,
     (select jsonb_agg(jsonb_build_object(
        'allocation_id', i.allocation_id,
+       'perfume_id', i.perfume_id,
        'perfume', p.full_name_raw,
        'quantity_ml', i.quantity_ml
      ))
