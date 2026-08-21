@@ -3,7 +3,7 @@ import { Check, Home, HelpCircle, KeyRound, LoaderCircle, Package, Truck, UserRo
 import { supabase } from '../lib/supabase'
 import {
   AddressSnapshot, CustodyItem, PurchaseHistoryItem, DeliveryHistoryItem, ShipmentRequest, SupportTicket,
-  cancelShipmentRequest, confirmShipmentRequest, createShipmentRequest, createSupportTicket, fetchCustody,
+  cancelShipmentRequest, confirmCustomerShipment, createShipmentRequest, createSupportTicket, fetchCustody,
   customerPortalErrorMessage, fetchDeliveryHistory, fetchMyRequests, fetchMyTickets, fetchProfile, fetchPurchaseHistory, maskCpf, ticketCategoryLabel,
 } from '../lib/customer-portal'
 import { groupCustomerCustody, summarizeCustomerCustody } from './customer-custody-summary'
@@ -96,14 +96,15 @@ function ShipmentsPage({ requests, reload, onOpenHistory }: { requests: Shipment
     <button className="portal-link" onClick={onOpenHistory}>Ver histórico completo</button>
     {error&&<div className="portal-error">{error}</div>}
     {requests.length === 0 && <p className="portal-empty">Nenhuma solicitação ainda.</p>}
-    {requests.map((r) => <div className="portal-card portal-request-card" key={r.request_id}>
+    {[...requests].sort((a,b)=>Number(b.awaiting_approval)-Number(a.awaiting_approval)).map((r) => <div className="portal-card portal-request-card" key={r.request_id}>
+      {r.awaiting_approval&&<span className="portal-action-required">AÇÃO NECESSÁRIA</span>}
       <strong>{r.items?.map((i) => `${i.perfume} (${i.quantity_ml}ml)`).join(', ') || 'Solicitação'}</strong>
       <div className="portal-progress">
         {[['Solicitação recebida', true], ['Frete cotado', Boolean(r.converted_shipment_id)], ['Envio confirmado', Boolean(r.shipment_status && r.shipment_status !== 'awaiting_customer_approval' && r.shipment_status !== 'draft' && r.shipment_status !== 'requested')], ['Postado', r.shipment_status === 'posted' || r.shipment_status === 'delivered']]
           .map(([label, done]) => <span key={label as string} className={done ? 'done' : ''}>{done ? <Check size={12} /> : '○'} {label as string}</span>)}
       </div>
-      {(r.status === 'requested' || (r.status === 'converted' && ['draft','requested','awaiting_customer_approval','customer_approved'].includes(r.shipment_status??''))) && <button disabled={busy === r.request_id} onClick={() => act(() => cancelShipmentRequest(r.request_id), r.request_id)}>{r.awaiting_approval?'NÃO QUERO ENVIAR AGORA':'Cancelar solicitação'}</button>}
-      {r.awaiting_approval && <div className="portal-quote"><div><strong>AGUARDANDO SUA APROVAÇÃO</strong><span>Frete<br/>{[r.carrier,r.service].filter(Boolean).join(' · ')} · {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span></div><button disabled={busy === r.request_id} onClick={() => act(() => confirmShipmentRequest(r.request_id), r.request_id)}>APROVAR ENVIO</button></div>}
+      {r.customer_request_id&&(r.status === 'requested' || (r.status === 'converted' && ['draft','requested','awaiting_customer_approval','customer_approved'].includes(r.shipment_status??''))) && <button disabled={busy === r.request_id} onClick={() => act(() => cancelShipmentRequest(r.customer_request_id!), r.request_id)}>{r.awaiting_approval?'NÃO QUERO ENVIAR AGORA':'Cancelar solicitação'}</button>}
+      {r.awaiting_approval && <div className="portal-quote"><div><strong>AGUARDANDO SUA APROVAÇÃO</strong><span>Frete<br/>{[r.carrier,r.service].filter(Boolean).join(' · ')} · {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span></div><button disabled={busy === r.request_id||!r.converted_shipment_id} onClick={() => r.converted_shipment_id&&act(() => confirmCustomerShipment(r.converted_shipment_id!), r.request_id)}>APROVAR ENVIO</button></div>}
       {r.shipment_status === 'customer_approved' && <div className="portal-quote portal-quote-approved"><div><strong>✓ ENVIO APROVADO</strong><span>A equipe da RUAH seguirá com a preparação.</span></div></div>}
       {r.tracking_code && <div className="portal-tracking"><span>Rastreio</span><strong>{r.tracking_code}</strong></div>}
     </div>)}
@@ -173,7 +174,7 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
     <header className="portal-header"><div><span>RUAH</span><strong>Minha RUAH</strong></div>{greeting && <em>Olá, {greeting}</em>}</header>
     <main className="portal-main">
       {loading ? <div className="portal-centered"><LoaderCircle className="spin" /></div> : showHistory ? <>
-        <button className="portal-link" onClick={() => navigate('/minha-ruah')}>← Voltar</button>
+        <button className="portal-link" onClick={() => {setTab('envios');navigate('/minha-ruah')}}>FECHAR HISTÓRICO</button>
         <HistoryPage />
       </> : <>
         {tab === 'inicio' && <HomePage custody={custody} requests={requests} onRequest={setRequesting} greeting={greeting} onPerfumes={()=>setTab('perfumes')} onShipments={()=>setTab('envios')} onHelp={()=>setTab('ajuda')} />}
@@ -188,6 +189,6 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
       </>}
     </main>
     {activeGroup?.available_allocations.length ? <RequestFlow perfumeName={activeGroup.perfume_name} allocations={activeGroup.available_allocations} onDone={() => { setRequesting(null); reload(); setTab('envios') }} onCancel={() => setRequesting(null)} /> : null}
-    <nav className="portal-bottom-nav" aria-label="Navegação Minha RUAH">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={tab===id?'page':undefined} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={20} /><span>{label}</span></button>)}</nav>
+    <nav className="portal-bottom-nav" aria-label="Navegação Minha RUAH">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={!showHistory&&tab===id?'page':undefined} className={!showHistory&&tab === id ? 'active' : ''} onClick={() => {if(showHistory)navigate('/minha-ruah');setTab(id)}}><Icon size={20} /><span>{label}</span></button>)}</nav>
   </div>
 }

@@ -75,15 +75,25 @@ export async function fetchCustody(): Promise<CustodyItem[]> {
 export type RequestItem = { allocation_id?: string; perfume_id?: string; perfume: string; quantity_ml: number }
 export type ShipmentRequest = {
   request_id: string; status: 'requested' | 'converted' | 'cancelled'; requested_at: string; cancelled_at: string | null
+  customer_request_id?: string | null; source?: 'request' | 'shipment'
   items: RequestItem[] | null; converted_shipment_id: string | null
   shipment_status: string | null; awaiting_approval: boolean; shipping_price: number | null
   carrier: string | null; service: string | null; selected_quote_id: string | null; customer_approved_at: string | null
   tracking_code: string | null; posted_at: string | null; delivered_at: string | null
 }
 export async function fetchMyRequests(): Promise<ShipmentRequest[]> {
-  const { data, error } = await supabase!.rpc('customer_shipment_requests_list')
-  if (error) portalRpcError(error, 'Não foi possível carregar seus envios agora.')
-  return (data ?? []) as ShipmentRequest[]
+  const [requestResult,shipmentResult]=await Promise.all([
+    supabase!.rpc('customer_shipment_requests_list'),
+    supabase!.rpc('customer_shipments_list'),
+  ])
+  if(requestResult.error)portalRpcError(requestResult.error,'Não foi possível carregar seus envios agora.')
+  if(shipmentResult.error)portalRpcError(shipmentResult.error,'Não foi possível carregar seus envios agora.')
+  const rawRequests=(requestResult.data??[]) as Omit<ShipmentRequest,'customer_request_id'|'source'>[]
+  const shipments=(shipmentResult.data??[]) as Array<{shipment_id:string;status:string;created_at:string;items:RequestItem[]|null;shipping_price:number|null;carrier:string|null;service:string|null;selected_quote_id:string|null;customer_approved_at:string|null;tracking_code:string|null;posted_at:string|null;delivered_at:string|null;cancelled_at:string|null}>
+  const shipmentIds=new Set(shipments.map(item=>item.shipment_id))
+  const pending=rawRequests.filter(item=>!item.converted_shipment_id||!shipmentIds.has(item.converted_shipment_id)).map(item=>({...item,customer_request_id:item.request_id,source:'request' as const}))
+  const canonical=shipments.map(shipment=>{const request=rawRequests.find(item=>item.converted_shipment_id===shipment.shipment_id);return {request_id:`shipment:${shipment.shipment_id}`,customer_request_id:request?.request_id??null,source:'shipment' as const,status:'converted' as const,requested_at:request?.requested_at??shipment.created_at,cancelled_at:request?.cancelled_at??shipment.cancelled_at,items:shipment.items,converted_shipment_id:shipment.shipment_id,shipment_status:shipment.status,awaiting_approval:shipment.status==='awaiting_customer_approval',shipping_price:shipment.shipping_price,carrier:shipment.carrier,service:shipment.service,selected_quote_id:shipment.selected_quote_id,customer_approved_at:shipment.customer_approved_at,tracking_code:shipment.tracking_code,posted_at:shipment.posted_at,delivered_at:shipment.delivered_at}})
+  return [...canonical,...pending]
 }
 
 export type AddressSnapshot = { name: string; postal_code: string; address_line: string; address_number: string; complement?: string; district: string; city: string; state: string; phone?: string }
@@ -98,8 +108,8 @@ export async function cancelShipmentRequest(requestId: string): Promise<void> {
   if (error) portalRpcError(error, 'Não foi possível cancelar esta solicitação agora.')
 }
 
-export async function confirmShipmentRequest(requestId: string): Promise<void> {
-  const { error } = await supabase!.rpc('customer_shipment_request_confirm', { p_request_id: requestId })
+export async function confirmCustomerShipment(shipmentId: string): Promise<void> {
+  const { error } = await supabase!.rpc('customer_shipment_confirm', { p_shipment_id: shipmentId })
   if (error) portalRpcError(error, 'Não foi possível aprovar este envio agora.')
 }
 

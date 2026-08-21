@@ -69,6 +69,7 @@
 .portal-check-card span{font-size:11px;color:var(--portal-muted)}
 
 .portal-request-card{gap:10px}
+.portal-action-required{width:max-content;border-radius:999px;background:#6f3028!important;color:#fff!important;padding:5px 8px;font-size:9px!important;font-weight:700;letter-spacing:.08em}
 .portal-progress{display:flex;flex-direction:column;gap:5px}
 .portal-progress span{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--portal-muted)}
 .portal-progress span.done{color:#3f7350}
