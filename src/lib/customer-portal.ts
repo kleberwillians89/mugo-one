@@ -50,14 +50,14 @@ export async function resolveLoginEmail(identifier: string): Promise<string> {
   return email as string
 }
 
-export type CustodyItem = { allocation_id: string; perfume_id: string; perfume_name: string; quantity_ml: number; sale_date: string | null; requested: boolean; request_id: string | null }
+export type CustodyItem = { allocation_id: string; perfume_id: string; perfume_name: string; quantity_ml: number; sale_date: string | null; allocation_status: 'reserved' | 'shipping'; requested: boolean; request_id: string | null }
 export async function fetchCustody(): Promise<CustodyItem[]> {
   const { data, error } = await supabase!.rpc('customer_custody')
   if (error) throw new Error(error.message)
   return (data ?? []) as CustodyItem[]
 }
 
-export type RequestItem = { perfume: string; quantity_ml: number }
+export type RequestItem = { allocation_id?: string; perfume: string; quantity_ml: number }
 export type ShipmentRequest = {
   request_id: string; status: 'requested' | 'converted' | 'cancelled'; requested_at: string; cancelled_at: string | null
   items: RequestItem[] | null; converted_shipment_id: string | null

@@ -262,19 +262,20 @@ export type OperationalShipment={
   conference_owner_user_id:string|null;conference_owner_name_snapshot:string|null;conference_started_at:string|null;conference_completed_at:string|null
   clients:{name:string;updated_at?:string;phone?:string|null;whatsapp_phone?:string|null;cpf?:string|null;cnpj?:string|null;postal_code?:string|null;address_line?:string|null;address_number?:string|null;complement?:string|null;district?:string|null;city?:string|null;state?:string|null}|null;shipment_quotes:ShipmentQuote[];shipment_items:{allocation_id:string;quantity_ml:number;separated_at:string|null;checked_at:string|null;divergence_note:string|null;bottle_id:string|null;split_unit_id:string|null;inventory_allocations:{allocation_source:string;stock_managed:boolean;inventory_items:{bottle_tracking_status:string}|null}|null;inventory_bottles:{bottle_code:string;bottle_label:string;physical_ml:number}|null;inventory_split_units:{split_code:string;quantity_ml:number;status:string}|null;sales:{id:string;amount:number;perfume_name_raw:string|null;sale_type:string|null;shipping_deadline_date:string|null}|null}[]
   shipment_events?:{id:number;event_type:string;from_status:string|null;to_status:string|null;metadata:Record<string,unknown>;created_at:string}[]
+  customer_shipment_requests?:{id:string}[]
 }
 
 const SHIPMENT_ITEMS_SELECT='shipment_items(allocation_id,quantity_ml,separated_at,checked_at,divergence_note,bottle_id,split_unit_id,inventory_allocations(allocation_source,stock_managed,inventory_items(bottle_tracking_status)),inventory_bottles(bottle_code,bottle_label,physical_ml),inventory_split_units(split_code,quantity_ml,status),sales(id,amount,perfume_name_raw,sale_type,shipping_deadline_date))'
 
 export async function fetchOperationalShipments(){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select(`*,clients(name),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),${SHIPMENT_ITEMS_SELECT}`).eq('organization_id',organizationId).order('created_at',{ascending:false})
+  const {data,error}=await supabase!.from('shipments').select(`*,clients(name),customer_shipment_requests(id),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),${SHIPMENT_ITEMS_SELECT}`).eq('organization_id',organizationId).order('created_at',{ascending:false})
   if(error)throw new Error(error.message)
   return (data??[]) as unknown as OperationalShipment[]
 }
 export async function fetchShipment360(shipmentId:string){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('shipments').select(`*,clients(name,updated_at,phone,whatsapp_phone,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),${SHIPMENT_ITEMS_SELECT},shipment_events(id,event_type,from_status,to_status,metadata,created_at)`).eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
+  const {data,error}=await supabase!.from('shipments').select(`*,clients(name,updated_at,phone,whatsapp_phone,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state),customer_shipment_requests(id),shipment_quotes!shipment_quotes_shipment_id_fkey(id,service_id,service_name,carrier,price,delivery_days,delivery_min,delivery_max,available,safe_error,package),${SHIPMENT_ITEMS_SELECT},shipment_events(id,event_type,from_status,to_status,metadata,created_at)`).eq('organization_id',organizationId).eq('id',shipmentId).order('created_at',{referencedTable:'shipment_events',ascending:false}).single()
   if(error)throw new Error(error.message)
   return data as unknown as OperationalShipment
 }
@@ -287,6 +288,7 @@ export async function assumeShipmentConference(shipmentId:string){await currentO
 export async function updateShipmentShippingData(shipmentId:string,data:Record<string,unknown>){await currentOrganization();const {data:shipment,error}=await supabase!.rpc('update_shipment_shipping_data',{p_shipment_id:shipmentId,p_data:data});if(error)throw new Error(error.message);return shipment as OperationalShipment}
 export async function refreshShipmentRecipient(shipmentId:string){await currentOrganization();const {data,error}=await supabase!.rpc('refresh_shipment_recipient',{p_shipment_id:shipmentId});if(error)throw new Error(error.message);return data as OperationalShipment}
 export async function selectShipmentQuote(shipmentId:string,quoteId:string){await currentOrganization();const {error}=await supabase!.rpc('select_shipment_quote',{p_shipment_id:shipmentId,p_quote_id:quoteId});if(error)throw new Error(error.message)}
+export async function cancelCustomerShipmentRequestAsStaff(shipmentId:string){await currentOrganization();const {error}=await supabase!.rpc('customer_shipment_request_cancel_staff',{p_shipment_id:shipmentId});if(error)throw new Error(error.message)}
 async function invokeShipmentFunction(name:string,shipmentId:string,extra:Record<string,unknown>={}){
   const {organizationId}=await currentOrganization(),{data,error}=await supabase!.functions.invoke(name,{body:{organization_id:organizationId,shipment_id:shipmentId,...extra}})
   if(error){const response=(error as {context?:Response}).context;let message='Não foi possível concluir a operação com a SuperFrete.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}const reference=response?.headers.get('x-request-id');throw new Error(`${message}${reference?` Referência: ${reference}.`:''}`)}

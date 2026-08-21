@@ -6,6 +6,7 @@ import {
   cancelShipmentRequest, confirmShipmentRequest, createShipmentRequest, createSupportTicket, fetchCustody,
   fetchDeliveryHistory, fetchMyRequests, fetchMyTickets, fetchProfile, fetchPurchaseHistory, maskCpf, ticketCategoryLabel,
 } from '../lib/customer-portal'
+import { requestForAllocation, summarizeCustomerCustody } from './customer-custody-summary'
 
 type Tab = 'inicio' | 'perfumes' | 'envios' | 'ajuda' | 'conta'
 const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
@@ -79,21 +80,21 @@ function RequestFlow({ perfumeName, allocations, onDone, onCancel }: { perfumeNa
 
 function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipments, onHelp }: { custody: CustodyItem[]; requests: ShipmentRequest[]; onRequest: (perfumeId: string) => void;greeting:string;onPerfumes:()=>void;onShipments:()=>void;onHelp:()=>void }) {
   const groups = groupByPerfume(custody)
-  const available = groups.reduce((sum, g) => sum + g.available_ml, 0)
-  const preparing = requests.filter((r) => r.converted_shipment_id && !['posted', 'delivered', 'cancelled'].includes(r.shipment_status ?? '')).reduce((sum, r) => sum + (r.items?.reduce((s, i) => s + i.quantity_ml, 0) ?? 0), 0)
-  const inTransit = requests.filter((r) => r.shipment_status === 'posted').reduce((sum, r) => sum + (r.items?.reduce((s, i) => s + i.quantity_ml, 0) ?? 0), 0)
+  const summary = summarizeCustomerCustody(custody,requests)
   return <div className="portal-page portal-home">
     <section className="portal-welcome"><span>BEM-VINDA À SUA ÁREA PRIVADA</span><h1>Olá{greeting?`, ${greeting}`:''}.</h1><p>Aqui está a sua história com a RUAH, com a clareza e o cuidado que ela merece.</p></section>
-    <section className="portal-collection"><span>MEU ACERVO</span><strong>{groups.length} {groups.length===1?'perfume':'perfumes'} na RUAH</strong><p>{available+preparing+inTransit} ml sob seus cuidados</p><button onClick={onPerfumes}>Ver meus perfumes</button></section>
+    <section className="portal-collection"><span>MEU ACERVO</span><strong>{groups.length} {groups.length===1?'perfume':'perfumes'} na RUAH</strong><p>{summary.physicalMl} ml sob os cuidados da RUAH</p><button onClick={onPerfumes}>Ver meus perfumes</button></section>
     <h2>Agora na RUAH</h2>
-    <div className="portal-summary"><div><strong>{available} ml</strong><span>Disponível para envio</span></div><div><strong>{preparing} ml</strong><span>Em preparação</span></div><div><strong>{inTransit} ml</strong><span>Em transporte</span></div></div>
+    <div className="portal-summary"><div><strong>{summary.availableMl} ml</strong><span>Disponível para envio</span></div><div><strong>{summary.awaitingApprovalMl} ml</strong><span>Aguardando sua aprovação</span></div><div><strong>{summary.preparingMl} ml</strong><span>Em preparação</span></div><div><strong>{summary.inTransitMl} ml</strong><span>Em transporte</span></div></div>
     <div className="portal-home-links"><button onClick={onShipments}><strong>Meus envios</strong><span>Acompanhe cada etapa</span></button><button onClick={onHelp}><strong>Preciso de ajuda</strong><span>Fale diretamente com a RUAH</span></button></div>
     <h2>Meus perfumes</h2>
     {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
-    {groups.map((g) => <div className="portal-card" key={g.perfume_name}>
-      <strong>{g.perfume_name}</strong><span>{g.available_ml} ml disponíveis</span>
+    {groups.map((g) => {const activeRequest=g.allocations.map(item=>requestForAllocation(requests,item.allocation_id)).find(request=>request?.shipment_status==='awaiting_customer_approval');return <div className="portal-card" key={g.perfume_name}>
+      <strong>{g.perfume_name}</strong><span>{g.total_ml} ml na RUAH · {g.available_ml} ml disponíveis</span>
+      {activeRequest&&<span>AGUARDANDO SUA APROVAÇÃO</span>}
       {g.available_ml > 0 && <button onClick={() => onRequest(g.perfume_name)}>Solicitar envio</button>}
-    </div>)}
+      {activeRequest&&<button onClick={onShipments}>VER ENVIO / APROVAR</button>}
+    </div>})}
   </div>
 }
 
@@ -110,7 +111,7 @@ function ShipmentsPage({ requests, reload, onOpenHistory }: { requests: Shipment
         {[['Solicitação recebida', true], ['Frete cotado', Boolean(r.converted_shipment_id)], ['Envio confirmado', Boolean(r.shipment_status && r.shipment_status !== 'awaiting_customer_approval' && r.shipment_status !== 'draft' && r.shipment_status !== 'requested')], ['Postado', r.shipment_status === 'posted' || r.shipment_status === 'delivered']]
           .map(([label, done]) => <span key={label as string} className={done ? 'done' : ''}>{done ? <Check size={12} /> : '○'} {label as string}</span>)}
       </div>
-      {r.status === 'requested' && <button disabled={busy === r.request_id} onClick={() => act(() => cancelShipmentRequest(r.request_id), r.request_id)}>Cancelar solicitação</button>}
+      {(r.status === 'requested' || (r.status === 'converted' && ['draft','requested','awaiting_customer_approval','customer_approved'].includes(r.shipment_status??''))) && <button disabled={busy === r.request_id} onClick={() => act(() => cancelShipmentRequest(r.request_id), r.request_id)}>{r.awaiting_approval?'NÃO QUERO ENVIAR AGORA':'Cancelar solicitação'}</button>}
       {r.awaiting_approval && <div className="portal-quote"><div><strong>AGUARDANDO SUA APROVAÇÃO</strong><span>Frete<br/>{[r.carrier,r.service].filter(Boolean).join(' · ')} · {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span></div><button disabled={busy === r.request_id} onClick={() => act(() => confirmShipmentRequest(r.request_id), r.request_id)}>APROVAR ENVIO</button></div>}
       {r.shipment_status === 'customer_approved' && <div className="portal-quote portal-quote-approved"><div><strong>✓ ENVIO APROVADO</strong><span>A equipe da RUAH seguirá com a preparação.</span></div></div>}
       {r.tracking_code && <div className="portal-tracking"><span>Rastreio</span><strong>{r.tracking_code}</strong></div>}
@@ -188,7 +189,7 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
         {tab === 'perfumes' && <div className="portal-page">
           <h2>Meus perfumes</h2>
           {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
-          {groups.map((g) => <div className="portal-card" key={g.perfume_name}><strong>{g.perfume_name}</strong><span>Total meu na RUAH: {g.total_ml} ml</span><span>Disponível para solicitar: {g.available_ml} ml</span>{g.available_ml < g.total_ml && <span>Já solicitado: {g.total_ml - g.available_ml} ml</span>}{g.available_ml > 0 && <button onClick={() => setRequesting(g.perfume_name)}>Solicitar envio</button>}</div>)}
+          {groups.map((g) => {const activeRequest=g.allocations.map(item=>requestForAllocation(requests,item.allocation_id)).find(request=>request?.shipment_status==='awaiting_customer_approval')??g.allocations.map(item=>requestForAllocation(requests,item.allocation_id)).find(Boolean);return <div className="portal-card" key={g.perfume_name}><strong>{g.perfume_name}</strong><span>Total meu na RUAH: {g.total_ml} ml</span><span>Disponível para nova solicitação: {g.available_ml} ml</span>{activeRequest?.shipment_status==='awaiting_customer_approval'&&<><span>AGUARDANDO SUA APROVAÇÃO</span><span>{[activeRequest.carrier,activeRequest.service].filter(Boolean).join(' · ')} · {activeRequest.shipping_price!=null?brl(activeRequest.shipping_price):'—'}</span><button onClick={()=>setTab('envios')}>VER ENVIO / APROVAR</button></>}{activeRequest&&activeRequest.shipment_status!=='awaiting_customer_approval'&&<span>{shipmentStatusLabel[activeRequest.shipment_status??'']??'Em preparação'}</span>}{g.available_ml > 0 && <button onClick={() => setRequesting(g.perfume_name)}>Solicitar envio</button>}</div>})}
         </div>}
         {tab === 'envios' && <ShipmentsPage requests={requests} reload={reload} onOpenHistory={() => navigate('/minha-ruah/historico')} />}
         {tab === 'ajuda' && <HelpPage tickets={tickets} reload={reload} />}

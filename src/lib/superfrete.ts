@@ -1,6 +1,6 @@
 export const shipmentStatusLabels:Record<string,string>={
   draft:'Rascunho',requested:'Preparando envio',awaiting_customer_approval:'Aguardando aprovação do cliente',
-  customer_approved:'Aprovado pelo cliente',label_pending:'Emitindo etiqueta',label_released:'Pronto para postar',
+  customer_approved:'Aprovado pela cliente',label_pending:'Emitindo etiqueta',label_released:'Pronto para postar',
   posted:'Postado',delivered:'Entregue',cancelled:'Cancelado',
 }
 

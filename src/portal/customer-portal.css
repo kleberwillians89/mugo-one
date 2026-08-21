@@ -50,7 +50,7 @@
 .portal-page h3{font:600 13px 'Manrope';margin:14px 0 2px;color:var(--portal-ink)}
 .portal-empty{color:var(--portal-muted);font-size:13px;line-height:1.6;margin:0;padding:22px 18px;background:#fffdf9;border:1px dashed #d9cfbf;border-radius:6px;text-align:center}
 
-.portal-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.portal-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:6px}
 .portal-summary div{background:#fffdf9;border:1px solid var(--portal-line);border-radius:4px;padding:16px 8px;text-align:center;display:flex;flex-direction:column;gap:4px}
 .portal-summary strong{font:600 15px 'Manrope';color:var(--portal-ink)}
 .portal-summary span{font-size:9px;color:var(--portal-muted);text-transform:uppercase;letter-spacing:.4px}
