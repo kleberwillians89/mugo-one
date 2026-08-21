@@ -1,4 +1,4 @@
-import { ReactNode, useRef } from 'react'
+import { ReactNode, useEffect, useRef } from 'react'
 import { useFocusTrap } from './hooks/useFocusTrap'
 import './Drawer.css'
 
@@ -13,6 +13,12 @@ type Props = {
 export function Drawer({ open, onClose, side = 'left', children, ...rest }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(open, panelRef, onClose)
+  useEffect(() => {
+    if (!open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [open])
   if (!open) return null
   return (
     <div className="ui-drawer-layer">
