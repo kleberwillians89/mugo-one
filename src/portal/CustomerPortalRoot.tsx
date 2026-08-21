@@ -7,6 +7,7 @@ import { recordMfaProviderUnavailable } from '../lib/mfa-diagnostics'
 import { publicEnv } from '../lib/publicEnv'
 import { CustomerPortalApp } from './CustomerPortalApp'
 import { createRecoveryConfirmation } from './recovery-confirmation'
+import { hasValidRecoverySession } from './recovery-session'
 import './customer-portal.css'
 
 const go = (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')) }
@@ -44,7 +45,10 @@ function ActivateStartPage() {
 function ActivateCompletePage({recovery=false}:{recovery?:boolean}) {
   const callbackParams=new URLSearchParams(`${location.search.replace(/^\?/,'')}&${location.hash.replace(/^#/,'')}`)
   const callbackFlow=callbackParams.get('flow')??callbackParams.get('type')
-  const invalidCallback=callbackParams.has('error')||callbackParams.has('error_code')||callbackParams.has('error_description')||(recovery?callbackFlow!=='recovery':callbackFlow!=='invite')
+  // Recovery links are authoritative through the authenticated Supabase session.
+  // Supabase may consume and remove callback parameters before this page renders.
+  // Invite activation still requires explicit invite callback evidence.
+  const invalidCallback=!recovery&&(callbackParams.has('error')||callbackParams.has('error_code')||callbackParams.has('error_description')||callbackFlow!=='invite')
   const [step, setStep] = useState<'loading' | 'password' | 'success' | 'error'>(invalidCallback?'error':'loading')
   const [accountId, setAccountId] = useState('')
   const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState('')
@@ -52,6 +56,10 @@ function ActivateCompletePage({recovery=false}:{recovery?:boolean}) {
   const [saving, setSaving] = useState(false); const [error, setError] = useState('')
   useEffect(() => {
     if(invalidCallback)return
+    if(recovery){
+      hasValidRecoverySession(supabase!.auth).then(valid=>setStep(valid?'password':'error'))
+      return
+    }
     supabase?.auth.getSession().then(async({data:{session},error:sessionError})=>{
       if(sessionError||!session){setStep('error');return}
       const {data,error:userError}=await supabase!.auth.getUser()
