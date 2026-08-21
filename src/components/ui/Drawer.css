@@ -6,6 +6,7 @@
 
 .ui-drawer-scrim {
   position: absolute;
+  z-index: 0;
   inset: 0;
   border: 0;
   background: #0008;
@@ -13,14 +14,17 @@
 
 .ui-drawer-panel {
   position: absolute;
+  z-index: 1;
   top: 0;
   bottom: 0;
-  width: min(var(--drawer-width), 86vw);
+  width: min(82vw, 320px);
+  height: 100dvh;
   background: #1b1916;
   color: white;
   box-shadow: var(--shadow-lg);
-  overflow-y: auto;
-  padding-bottom: env(safe-area-inset-bottom);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: ui-drawer-in 0.2s ease-out;
 }
 

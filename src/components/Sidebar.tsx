@@ -56,7 +56,7 @@ export function Sidebar({ page, setPage, open, close }: Props) {
         <SidebarNav page={page} setPage={setPage} />
       </aside>
       <Drawer open={open} onClose={close} aria-label="Menu de navegação">
-        <div className="sidebar sidebar--drawer">
+        <div className="sidebar sidebar--drawer" data-mobile-sidebar-content>
           <SidebarNav page={page} setPage={setPage} onNavigate={close} />
         </div>
       </Drawer>

@@ -4,8 +4,12 @@
 .sidebar--drawer {
   position: static;
   width: 100%;
-  height: 100%;
+  min-height: 100%;
+  height: 100dvh;
   inset: auto;
+  transform: none;
+  transition: none;
+  overflow: hidden;
 }
 
 /* Tablet: collapse the desktop rail to icons only. Labels stay in the DOM
@@ -34,5 +38,42 @@
    instead of relying on the legacy translateX-off-screen approach. */
 @media (max-width: 767px) {
   .sidebar:not(.sidebar--drawer) { display: none; }
+  /* styles.css ainda contém a transição do antigo aside mobile em
+     `.sidebar { transform: translateX(-100%) }`. O seletor contextual
+     impede que a ordem de carregamento dos chunks volte a deslocar a
+     sidebar que já está dentro do Drawer. */
+  .ui-drawer-panel > .sidebar.sidebar--drawer {
+    position: static;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    height: 100dvh;
+    min-height: 0;
+    transform: none;
+    translate: none;
+    opacity: 1;
+    visibility: visible;
+    overflow: hidden;
+    pointer-events: auto;
+  }
+  .ui-drawer-panel > .sidebar.sidebar--drawer > .brand,
+  .ui-drawer-panel > .sidebar.sidebar--drawer > nav,
+  .ui-drawer-panel > .sidebar.sidebar--drawer > .sidebar-foot {
+    width: 100%;
+    min-width: 0;
+    transform: none;
+    translate: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .ui-drawer-panel > .sidebar.sidebar--drawer > .brand { display: flex; flex: 0 0 auto; }
+  .ui-drawer-panel > .sidebar.sidebar--drawer > nav { display: flex; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .ui-drawer-panel > .sidebar.sidebar--drawer > .sidebar-foot { display: grid; flex: 0 0 auto; }
+  .ui-drawer-panel > .sidebar.sidebar--drawer nav button { display: flex; width: 100%; min-height: 44px; }
+  .ui-drawer-panel > .sidebar.sidebar--drawer nav button > span,
+  .ui-drawer-panel > .sidebar.sidebar--drawer nav button > svg { display: initial; visibility: visible; opacity: 1; }
   main { width: 100%; margin-left: 0; }
 }
