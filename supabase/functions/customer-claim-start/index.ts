@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
   if (!account.auth_user_id) {
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: 'https://crm.ruahparfums.com.br/minha-ruah/ativar',
+      redirectTo: 'https://crm.ruahparfums.com.br/minha-ruah/criar-senha?flow=invite',
       data: { ruah_client_account_id: account.id },
     })
     if (inviteError || !invited.user) return json(generic, 200, req)

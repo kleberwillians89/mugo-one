@@ -399,23 +399,17 @@ export async function updateClient(clientId:string,input:ClientInput) {
 export type SaleInput = {
   clientId:string;date:string;amount:number;status:string;method:string;notes?:string
   shippingDeadlineRaw?:string;shippingDeadlineDate?:string;shippedAt?:string;saleType:'APC'|'SPLIT'
-  volumeMl:number;perfume:string;paidAt?:string;creditReferenceAmount?:number|null
+  volumeMl:number;perfumeId:string;paidAt?:string;creditReferenceAmount?:number|null
 }
 export async function createSale(input: SaleInput) {
   const { user, organizationId } = await currentOrganization()
-  const normalizedPerfume=normalizeClient(input.perfume)
-  let {data:perfume}=await supabase!.from('perfumes').select('id').eq('organization_id',organizationId).eq('normalized_name',normalizedPerfume).maybeSingle()
-  if(!perfume){
-    const bottle=input.perfume.match(/\((FRASCO\s*\d+)\)\s*$/i)?.[1]?.toUpperCase()??null
-    const inserted=await supabase!.from('perfumes').insert({organization_id:organizationId,full_name_raw:input.perfume.trim(),normalized_name:normalizedPerfume,base_name:input.perfume.replace(/\s*\(FRASCO\s*\d+\)\s*$/i,'').trim(),bottle_identifier:bottle}).select('id').single()
-    if(inserted.error)throw new Error(inserted.error.message)
-    perfume=inserted.data
-  }
+  const {data:perfume,error:perfumeError}=await supabase!.from('perfumes').select('id,full_name_raw,base_name').eq('organization_id',organizationId).eq('id',input.perfumeId).single()
+  if(perfumeError||!perfume)throw new Error('Selecione um perfume válido da organização.')
   const { data, error } = await supabase!.from('sales').insert({
     organization_id: organizationId, client_id: input.clientId,perfume_id:perfume.id,sale_date: input.date,
     amount: input.amount, payment_status: input.status, payment_method: input.method,
     notes: input.notes || null, source: 'manual', data_quality_status: 'verified', created_by: user.id,
-    perfume_name_raw:input.perfume.trim(),perfume_base_name:input.perfume.replace(/\s*\(FRASCO\s*\d+\)\s*$/i,'').trim(),
+    perfume_name_raw:perfume.full_name_raw,perfume_base_name:perfume.base_name,
     sale_type:input.saleType,volume_ml:input.volumeMl,volume_ml_raw:String(input.volumeMl),
     shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,
     shipping_operational_status:input.shippingDeadlineDate?null:input.shippingDeadlineRaw||null,

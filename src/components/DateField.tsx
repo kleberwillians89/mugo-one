@@ -37,14 +37,14 @@ export function DateField({ id, label, value, onChange, required, error }: Props
     <div className={`date-control ${error ? 'invalid' : ''}`} onClick={() => setOpen(true)}>
       <input id={id} inputMode="numeric" placeholder="dd/mm/aaaa" value={text}
         onChange={(e) => setText(e.target.value.replace(/[^\d/]/g, '').slice(0, 10))}
-        onBlur={commitText} onKeyDown={(e) => { if (e.key === 'Enter') commitText() }}
+        onBlur={commitText} onKeyDown={(e) => { if (e.key === 'Enter') commitText(); if(e.key==='Escape')setOpen(false) }}
         aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined}/>
       {value && !required && <button type="button" aria-label="Limpar data" onClick={(e)=>{e.stopPropagation();setText('');onChange('')}}><X/></button>}
       <button type="button" aria-label={`Abrir calendário de ${label}`} onClick={(e)=>{e.stopPropagation();setOpen((x)=>!x)}}><CalendarDays/></button>
     </div>
     {open && <div className="calendar-popover"><DayPicker mode="single" locale={ptBR} selected={selected}
       onSelect={(day)=>{if(day){const iso=format(day,'yyyy-MM-dd');setText(isoToBrazilian(iso));onChange(iso);setOpen(false)}}}
-      captionLayout="dropdown" startMonth={new Date(1920,0)} endMonth={new Date(2035,11)}/></div>}
+      captionLayout="label" showOutsideDays fixedWeeks/></div>}
     {error && <span className="field-error" id={`${id}-error`}>{error}</span>}
   </div>
 }
