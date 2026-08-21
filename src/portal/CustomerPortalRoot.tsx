@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -6,6 +6,7 @@ import { completeAccountClaim, finalizeCustomerIdentity, startAccountClaim, star
 import { recordMfaProviderUnavailable } from '../lib/mfa-diagnostics'
 import { publicEnv } from '../lib/publicEnv'
 import { CustomerPortalApp } from './CustomerPortalApp'
+import { createRecoveryConfirmation } from './recovery-confirmation'
 import './customer-portal.css'
 
 const go = (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')) }
@@ -109,6 +110,21 @@ function RecoveryPage(){
   return <PortalShell title="Recuperar meu acesso" subtitle={sent?'Se existir um acesso vinculado a este e-mail, você receberá as instruções para continuar.':'Informe seu e-mail para receber instruções seguras.'}>{!sent&&<form className="portal-form" onSubmit={submit}><label><span>E-mail</span><div><Mail/><input type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)}/></div></label><button className="portal-submit" disabled={loading}>{loading?<LoaderCircle className="spin"/>:'Enviar instruções'}</button></form>}<button className="portal-link" onClick={()=>go('/minha-ruah/entrar')}>Voltar para entrar</button></PortalShell>
 }
 
+function RecoveryConfirmationPage(){
+  const tokenHash=new URLSearchParams(location.search).get('token_hash')?.trim()??''
+  const confirmation=useMemo(()=>supabase?createRecoveryConfirmation(supabase.auth,tokenHash):null,[tokenHash])
+  const [step,setStep]=useState<'ready'|'loading'|'error'>(tokenHash?'ready':'error')
+  const continueRecovery=async()=>{
+    if(step!=='ready'||!confirmation)return
+    setStep('loading')
+    const result=await confirmation()
+    if(result==='verified'){go('/minha-ruah/redefinir-senha?flow=recovery');return}
+    if(result==='invalid')setStep('error')
+  }
+  if(step==='error')return <PortalShell title="Este link de recuperação não é mais válido." subtitle="Ele pode ter expirado, já ter sido utilizado ou estar incompleto."><button className="portal-submit" onClick={()=>go('/minha-ruah/recuperar')}>SOLICITAR NOVO LINK</button><button className="portal-link" onClick={()=>go('/minha-ruah/entrar')}>VOLTAR PARA ENTRAR</button></PortalShell>
+  return <PortalShell title="Redefina sua senha" subtitle="Para sua segurança, confirme que deseja continuar. O link só será validado após o clique."><button className="portal-submit" disabled={step==='loading'} onClick={continueRecovery}>{step==='loading'?<LoaderCircle className="spin"/>:'CONTINUAR E REDEFINIR SENHA'}</button><button className="portal-link" disabled={step==='loading'} onClick={()=>go('/minha-ruah/entrar')}>VOLTAR PARA ENTRAR</button></PortalShell>
+}
+
 function LegalPage({terms=false}:{terms?:boolean}){return <PortalShell title={terms?'Termos de Uso':'Aviso de Privacidade'} subtitle={terms?'Condições para utilizar seu espaço privado Minha RUAH.':'Como protegemos os dados usados para oferecer seu espaço privado.'}><div className="portal-legal-copy">{terms?<><p>O Minha RUAH oferece acesso pessoal ao seu relacionamento com a RUAH. Seu acesso não deve ser compartilhado.</p><p>As informações exibidas refletem os registros operacionais vinculados com segurança à sua conta.</p></>:<><p>Utilizamos seus dados de identificação e contato para proteger o acesso, localizar com segurança seu cadastro e prestar os serviços solicitados.</p><p>A criação da conta não representa consentimento para marketing. Preferências comerciais são tratadas separadamente.</p></>}</div><button className="portal-link" onClick={()=>go('/minha-ruah/cadastro')}>Voltar ao cadastro</button></PortalShell>}
 
 type MfaStep='loading'|'phone'|'sending'|'code'|'verifying'|'unavailable'|'rate_limit'|'unexpected'
@@ -186,6 +202,7 @@ export function CustomerPortalRoot() {
   if (!ready) return <div className="portal-loading"><LoaderCircle className="spin" /></div>
   if(path==='/minha-ruah/cadastro')return <RegistrationPage/>
   if(path==='/minha-ruah/recuperar')return <RecoveryPage/>
+  if(path==='/minha-ruah/confirmar-recuperacao')return <RecoveryConfirmationPage/>
   if(path==='/minha-ruah/privacidade')return <LegalPage/>
   if(path==='/minha-ruah/termos')return <LegalPage terms/>
   if (path === '/minha-ruah/ativar-conta') return <ActivateStartPage />
