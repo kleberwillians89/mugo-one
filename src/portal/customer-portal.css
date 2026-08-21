@@ -36,6 +36,7 @@
 .portal-danger{background:#a5453d}
 .portal-link{display:block;width:100%;background:none;border:0;color:var(--portal-gold);font-size:12px;font-weight:600;padding:10px 0;min-height:44px;cursor:pointer;text-align:left}
 .portal-error{background:#fbeceb;color:#9a4b46;border-radius:8px;padding:10px 12px;font-size:12px}
+.portal-success-copy{padding:13px 14px;border:1px solid #d8dfd2;border-radius:8px;background:#f2f5ef;color:#53604f;font-size:12px;line-height:1.6}.portal-success-copy p{margin:0}.portal-success-copy p+p{margin-top:8px}
 
 .portal-app{min-height:100vh;display:flex;flex-direction:column;background:var(--portal-cream);font-family:'DM Sans',sans-serif;padding-bottom:76px}
 .portal-header{position:sticky;top:0;z-index:5;background:#fffdf9ed;backdrop-filter:blur(14px);border-bottom:1px solid var(--portal-line);padding:16px 18px;display:flex;align-items:center;justify-content:space-between}

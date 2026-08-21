@@ -80,14 +80,17 @@ function ActivateCompletePage() {
 }
 
 function RegistrationPage(){
-  const [name,setName]=useState(''),[email,setEmail]=useState(''),[phone,setPhone]=useState(''),[loading,setLoading]=useState(false),[sent,setSent]=useState(false)
-  const submit=async(event:FormEvent)=>{event.preventDefault();setLoading(true);try{await startPublicRegistration(name,email,phone)}catch{/* resposta externa permanece neutra */}finally{setSent(true);setLoading(false)}}
-  if(sent)return <PortalShell title="Vamos confirmar seus dados para continuar." subtitle="Se o cadastro puder prosseguir, você receberá um e-mail com o próximo passo."><button className="portal-submit" onClick={()=>go('/minha-ruah/login')}>Voltar para entrar</button></PortalShell>
+  const [name,setName]=useState(''),[email,setEmail]=useState(''),[phone,setPhone]=useState(''),[loading,setLoading]=useState(false),[sentTo,setSentTo]=useState(''),[error,setError]=useState(''),[seconds,setSeconds]=useState(0)
+  useEffect(()=>{if(seconds<=0)return;const timer=window.setTimeout(()=>setSeconds(value=>value-1),1000);return()=>window.clearTimeout(timer)},[seconds])
+  const send=async()=>{setLoading(true);setError('');try{const result=await startPublicRegistration(name,email,phone);if(result.status!=='invite_sent')throw new Error('Não foi possível confirmar o envio.');setSentTo(result.email);setSeconds(60)}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível enviar o convite. Tente novamente.')}finally{setLoading(false)}}
+  const submit=async(event:FormEvent)=>{event.preventDefault();await send()}
+  if(sentTo)return <PortalShell title="Link enviado para seu e-mail." subtitle="Enviamos as instruções para você criar sua senha e ativar seu acesso ao Minha RUAH." safeCopy={`Enviamos um link para: ${sentTo}`}><div className="portal-success-copy"><p>Abra sua caixa de entrada e clique em “CRIAR MINHA SENHA”.</p><p>Não encontrou a mensagem? Confira também Spam, Lixo eletrônico e Promoções.</p></div>{error&&<div className="portal-error">{error}</div>}<button className="portal-submit" disabled={loading||seconds>0} onClick={send}>{loading?<LoaderCircle className="spin"/>:seconds>0?`REENVIAR LINK EM ${seconds}S`:'REENVIAR LINK'}</button><button className="portal-link" onClick={()=>go('/minha-ruah/login')}>VOLTAR PARA ENTRAR</button></PortalShell>
   return <PortalShell title="Crie seu acesso." subtitle="Tenha sua relação com a RUAH reunida em um único espaço privado."><form className="portal-form" onSubmit={submit}>
     <label><span>Nome completo</span><div><UserRound/><input autoComplete="name" required minLength={3} value={name} onChange={event=>setName(event.target.value)}/></div></label>
     <label><span>E-mail</span><div><Mail/><input type="email" autoComplete="email" required value={email} onChange={event=>setEmail(event.target.value)}/></div></label>
     <label><span>WhatsApp</span><div><Phone/><input inputMode="tel" autoComplete="tel" required value={phone} onChange={event=>setPhone(event.target.value)}/></div></label>
     <p className="portal-legal">Ao continuar, consulte nosso <a href="/minha-ruah/privacidade">Aviso de Privacidade</a> e os <a href="/minha-ruah/termos">Termos de Uso</a>. A criação da conta não autoriza mensagens promocionais.</p>
+    {error&&<div className="portal-error">{error}</div>}
     <button className="portal-submit" disabled={loading}>{loading?<LoaderCircle className="spin"/>:'Continuar'}</button>
   </form></PortalShell>
 }

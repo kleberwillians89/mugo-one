@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Plus, Search, UserRound } from 'lucide-react'
-import { authenticatedOrganization, inventoryPerfumes, searchClients } from '../lib/records'
+import { useCallback, useEffect, useState } from 'react'
+import { Plus, UserRound } from 'lucide-react'
+import { authenticatedOrganization, searchClients, searchPerfumes } from '../lib/records'
 import { WaitlistEntry, addWaitlistEntry, fetchWaitlistQueue, setWaitlistStatus } from '../lib/waitlist'
 import { formatMl } from '../lib/bottle-scan'
-import { EmptyState, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
+import { EmptyState, EntityCombobox, EntityOption, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import './WaitlistPage.css'
 
 /** Roadmap Fase 6 — "Quem está esperando perfume?" (rota /interessados, uma das citadas explicitamente no briefing). */
@@ -51,30 +51,23 @@ export function WaitlistPage() {
 }
 
 function AddWaitlistEntry({ close, saved }: { close: () => void; saved: () => void }) {
-  const [query, setQuery] = useState('')
-  const [clients, setClients] = useState<{ id: string; name: string }[]>([])
-  const [client, setClient] = useState<{ id: string; name: string } | null>(null)
-  const [perfumes, setPerfumes] = useState<{ id: string; full_name_raw: string }[]>([])
-  const [perfumeId, setPerfumeId] = useState('')
+  const [client, setClient] = useState<EntityOption | null>(null)
+  const [perfume, setPerfume] = useState<EntityOption | null>(null)
   const [ml, setMl] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => { inventoryPerfumes().then(setPerfumes) }, [])
-  useEffect(() => {
-    if (query.trim().length < 2 || client) return
-    const timer = setTimeout(() => searchClients(query).then(setClients).catch(() => setClients([])), 250)
-    return () => clearTimeout(timer)
-  }, [query, client])
+  const clientSearch=useCallback(async(term:string)=>(await searchClients(term)).map(row=>({id:row.id,label:row.name,description:row.whatsapp_phone||row.phone?`WhatsApp final ${(row.whatsapp_phone||row.phone)!.replace(/\D/g,'').slice(-4)}`:'Sem WhatsApp'})),[])
+  const perfumeSearch=useCallback(async(term:string)=>(await searchPerfumes(term)).map(row=>({id:row.id,label:row.full_name_raw,description:[row.brand_house,row.bottle_identifier].filter(Boolean).join(' · ')})),[])
 
   async function submit() {
     const requestedMl = Number(ml.replace(',', '.'))
     if (!client) return setError('Selecione um cliente.')
-    if (!perfumeId) return setError('Selecione um perfume.')
+    if (!perfume) return setError('Selecione um perfume.')
     if (!Number.isFinite(requestedMl) || requestedMl <= 0) return setError('Informe uma quantidade válida.')
     setSaving(true); setError('')
-    try { await addWaitlistEntry(client.id, perfumeId, requestedMl, notes); saved() }
+    try { await addWaitlistEntry(client.id, perfume.id, requestedMl, notes); saved() }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível adicionar à lista.') }
     finally { setSaving(false) }
   }
@@ -84,17 +77,8 @@ function AddWaitlistEntry({ close, saved }: { close: () => void; saved: () => vo
     <PrimaryButton loading={saving} onClick={submit}>Adicionar</PrimaryButton>
   </>}>
     <div className="record-form"><div className="form-grid">
-      <div className="field wide client-search">
-        <span>Cliente</span>
-        <div className="search-control"><Search size={16} /><input value={query} placeholder="Busque pelo nome" onChange={(event) => { setQuery(event.target.value); setClient(null) }} /></div>
-        {!client && clients.length > 0 && <div className="client-results">{clients.map((c) => <button type="button" key={c.id} onClick={() => { setClient(c); setQuery(c.name); setClients([]) }}>{c.name}</button>)}</div>}
-      </div>
-      <label className="field wide"><span>Perfume</span>
-        <select value={perfumeId} onChange={(event) => setPerfumeId(event.target.value)}>
-          <option value="">Selecione…</option>
-          {perfumes.map((perfume) => <option key={perfume.id} value={perfume.id}>{perfume.full_name_raw}</option>)}
-        </select>
-      </label>
+      <div className="field wide"><EntityCombobox label="Cliente" placeholder="Buscar cliente…" value={client} onChange={setClient} search={clientSearch}/></div>
+      <div className="field wide"><EntityCombobox label="Perfume" placeholder="Buscar perfume…" value={perfume} onChange={setPerfume} search={perfumeSearch}/></div>
       <label className="field"><span>Quantidade desejada (ml)</span><input inputMode="decimal" value={ml} onChange={(event) => setMl(event.target.value)} /></label>
       <label className="field wide"><span>Observações</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
     </div>{error && <div className="form-error">{error}</div>}</div>

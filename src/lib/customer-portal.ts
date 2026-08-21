@@ -33,8 +33,8 @@ export async function completeAccountClaim(accountId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-export async function startPublicRegistration(name:string,email:string,phone:string):Promise<void>{
-  await invoke('customer-registration-start',{name,email,phone})
+export async function startPublicRegistration(name:string,email:string,phone:string):Promise<{code:'invite_sent';status:'invite_sent';email:string;provider_message_id?:string}>{
+  return await invoke('customer-registration-start',{name,email,phone})
 }
 
 export async function finalizeCustomerIdentity():Promise<'linked'|'review_required'>{

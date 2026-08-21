@@ -27,11 +27,12 @@ function journeyIndex(status: string) {
  * Supabase Auth via customer-account-invite (Edge Function). */
 function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;defaultEmail:string;phone:string}) {
   const [status,setStatus]=useState<ClientPortalStatus|null>(null)
-  const [email,setEmail]=useState(defaultEmail),[sending,setSending]=useState(false),[feedback,setFeedback]=useState(''),[inviteOpen,setInviteOpen]=useState(false)
+  const [email,setEmail]=useState(defaultEmail),[sending,setSending]=useState(false),[feedback,setFeedback]=useState(''),[inviteOpen,setInviteOpen]=useState(false),[inviteSuccess,setInviteSuccess]=useState(false),[inviteError,setInviteError]=useState('')
   const [emailChannel,setEmailChannel]=useState(true),[whatsappChannel,setWhatsappChannel]=useState(Boolean(phone))
   const reload=()=>fetchClientPortalStatus(clientId).then(setStatus).catch(()=>{})
   useEffect(()=>{reload()},[clientId])
-  const invite=async()=>{if((emailChannel&&!email.includes('@'))||(!emailChannel&&!whatsappChannel))return;setSending(true);setFeedback('');try{const result=await inviteCustomerAccount(clientId,email,{email:emailChannel,whatsapp:whatsappChannel});const label=(channel:{status:string})=>channel.status==='sent'?'enviado':channel.status==='not_configured'?'não configurado':channel.status==='unavailable'?'indisponível':'falhou';setFeedback(`E-mail: ${label(result.channels.email)} · WhatsApp: ${label(result.channels.whatsapp)}`);setInviteOpen(false);await reload()}catch(reason){setFeedback(reason instanceof Error?reason.message:'Não foi possível enviar o acesso.')}finally{setSending(false)}}
+  const maskEmail=(value:string)=>{const[local,domain]=value.split('@');return local&&domain?`${local[0]}***@${domain}`:'e-mail informado'}
+  const invite=async()=>{if((emailChannel&&!email.includes('@'))||(!emailChannel&&!whatsappChannel))return;setSending(true);setFeedback('');setInviteError('');try{const result=await inviteCustomerAccount(clientId,email,{email:emailChannel,whatsapp:whatsappChannel});const emailFailed=emailChannel&&result.channels.email.status!=='sent',whatsappFailed=whatsappChannel&&result.channels.whatsapp.status!=='sent';if(emailFailed||whatsappFailed){setInviteError(emailFailed?'Não foi possível enviar o convite por e-mail. Tente novamente.':'Não foi possível enviar o convite pelo WhatsApp. Tente novamente.');return}setInviteSuccess(true);await reload()}catch(reason){setInviteError(reason instanceof Error?reason.message:'Não foi possível enviar o convite. Tente novamente.')}finally{setSending(false)}}
   const active=status?.account_status==='active'
   return <section className="dossier-columns"><DefinitionGroup title="Portal Minha RUAH" items={[
     {label:'Conta',value:active?'ATIVA':status?.account_status==='pending_verification'?'CONVITE ENVIADO':'NÃO ATIVADA'},
@@ -44,13 +45,14 @@ function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;default
   <div>
     {!active&&<SecondaryButton onClick={()=>setInviteOpen(true)}>{status?.account_status==='pending_verification'?'Reenviar convite':'Convidar para Minha RUAH'}</SecondaryButton>}
     {feedback&&<small>{feedback}</small>}
-    <Modal open={inviteOpen} onClose={()=>setInviteOpen(false)} eyebrow="MINHA RUAH" title="Enviar convite">
-      <div className="record-form"><p>Escolha os canais para este mesmo acesso. Cada canal terá resultado independente.</p>
+    <Modal open={inviteOpen} onClose={()=>{setInviteOpen(false);setInviteSuccess(false);setInviteError('')}} eyebrow="MINHA RUAH" title={inviteSuccess?'Convite enviado.':'Enviar convite'}>
+      {inviteSuccess?<div className="record-form"><Alert tone="success" title="✓ Convite enviado.">Enviamos um link para: {maskEmail(email)}. A cliente receberá um e-mail com o link para criar sua senha e acessar o Minha RUAH.</Alert><div className="form-actions"><PrimaryButton onClick={()=>{setInviteOpen(false);setInviteSuccess(false);setFeedback('Convite enviado com sucesso.')}}>FECHAR</PrimaryButton></div></div>:<div className="record-form"><p>Escolha os canais para este mesmo acesso. Cada canal terá resultado independente.</p>
         <label className="confirm-checkbox"><input type="checkbox" checked={emailChannel} onChange={event=>setEmailChannel(event.target.checked)}/><span><strong>E-mail</strong><br/>{email||'E-mail não cadastrado'}</span></label>
         <label className="field"><span>E-mail do convite</span><input value={email} onChange={event=>setEmail(event.target.value)} placeholder="cliente@email.com"/></label>
         <label className="confirm-checkbox"><input type="checkbox" disabled={!phone} checked={whatsappChannel} onChange={event=>setWhatsappChannel(event.target.checked)}/><span><strong>WhatsApp</strong><br/>{phone||'WhatsApp indisponível'}</span></label>
-        <div className="form-actions"><SecondaryButton onClick={()=>setInviteOpen(false)}>Cancelar</SecondaryButton><PrimaryButton loading={sending} disabled={(!emailChannel&&!whatsappChannel)||(emailChannel&&!email.includes('@'))} onClick={invite}>Enviar convite</PrimaryButton></div>
-      </div>
+        {inviteError&&<Alert tone="danger" title="Não foi possível enviar o convite.">{inviteError}</Alert>}
+        <div className="form-actions"><SecondaryButton onClick={()=>setInviteOpen(false)}>Cancelar</SecondaryButton><PrimaryButton loading={sending} disabled={(!emailChannel&&!whatsappChannel)||(emailChannel&&!email.includes('@'))} onClick={invite}>{inviteError?'Tentar novamente':'Enviar convite'}</PrimaryButton></div>
+      </div>}
     </Modal>
   </div></section>
 }

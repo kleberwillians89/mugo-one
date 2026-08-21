@@ -145,7 +145,7 @@ export async function fetchClientPortalStatus(clientId:string) {
   return (row??{account_status:null,claim_email:null,verified_at:null,last_invited_at:null,sent_email_at:null,sent_whatsapp_at:null,invite_last_error:null,open_requests:0,open_tickets:0}) as ClientPortalStatus
 }
 
-export type CustomerInviteResult={status:string;channels:{email:{status:string;error?:string};whatsapp:{status:string;error?:string}}}
+export type CustomerInviteResult={status:string;channels:{email:{status:string;error?:string;provider_message_id?:string};whatsapp:{status:string;error?:string}}}
 export async function inviteCustomerAccount(clientId:string,email:string,channels={email:true,whatsapp:false}) {
   const {organizationId}=await currentOrganization()
   const {data,error}=await supabase!.functions.invoke('customer-account-invite',{body:{organization_id:organizationId,client_id:clientId,email,channels_email:channels.email,channels_whatsapp:channels.whatsapp}})
@@ -494,8 +494,19 @@ export async function summarizeAiBatchImport(sentences:string[]){
 
 export async function searchClients(term: string) {
   const { organizationId } = await currentOrganization()
-  const { data } = await supabase!.from('clients').select('id,name,phone,whatsapp_phone,email,cpf,postal_code,address_line,address_number,complement,district,city,state').eq('organization_id', organizationId).ilike('name', `%${term}%`).limit(8)
+  const normalized=normalizeClient(term)
+  if(normalized.length<2)return[]
+  const { data,error } = await supabase!.from('clients').select('id,name,phone,whatsapp_phone,email,cpf,postal_code,address_line,address_number,complement,district,city,state').eq('organization_id', organizationId).is('deleted_at',null).is('merged_into_id',null).eq('status','active').gte('normalized_name',normalized).lt('normalized_name',`${normalized}\uffff`).order('normalized_name').limit(12)
+  if(error)throw new Error(error.message)
   return data ?? []
+}
+
+export async function searchPerfumes(term:string){
+  const {organizationId}=await currentOrganization(),normalized=normalizeClient(term)
+  if(normalized.length<2)return[]
+  const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').eq('organization_id',organizationId).gte('normalized_name',normalized).lt('normalized_name',`${normalized}\uffff`).order('normalized_name').limit(12)
+  if(error)throw new Error(error.message)
+  return data??[]
 }
 
 export type InventorySummary = {
