@@ -3,17 +3,19 @@ import type { Session } from '@supabase/supabase-js'
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { completeAccountClaim, finalizeCustomerIdentity, startAccountClaim, startPublicRegistration } from '../lib/customer-portal'
+import { recordMfaProviderUnavailable } from '../lib/mfa-diagnostics'
+import { publicEnv } from '../lib/publicEnv'
 import { CustomerPortalApp } from './CustomerPortalApp'
 import './customer-portal.css'
 
 const go = (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')) }
 const passwordChecks=(value:string)=>({length:value.length>=10,upper:/[A-Z]/.test(value),lower:/[a-z]/.test(value),number:/\d/.test(value),symbol:/[^A-Za-z0-9]/.test(value)})
 
-function PortalShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function PortalShell({ title, subtitle, children, safeCopy='Seus dados são protegidos' }: { title: string; subtitle: string; children: React.ReactNode;safeCopy?:string }) {
   return <main className="portal-auth">
     <div className="portal-auth-brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums" /><strong>RUAH</strong><span>Minha RUAH</span></div>
     <div className="portal-auth-card"><h1>{title}</h1><p>{subtitle}</p>{children}</div>
-    <small className="portal-auth-safe"><ShieldCheck size={14} /> Seus dados são protegidos</small>
+    <small className="portal-auth-safe"><ShieldCheck size={14} /> {safeCopy}</small>
   </main>
 }
 
@@ -61,7 +63,7 @@ function ActivateCompletePage() {
       const { error: updateError } = await supabase!.auth.updateUser({ password })
       if (updateError) throw updateError
       if(accountId)await completeAccountClaim(accountId)
-      go('/minha-ruah/mfa')
+       go(publicEnv.customerMfaRequired?'/minha-ruah/mfa':'/minha-ruah')
     } catch { setError('Não foi possível concluir. O link pode ter expirado — solicite a ativação novamente.') } finally { setSaving(false) }
   }
   if (step === 'loading') return <PortalShell title="Confirmando seu acesso" subtitle="Aguarde um instante."><LoaderCircle className="spin" /></PortalShell>
@@ -98,11 +100,28 @@ function RecoveryPage(){
 
 function LegalPage({terms=false}:{terms?:boolean}){return <PortalShell title={terms?'Termos de Uso':'Aviso de Privacidade'} subtitle={terms?'Condições para utilizar seu espaço privado Minha RUAH.':'Como protegemos os dados usados para oferecer seu espaço privado.'}><div className="portal-legal-copy">{terms?<><p>O Minha RUAH oferece acesso pessoal ao seu relacionamento com a RUAH. Seu acesso não deve ser compartilhado.</p><p>As informações exibidas refletem os registros operacionais vinculados com segurança à sua conta.</p></>:<><p>Utilizamos seus dados de identificação e contato para proteger o acesso, localizar com segurança seu cadastro e prestar os serviços solicitados.</p><p>A criação da conta não representa consentimento para marketing. Preferências comerciais são tratadas separadamente.</p></>}</div><button className="portal-link" onClick={()=>go('/minha-ruah/cadastro')}>Voltar ao cadastro</button></PortalShell>}
 
+type MfaStep='loading'|'phone'|'sending'|'code'|'verifying'|'unavailable'|'rate_limit'|'unexpected'
+const brPhone=(value:string)=>{const digits=value.replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'').slice(0,11);return digits.length>10?`(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`:digits.length>6?`(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`:digits.length>2?`(${digits.slice(0,2)}) ${digits.slice(2)}`:digits}
+const e164=(value:string)=>{const digits=value.replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'');return digits.length===10||digits.length===11?`+55${digits}`:''}
+const maskedPhone=(value:string)=>{const digits=value.replace(/\D/g,'');return digits.length>=4?`•••••-${digits.slice(-4)}`:'seu celular'}
+const mfaErrorKind=(reason:unknown):MfaStep=>{const value=`${(reason as {code?:string})?.code??''} ${reason instanceof Error?reason.message:''}`.toLowerCase();if(/rate|too.many|over_request/.test(value))return'rate_limit';if(/provider|unsupported|disabled|phone.*not.*enabled|sms.*not/.test(value))return'unavailable';return'unexpected'}
+const recordMfaFailure=(reason:unknown)=>{const kind=mfaErrorKind(reason);if(kind==='unavailable')recordMfaProviderUnavailable();return kind}
+
 function MfaPage({onReady}:{onReady:(review:boolean)=>void}){
-  const [factorId,setFactorId]=useState(''),[challengeId,setChallengeId]=useState(''),[code,setCode]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(true)
-  useEffect(()=>{const prepare=async()=>{try{const {data:user}=await supabase!.auth.getUser(),phone=String(user.user?.user_metadata?.phone??'');if(!phone)throw new Error('MFA_PROVIDER_NOT_CONFIGURED');const listed=await supabase!.auth.mfa.listFactors();let id=listed.data?.phone?.find(item=>item.status==='verified')?.id??listed.data?.phone?.[0]?.id;if(!id){const enrolled=await supabase!.auth.mfa.enroll({factorType:'phone',phone});if(enrolled.error)throw enrolled.error;id=enrolled.data.id}setFactorId(id);const challenged=await supabase!.auth.mfa.challenge({factorId:id});if(challenged.error)throw challenged.error;setChallengeId(challenged.data.id)}catch(reason){const message=reason instanceof Error?reason.message:'';setError(/phone|provider|unsupported|disabled/i.test(message)?'MFA_PROVIDER_NOT_CONFIGURED':'Não foi possível iniciar a verificação.')}finally{setLoading(false)}};prepare()},[])
-  const verify=async(event:FormEvent)=>{event.preventDefault();setLoading(true);setError('');const result=await supabase!.auth.mfa.verify({factorId,challengeId,code});if(result.error){setError('Código inválido ou expirado.');setLoading(false);return}try{const status=await finalizeCustomerIdentity();onReady(status==='review_required')}catch(reason){if(!String(reason).includes('identity_request_not_found'))onReady(true);else onReady(false)}finally{setLoading(false)}}
-  return <PortalShell title="Proteja seu espaço privado." subtitle="Enviamos um código ao telefone confirmado para ativar o segundo fator.">{loading?<LoaderCircle className="spin"/>:<>{error&&<div className="portal-error">{error}</div>}{!error&&<form className="portal-form" onSubmit={verify}><label><span>Código de segurança</span><input inputMode="numeric" autoComplete="one-time-code" required minLength={6} value={code} onChange={event=>setCode(event.target.value.replace(/\D/g,''))}/></label><button className="portal-submit">Confirmar código</button></form>}</>}</PortalShell>
+  const[step,setStep]=useState<MfaStep>('loading'),[factorId,setFactorId]=useState(''),[challengeId,setChallengeId]=useState(''),[phone,setPhone]=useState(''),[sentTo,setSentTo]=useState(''),[code,setCode]=useState(''),[codeError,setCodeError]=useState(''),[seconds,setSeconds]=useState(60)
+  const challenge=async(id:string,destination:string)=>{setStep('sending');const result=await supabase!.auth.mfa.challenge({factorId:id});if(result.error){setStep(recordMfaFailure(result.error));return}setFactorId(id);setChallengeId(result.data.id);setSentTo(destination);setCode('');setCodeError('');setSeconds(60);setStep('code')}
+  const bootstrap=async()=>{setStep('loading');try{const{data}=await supabase!.auth.getUser();const metadataPhone=String(data.user?.user_metadata?.phone??'');const listed=await supabase!.auth.mfa.listFactors();if(listed.error)throw listed.error;const existing=listed.data.phone?.find(item=>item.status==='verified')??listed.data.phone?.[0];if(existing){await challenge(existing.id,metadataPhone);return}if(metadataPhone)setPhone(brPhone(metadataPhone));setStep('phone')}catch(reason){setStep(recordMfaFailure(reason))}}
+  useEffect(()=>{const timer=window.setTimeout(()=>{void bootstrap()},0);return()=>window.clearTimeout(timer)},[]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(step!=='code'||seconds<=0)return;const timer=window.setTimeout(()=>setSeconds(value=>value-1),1000);return()=>window.clearTimeout(timer)},[step,seconds])
+  const send=async(event?:FormEvent)=>{event?.preventDefault();const normalized=e164(phone);if(!normalized){setCodeError('Informe um celular brasileiro válido.');return}setCodeError('');setStep('sending');try{const listed=await supabase!.auth.mfa.listFactors();const pending=listed.data?.phone?.find(item=>item.status!=='verified');if(pending)await supabase!.auth.mfa.unenroll({factorId:pending.id});const enrolled=await supabase!.auth.mfa.enroll({factorType:'phone',phone:normalized});if(enrolled.error)throw enrolled.error;await challenge(enrolled.data.id,normalized)}catch(reason){setStep(recordMfaFailure(reason))}}
+  const resend=async()=>{if(seconds>0)return;if(factorId)await challenge(factorId,sentTo);else await send()}
+  const verify=async(event:FormEvent)=>{event.preventDefault();if(code.length!==6){setCodeError('Digite os 6 números enviados ao seu celular.');return}setStep('verifying');setCodeError('');const result=await supabase!.auth.mfa.verify({factorId,challengeId,code});if(result.error){const raw=`${result.error.code??''} ${result.error.message}`.toLowerCase();if(/expired/.test(raw))setCodeError('Esse código expirou. Solicite um novo para continuar.');else if(/rate|too.many/.test(raw)){setStep('rate_limit');return}else setCodeError('Esse código não confere. Verifique e tente novamente.');setStep('code');return}const assurance=await supabase!.auth.mfa.getAuthenticatorAssuranceLevel();if(assurance.data?.currentLevel!=='aal2'){setStep('unexpected');return}try{const status=await finalizeCustomerIdentity();onReady(status==='review_required')}catch(reason){if(String(reason).includes('identity_request_not_found'))onReady(false);else onReady(true)}}
+  if(step==='unavailable')return <PortalShell title="Estamos finalizando a segurança do seu acesso." subtitle="O segundo fator de autenticação ainda não está disponível para sua conta. Tente novamente em alguns instantes ou fale com a equipe RUAH." safeCopy="Seu espaço privado permanece bloqueado e seguro"><button className="portal-submit" onClick={bootstrap}>Tentar novamente</button><button className="portal-link" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/login'))}>Voltar para entrar</button></PortalShell>
+  if(step==='rate_limit')return <PortalShell title="Vamos aguardar um instante." subtitle="Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente." safeCopy="Seu espaço privado permanece bloqueado e seguro"><button className="portal-link" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/login'))}>Voltar para entrar</button></PortalShell>
+  if(step==='unexpected')return <PortalShell title="Não conseguimos concluir a verificação agora." subtitle="Tente novamente em alguns instantes. Seus dados privados continuam protegidos." safeCopy="Seu espaço privado permanece bloqueado e seguro"><button className="portal-submit" onClick={bootstrap}>Tentar novamente</button><button className="portal-link" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/login'))}>Voltar para entrar</button></PortalShell>
+  if(step==='phone')return <PortalShell title="Proteja seu espaço privado." subtitle="Para manter seus dados seguros, confirme seu celular." safeCopy="Configuração de acesso em duas etapas"><form className="portal-form" onSubmit={send}><label><span>Celular</span><div><Phone/><input inputMode="tel" autoComplete="tel" placeholder="(11) 99999-9999" value={phone} onChange={event=>setPhone(brPhone(event.target.value))}/></div></label>{codeError&&<div className="portal-error">{codeError}</div>}<button className="portal-submit">Enviar código</button></form></PortalShell>
+  if(step==='code')return <PortalShell title="Confirme que é você." subtitle={`Enviamos um código de segurança para ${maskedPhone(sentTo)}.`} safeCopy="Acesso protegido em duas etapas"><form className="portal-form" onSubmit={verify}><label><span>Código de segurança</span><input className="portal-code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={event=>setCode(event.target.value.replace(/\D/g,'').slice(0,6))}/></label>{codeError&&<div className="portal-error">{codeError}</div>}<button className="portal-submit">Confirmar acesso</button></form><button className="portal-link" disabled={seconds>0} onClick={resend}>{seconds>0?`Reenviar código em ${seconds}s`:'Reenviar código'}</button><button className="portal-link" onClick={()=>{setPhone('');setFactorId('');setChallengeId('');setStep('phone')}}>Alterar telefone</button></PortalShell>
+  return <PortalShell title={step==='verifying'?'Confirmando seu acesso':'Preparando sua segurança'} subtitle="Aguarde um instante." safeCopy="Seus dados privados continuam protegidos"><div className="portal-mfa-loading"><LoaderCircle className="spin"/></div></PortalShell>
 }
 
 function PortalLoginPage() {
@@ -131,17 +150,26 @@ function PortalLoginPage() {
   </PortalShell>
 }
 
+function IdentityLaunchGate({onReady,onReview}:{onReady:()=>void;onReview:()=>void}){
+  const[failed,setFailed]=useState(false)
+  const resolve=async()=>{setFailed(false);try{const status=await finalizeCustomerIdentity();if(status==='review_required')onReview();else onReady()}catch(reason){if(String(reason).includes('identity_request_not_found'))onReady();else setFailed(true)}}
+  useEffect(()=>{const timer=window.setTimeout(()=>{void resolve()},0);return()=>window.clearTimeout(timer)},[]) // eslint-disable-line react-hooks/exhaustive-deps
+  if(failed)return <PortalShell title="Não conseguimos concluir seu acesso agora." subtitle="Tente novamente em alguns instantes. Nenhum dado privado foi liberado."><button className="portal-submit" onClick={resolve}>Tentar novamente</button><button className="portal-link" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/login'))}>Voltar para entrar</button></PortalShell>
+  return <div className="portal-loading"><LoaderCircle className="spin"/></div>
+}
+
 export function CustomerPortalRoot() {
   const [path, setPath] = useState(location.pathname)
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(!supabase)
   const [aal,setAal]=useState<'aal1'|'aal2'|null>(null),[review,setReview]=useState(false)
+  const [identityReady,setIdentityReady]=useState(false)
   useEffect(() => {
     const change = () => setPath(location.pathname)
     addEventListener('popstate', change)
     if (!supabase) return () => removeEventListener('popstate', change)
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true) })
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {setSession(next);if(event==='SIGNED_IN'||event==='SIGNED_OUT'){setAal(null);setReview(false);setIdentityReady(false)}})
     return () => { removeEventListener('popstate', change); data.subscription.unsubscribe() }
   }, [])
   if (!ready) return <div className="portal-loading"><LoaderCircle className="spin" /></div>
@@ -155,6 +183,7 @@ export function CustomerPortalRoot() {
   if (!session) { go('/minha-ruah/login'); return null }
   if(review)return <PortalShell title="Estamos finalizando seu acesso." subtitle="Para proteger seus dados, precisamos confirmar algumas informações antes de vincular seu histórico. A equipe RUAH foi avisada."><button className="portal-submit" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/login'))}>Voltar</button></PortalShell>
   if(aal===null){supabase!.auth.mfa.getAuthenticatorAssuranceLevel().then(({data})=>setAal(data?.currentLevel==='aal2'?'aal2':'aal1'));return <div className="portal-loading"><LoaderCircle className="spin"/></div>}
-  if(path==='/minha-ruah/mfa'||aal!=='aal2')return <MfaPage onReady={(needsReview)=>{if(needsReview)setReview(true);else{setAal('aal2');go('/minha-ruah')}}}/>
+  if(path==='/minha-ruah/mfa'||(publicEnv.customerMfaRequired&&aal!=='aal2'))return <MfaPage onReady={(needsReview)=>{if(needsReview)setReview(true);else{setAal('aal2');setIdentityReady(true);go('/minha-ruah')}}}/>
+  if(!identityReady)return <IdentityLaunchGate onReady={()=>setIdentityReady(true)} onReview={()=>setReview(true)}/>
   return <CustomerPortalApp path={path} navigate={go} onSignOut={() => supabase!.auth.signOut().then(() => go('/minha-ruah/login'))} />
 }

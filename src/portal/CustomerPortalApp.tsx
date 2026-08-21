@@ -82,7 +82,7 @@ function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipme
   const available = groups.reduce((sum, g) => sum + g.available_ml, 0)
   const preparing = requests.filter((r) => r.converted_shipment_id && !['posted', 'delivered', 'cancelled'].includes(r.shipment_status ?? '')).reduce((sum, r) => sum + (r.items?.reduce((s, i) => s + i.quantity_ml, 0) ?? 0), 0)
   const inTransit = requests.filter((r) => r.shipment_status === 'posted').reduce((sum, r) => sum + (r.items?.reduce((s, i) => s + i.quantity_ml, 0) ?? 0), 0)
-  return <div className="portal-page">
+  return <div className="portal-page portal-home">
     <section className="portal-welcome"><span>BEM-VINDA À SUA ÁREA PRIVADA</span><h1>Olá{greeting?`, ${greeting}`:''}.</h1><p>Aqui está a sua história com a RUAH, com a clareza e o cuidado que ela merece.</p></section>
     <section className="portal-collection"><span>MEU ACERVO</span><strong>{groups.length} {groups.length===1?'perfume':'perfumes'} na RUAH</strong><p>{available+preparing+inTransit} ml sob seus cuidados</p><button onClick={onPerfumes}>Ver meus perfumes</button></section>
     <h2>Agora na RUAH</h2>

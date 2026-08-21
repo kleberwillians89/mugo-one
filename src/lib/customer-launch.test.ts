@@ -1,0 +1,20 @@
+import{describe,expect,it}from'vitest'
+import{readFileSync}from'node:fs'
+
+const read=(path:string)=>readFileSync(path,'utf8')
+const root=read('src/portal/CustomerPortalRoot.tsx')
+const launch=read('supabase/migrations/202608200006_customer_portal_launch_aal1.sql')
+const foundation=read('supabase/migrations/202608200001_customer_portal.sql')
+const invite=read('supabase/functions/customer-account-invite/index.ts')
+const registration=read('supabase/functions/customer-registration-start/index.ts')
+const mailer=read('supabase/functions/_shared/customer-invite.ts')
+
+describe('Minha RUAH launch without mandatory MFA',()=>{
+  it('keeps administrative e-mail invites on secure generated links delivered by Resend',()=>{expect(invite).toContain("generateLink({ type: 'invite'");expect(invite).toContain('sendInviteEmail');expect(mailer).toContain("fetch('https://api.resend.com/emails'");expect(mailer).toContain("Deno.env.get('RESEND_API_KEY')")})
+  it('keeps invitation activation, password creation, login and recovery without forcing MFA',()=>{expect(root).toContain('function ActivateCompletePage');expect(root).toContain('updateUser({ password })');expect(root).toContain("publicEnv.customerMfaRequired?'/minha-ruah/mfa':'/minha-ruah'");expect(root).toContain('signInWithPassword');expect(root).toContain('resetPasswordForEmail')})
+  it('keeps public registration generic and linked to verified auth identity',()=>{expect(registration).toContain("generateLink({type:'invite'");expect(registration).toContain("upsert({organization_id:org,auth_user_id:generated.user.id");expect(registration).toContain('sendInviteEmail');expect(registration).not.toMatch(/body\.client_id/)})
+  it('allows AAL1 launch only through an authenticated active client account',()=>{expect(launch).toContain('auth.uid() is not null');expect(launch).toContain('ca.auth_user_id=auth.uid()');expect(launch).toContain("ca.status='active'")})
+  it('keeps every private RPC scoped by current_customer_client without frontend client ids',()=>{for(const name of ['customer_custody','customer_shipment_requests_list','customer_purchase_history','customer_delivery_history','customer_profile','customer_support_tickets_list']){const start=foundation.indexOf(`create or replace function public.${name}(`),body=foundation.slice(start,foundation.indexOf('$$;',start));expect(start,name).toBeGreaterThan(-1);expect(body,name).toContain('current_customer_client()');expect(body,name).not.toMatch(/p_client_id/)}})
+  it('keeps unresolved and review identities without a private active link',()=>{const conflict=launch.slice(launch.indexOf('if cardinality(email_ids)'),launch.indexOf("target:=coalesce"));expect(conflict).toContain("status='review_required'");expect(conflict).not.toContain('insert into public.client_accounts')})
+  it('keeps MFA implementation and route available while launch flag defaults off',()=>{expect(root).toContain("path==='/minha-ruah/mfa'");expect(root).toContain('function MfaPage');expect(root).toContain('mfa.enroll');expect(root).toContain('mfa.challenge');expect(root).toContain('mfa.verify');expect(read('.env.example')).toContain('VITE_CUSTOMER_MFA_REQUIRED=false')})
+})
