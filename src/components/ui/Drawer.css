@@ -1,20 +1,25 @@
 .ui-drawer-layer {
   position: fixed;
-  z-index: var(--z-drawer);
+  /* Deve ficar acima de overlays locais da página, como `.period-filter`
+     (z-index: 30). O painel e o scrim ordenam-se dentro deste contexto. */
+  z-index: 1000;
   inset: 0;
+  isolation: isolate;
 }
 
 .ui-drawer-scrim {
   position: absolute;
-  z-index: 0;
+  z-index: 1000;
   inset: 0;
   border: 0;
-  background: #0008;
+  /* Opaco de propósito: nenhum controle branco da página deve permanecer
+     legível através do overlay enquanto a navegação está aberta. */
+  background: #706e6a;
 }
 
 .ui-drawer-panel {
-  position: absolute;
-  z-index: 1;
+  position: fixed;
+  z-index: 1001;
   top: 0;
   bottom: 0;
   width: min(82vw, 320px);
