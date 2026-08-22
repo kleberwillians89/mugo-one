@@ -1,1 +1,104 @@
-html,body{margin:0;padding:0;background:#fff}.perfume-print-label{box-sizing:border-box;width:50mm;height:30mm;padding:1.5mm;display:grid;grid-template-columns:1fr 10mm;grid-template-rows:3mm 5mm 3mm 11mm 3mm;column-gap:1mm;overflow:hidden;color:#000}.perfume-print-label>span{font:700 2.4mm Arial;letter-spacing:.5mm}.perfume-print-label>strong{font:700 3.5mm Arial;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.perfume-print-label>em{font:normal 2mm Arial}.perfume-print-label>div{grid-column:1;height:11mm;overflow:hidden}.perfume-print-label .barcode-image{width:100%;height:100%}.perfume-print-label>code{font:700 2.3mm Arial;text-align:center}.perfume-print-label>aside{grid-column:2;grid-row:1/6;display:grid;place-items:center}.perfume-print-label>aside img{width:10mm;height:10mm}@media screen{.perfume-print-label{margin:24px;border:1px dashed #aaa}}@media print{@page ruah-perfume-label{size:50mm 30mm;margin:0}.perfume-print-label{page:ruah-perfume-label}}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+
+.perfume-print-label {
+  box-sizing: border-box;
+  width: 70mm;
+  height: 30mm;
+  padding: 2mm;
+  display: grid;
+  grid-template-columns: 47mm 17mm;
+  grid-template-rows: 4.2mm 2.8mm 11.5mm 3.2mm;
+  column-gap: 2mm;
+  row-gap: .6mm;
+  align-content: center;
+  overflow: hidden;
+  color: #000;
+  background: #fff;
+}
+
+.perfume-print-label > strong {
+  grid-column: 1;
+  grid-row: 1;
+  overflow: hidden;
+  font: 700 3mm/1.15 Arial, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perfume-print-label > em {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  color: #222;
+  font: normal 2mm/1.2 Arial, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perfume-print-label > div {
+  grid-column: 1;
+  grid-row: 3;
+  width: 47mm;
+  height: 11.5mm;
+  overflow: hidden;
+}
+
+.perfume-print-label .barcode-image {
+  display: block;
+  width: 47mm;
+  height: 11.5mm;
+}
+
+.perfume-print-label > code {
+  grid-column: 1;
+  grid-row: 4;
+  overflow: hidden;
+  font: 700 2.5mm/1 Arial, sans-serif;
+  letter-spacing: .25mm;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.perfume-print-label > aside {
+  grid-column: 2;
+  grid-row: 1 / 5;
+  display: grid;
+  place-items: center;
+}
+
+.perfume-print-label > aside img,
+.perfume-print-label > aside .qr-code-placeholder {
+  width: 17mm !important;
+  height: 17mm !important;
+}
+
+@media screen {
+  .perfume-print-label {
+    margin: 24px;
+    border: 1px dashed #aaa;
+    box-shadow: 0 8px 24px #0002;
+  }
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    width: 70mm;
+    height: 30mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+
+  .perfume-print-label {
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+  }
+}
