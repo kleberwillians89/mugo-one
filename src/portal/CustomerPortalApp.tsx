@@ -165,7 +165,13 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
   const [custody, setCustody] = useState<CustodyItem[]>([]); const [requests, setRequests] = useState<ShipmentRequest[]>([]); const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [requesting, setRequesting] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [greeting, setGreeting] = useState('')
   const [onboarding,setOnboarding]=useState(()=>localStorage.getItem('minha_ruah_onboarding_done')!=='true')
-  const reload = () => Promise.all([fetchCustody(), fetchMyRequests(), fetchMyTickets()]).then(([c, r, t]) => { setCustody(c); setRequests(r); setTickets(t) })
+  const reload = () => Promise.allSettled([fetchCustody(), fetchMyRequests(), fetchMyTickets()]).then(([c, r, t]) => {
+    // Uma indisponibilidade de Envios nunca pode apagar o acervo já confirmado
+    // pela RPC de custódia (foi exatamente a regressão vista em produção).
+    if (c.status === 'fulfilled') setCustody(c.value)
+    if (r.status === 'fulfilled') setRequests(r.value)
+    if (t.status === 'fulfilled') setTickets(t.value)
+  })
   useEffect(() => { reload().finally(() => setLoading(false)); supabase?.auth.getUser().then(({ data }) => setGreeting(String(data.user?.user_metadata?.full_name ?? '').split(' ')[0] ?? '')) }, [])
   const groups = groupCustomerCustody(custody,requests)
   const activeGroup = groups.find((g) => g.perfume_id === requesting)

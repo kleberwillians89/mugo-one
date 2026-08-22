@@ -30,6 +30,13 @@ describe('migration operacional final',()=>{
     expect(sql).toContain("coalesce(nullif(btrim(c.phone),''),nullif(btrim(c.whatsapp_phone),''))")
     expect(sql).toContain("coalesce(nullif(btrim(c.cpf),''),nullif(btrim(c.cnpj),''))")
   })
+  it('atualizar destinatário não altera custódia, estoque físico ou aprovação',()=>{
+    const start=sql.indexOf('create or replace function public.refresh_shipment_recipient')
+    const body=sql.slice(start,sql.indexOf('grant execute on function public.refresh_shipment_recipient',start))
+    expect(body).toContain("'recipient_snapshot_refreshed'")
+    expect(body).not.toMatch(/inventory_allocations|inventory_items|physical_ml|customer_approved_at|approved_by/)
+    expect(body).not.toMatch(/set\s+status\s*=/)
+  })
   it('prova que o write real valida o estoque e mantém multilote bloqueado',()=>{
     expect(records).toContain("supabase!.rpc('confirm_ai_sales_batch'")
     expect(sql).toContain('perfume:=public.validate_ai_batch_inventory(p_organization_id,inventory_item);')
