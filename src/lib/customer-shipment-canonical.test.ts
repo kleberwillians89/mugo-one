@@ -11,6 +11,7 @@ const confirm=migration.slice(migration.indexOf('create or replace function publ
 const wrapper=migration.slice(migration.indexOf('create or replace function public.customer_shipment_request_confirm'),migration.indexOf('commit;'))
 
 describe('canonical customer shipment approval',()=>{
+  it('matches the real request status type instead of referencing a nonexistent enum',()=>{expect(migration).toContain('id uuid, status text, requested_at timestamptz');expect(migration).not.toContain('customer_shipment_request_status')})
   it('lists staff and portal shipments directly by authenticated client ownership',()=>{expect(list).toContain('sh.client_id = public.current_customer_client()');expect(list).not.toContain('customer_shipment_requests r');expect(list).toContain("sh.status = 'awaiting_customer_approval'")})
   it('approves the exact owned shipment without requiring a customer request',()=>{expect(confirm).toContain('where id = p_shipment_id and client_id = v_client_id');expect(confirm).toContain("status = 'customer_approved'");expect(confirm).toContain('customer_approved_at = now()');expect(confirm).toContain('approved_by = auth.uid()')})
   it('keeps quote validation, idempotency and tenant isolation',()=>{expect(confirm).toContain("if v_shipment.status = 'customer_approved' then return v_shipment");for(const field of ['selected_quote_id','shipping_price','carrier','service','service_id'])expect(confirm).toContain(field);expect(confirm).toContain("raise exception 'quote_changed'")})

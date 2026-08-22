@@ -3,7 +3,7 @@ begin;
 drop function public.customer_shipment_requests_list();
 create function public.customer_shipment_requests_list()
 returns table(
-  id uuid, status public.customer_shipment_request_status, requested_at timestamptz,
+  id uuid, status text, requested_at timestamptz,
   cancelled_at timestamptz, items jsonb, converted_shipment_id uuid,
   shipment_status public.shipment_status, shipping_price numeric, carrier text,
   service text, selected_quote_id uuid, customer_approved_at timestamptz,
