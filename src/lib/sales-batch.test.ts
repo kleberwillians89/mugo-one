@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest'
-import {classifyClientMatches,countSaleCandidateLines,isTabularSalesBatch,missingShippingFields,normalizePerfumeName,parseDaviSalesBatch,perfumeIdentity} from '../../supabase/functions/_shared/sales-batch-domain'
+import {classifyClientMatches,countSaleCandidateLines,isTabularSalesBatch,missingShippingFields,normalizePerfumeName,parseDaviSalesBatch,parseShippingAvailability,perfumeIdentity} from '../../supabase/functions/_shared/sales-batch-domain'
 
 const example=`Fève Nectar — Place de la Rêverie
 (Frasco 1)
@@ -21,6 +21,12 @@ APC: Tatiana Carvalho
 03ml: Claudia Fernanda
 05ml: Fernanda VT
 03ml: Endrigo Rodrigues`
+
+describe('disponibilidade determinística',()=>{
+  it('interpreta previsão sem inventar confirmação física',()=>expect(parseShippingAvailability('Disponibilidade para envio: até 11/09 (15 dias úteis)','2026-08-22')).toEqual({shipping_availability_text:'até 11/09 (15 dias úteis)',shipping_availability_kind:'expected_by_date',shipping_available_date:'2026-09-11',shipping_lead_business_days:15,shipping_availability_review_required:false}))
+  it('interpreta pronta entrega, início e dias úteis',()=>{expect(parseShippingAvailability('Disponibilidade para envio: pronta entrega','2026-08-22').shipping_availability_kind).toBe('available_now');expect(parseShippingAvailability('Envio a partir de 11/09','2026-08-22')).toMatchObject({shipping_availability_kind:'available_from_date',shipping_available_date:'2026-09-11'});expect(parseShippingAvailability('Disponível em 5 dias úteis','2026-08-21')).toMatchObject({shipping_availability_kind:'lead_time',shipping_available_date:'2026-08-28'})})
+  it('manda data passada incoerente para revisão sem trocar ano',()=>expect(parseShippingAvailability('Disponibilidade para envio: até 11/07','2026-08-22')).toMatchObject({shipping_available_date:null,shipping_availability_review_required:true}))
+})
 
 describe('parser determinístico da lista do Davi',()=>{
   const parsed=parseDaviSalesBatch(example)

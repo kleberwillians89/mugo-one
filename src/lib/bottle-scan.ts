@@ -9,6 +9,7 @@ export type ScanLookup =
   | { kind: 'token'; value: string }
   | { kind: 'code'; value: string }
   | { kind: 'split'; value: string }
+  | { kind: 'perfume'; value: string }
 
 /**
  * A QR decode yields a full deep-link URL; a physical barcode scanner types
@@ -32,6 +33,9 @@ export function parseScannedValue(raw: string): ScanLookup | null {
 
   const splitMatch = value.match(/^(?:RUAH-)?(S\d{6}-\d{3})$/i)
   if (splitMatch) return { kind: 'split', value: splitMatch[1].toUpperCase() }
+
+  const perfumeMatch=value.match(/^(?:RUAH-)?(P\d{6})$/i)
+  if(perfumeMatch)return{kind:'perfume',value:`RUAH-${perfumeMatch[1].toUpperCase()}`}
 
   const codeMatch = value.match(/^(?:RUAH-)?(F\d{6})$/i)
   if (codeMatch) return { kind: 'code', value: codeMatch[1].toUpperCase() }

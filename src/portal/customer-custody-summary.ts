@@ -19,7 +19,7 @@ export function summarizeCustomerCustody(custody: CustodyItem[], requests: Shipm
 }
 
 export function requestForAllocation(requests: ShipmentRequest[], allocationId: string) {
-  return requests.find(request => request.status !== 'cancelled' && request.shipment_status !== 'cancelled' && request.items?.some(item => item.allocation_id === allocationId))
+  return requests.find(request => request.status !== 'cancelled' && !['cancelled','posted','delivered'].includes(request.shipment_status??'') && request.items?.some(item => item.allocation_id === allocationId))
 }
 
 export type CustomerPerfumeGroup = {
@@ -28,6 +28,7 @@ export type CustomerPerfumeGroup = {
   total_ml: number
   available_ml: number
   open_requested_ml: number
+  pending_availability_ml: number
   allocations: CustodyItem[]
   available_allocations: CustodyItem[]
   active_request?: ShipmentRequest
@@ -38,11 +39,13 @@ export function groupCustomerCustody(items: CustodyItem[], requests: ShipmentReq
   for (const item of items) {
     const activeRequest = requestForAllocation(requests, item.allocation_id)
     const committed = item.allocation_status === 'shipping' || item.requested || Boolean(activeRequest)
-    const available = item.allocation_status === 'reserved' && !committed
-    const group = groups.get(item.perfume_id) ?? { perfume_id:item.perfume_id, perfume_name:item.perfume_name, total_ml:0, available_ml:0, open_requested_ml:0, allocations:[], available_allocations:[], active_request:undefined }
+    const requestableMl=Number(item.requestable_quantity_ml??item.quantity_ml)
+    const available = item.allocation_status === 'reserved' && !committed && item.shipping_requestable !== false && requestableMl>0
+    const group = groups.get(item.perfume_id) ?? { perfume_id:item.perfume_id, perfume_name:item.perfume_name, total_ml:0, available_ml:0, open_requested_ml:0, pending_availability_ml:0, allocations:[], available_allocations:[], active_request:undefined }
     group.total_ml += Number(item.quantity_ml)
     group.allocations.push(item)
-    if (available) { group.available_ml += Number(item.quantity_ml); group.available_allocations.push(item) }
+    if (available) { group.available_ml += requestableMl; group.available_allocations.push({...item,quantity_ml:requestableMl}) }
+    if (!committed && item.shipping_requestable === false) group.pending_availability_ml += Number(item.quantity_ml)
     if (committed) group.open_requested_ml += Number(item.quantity_ml)
     if (!group.active_request && activeRequest) group.active_request = activeRequest
     groups.set(item.perfume_id, group)

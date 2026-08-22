@@ -1,9 +1,10 @@
 project_id = "ruah-intelligence"
 
 [auth]
-site_url = "https://crmruahparfums.vercel.app"
+site_url = "https://crm.ruahparfums.com.br"
 additional_redirect_urls = [
   "http://localhost:5173/**",
+  "https://crm.ruahparfums.com.br/**",
   "https://crmruahparfums.vercel.app/**",
 ]
 enable_signup = false

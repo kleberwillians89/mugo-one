@@ -1,4 +1,5 @@
-export const DEPLOYED_PUBLIC_APP_URL='https://crmruahparfums.vercel.app'
+export const DEPLOYED_PUBLIC_APP_URL='https://crm.ruahparfums.com.br'
+export const VERCEL_PUBLIC_APP_URL='https://crmruahparfums.vercel.app'
 
 export function publicAppUrl(){
   const configured=(Deno.env.get('PUBLIC_APP_URL')??DEPLOYED_PUBLIC_APP_URL).trim().replace(/\/+$/,'')
@@ -10,6 +11,6 @@ export function publicAppUrl(){
 
 export function firstAccessRedirectUrl(){return`${publicAppUrl()}/minha-ruah/criar-senha?flow=invite`}
 
-export function allowedPublicOrigins(){return new Set([DEPLOYED_PUBLIC_APP_URL,publicAppUrl(),'http://localhost:5173'])}
+export function allowedPublicOrigins(){return new Set([DEPLOYED_PUBLIC_APP_URL,VERCEL_PUBLIC_APP_URL,publicAppUrl(),'http://localhost:5173'])}
 
 export function isAllowedPublicOrigin(origin:string|null){return !origin||allowedPublicOrigins().has(origin)}

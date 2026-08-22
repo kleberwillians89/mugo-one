@@ -13,6 +13,7 @@ import { SalesPage } from './pages/SalesPage'
 import { SaleDetailsPage } from './pages/SaleDetailsPage'
 import { DeliveriesPage } from './pages/DeliveriesPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { PreparationPage } from './pages/PreparationPage'
 import { ReplenishmentPage } from './pages/ReplenishmentPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { MarginReportPage } from './pages/MarginReportPage'
@@ -58,7 +59,7 @@ export function App() {
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
     if (page === 'Entregas') {const shipmentId=routePath.match(/^\/entregas\/([0-9a-f-]{36})$/i)?.[1];return shipmentId?<ShipmentDetailsPage shipmentId={shipmentId}/>:<DeliveriesPage period={period} setPeriod={setPeriod}/>}
-    if (page === 'Estoque') return routePath === '/estoque/reposicao' ? <ReplenishmentPage/> : <InventoryPage period={period} setPeriod={setPeriod}/>
+    if (page === 'Estoque') return routePath === '/estoque/reposicao' ? <ReplenishmentPage/> : routePath === '/estoque/fracionamento' ? <PreparationPage/> : <InventoryPage period={period} setPeriod={setPeriod}/>
     if (page === 'Relatórios') return routePath === '/relatorios/margem' ? <MarginReportPage period={period} setPeriod={setPeriod}/> : <ReportsPage period={period} setPeriod={setPeriod}/>
     if (page === 'Importação') return <ImportPage/>
     if (page === 'IA') return <Intelligence period={period} setPeriod={setPeriod}/>

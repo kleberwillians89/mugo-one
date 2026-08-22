@@ -9,6 +9,7 @@ import { QrBottlePage } from './pages/QrBottlePage'
 import { InventoryStationPage } from './pages/InventoryStationPage'
 import { InventoryCountPage } from './pages/InventoryCountPage'
 import { PrintLabelPage } from './pages/PrintLabelPage'
+import {PerfumePrintLabelPage} from './pages/PerfumePrintLabelPage'
 import { CustomerPortalRoot } from './portal/CustomerPortalRoot'
 
 const go = (path:string) => { window.history.pushState({},'',path); window.dispatchEvent(new PopStateEvent('popstate')) }
@@ -106,6 +107,7 @@ export function AuthRoot() {
   if(qrMatch)return <QrBottlePage token={decodeURIComponent(qrMatch[1])}/>
   // Documento de impressão isolado (seção 4 do briefing "finalizar fluxo
   // físico"): rota própria, sem AppShell — ver PrintLabelPage.tsx.
+  if(path==='/print/perfume')return <PerfumePrintLabelPage/>
   const printMatch=path.match(/^\/print\/(bottle|split)$/)
   if(printMatch)return <PrintLabelPage kind={printMatch[1] as 'bottle'|'split'}/>
   if(path==='/estoque/leitor')return <InventoryStationPage/>

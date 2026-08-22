@@ -91,3 +91,7 @@ a{color:var(--gold-deep);text-decoration-color:color-mix(in srgb,var(--gold) 55%
 @media(max-width:767px){.period-popover{inset:auto!important;top:50%!important;left:50%!important;transform:translate(-50%,-50%);margin:0}}
 @media(max-width:360px){.period-inputs{grid-template-columns:1fr}.ui-page-header h2{font-size:1.55rem}.period-presets{gap:5px}.period-calendar .rdp-root{--rdp-day-height:36px;--rdp-day_button-height:34px}}
 .identity-review-grid{display:grid;gap:14px}.identity-review-card{padding:22px}.identity-review-card>header{position:static;height:auto;padding:0 0 15px;background:transparent;display:flex;justify-content:space-between}.identity-review-card>header>div{display:grid;gap:5px}.identity-review-card header span,.identity-review-card p,.identity-review-card small{color:var(--muted);font-size:11px}.identity-review-card footer{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}@media(max-width:600px){.identity-review-card footer{display:grid}.identity-review-card footer>*{width:100%}}
+
+/* 320px inclui a largura ocupada pela scrollbar. O piso antigo no body
+   transformava essa diferença em overflow horizontal global. */
+body{min-width:0}

@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { brl, shortDate } from '../lib/format'
 import { operationalLabel, statusLabel } from '../lib/presentation'
 import {
-  CommercialSale, confirmLegacyProductCustody, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
+  CommercialSale, confirmLegacyProductCustody, confirmSaleShippingAvailability, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
 } from '../lib/records'
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton } from '../components/ui'
@@ -22,6 +22,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
   const prepare=async()=>{if(!sale.client_id||!allocation||missingFields.length>0)return;setPreparing(true);setError('');try{const id=await createDraftShipment(sale.client_id,[allocation.id]);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
   const confirmCustody=async()=>{if(!confirmed)return;setSaving(true);setError('');try{await confirmLegacyProductCustody(sale.id,location,verificationNote);setConfirming(false);setConfirmed(false);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar o produto.')}finally{setSaving(false)}}
   const release=async()=>{if(!allocation)return;setSaving(true);try{await releaseLegacyProductCustody(allocation.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível remover a confirmação.')}finally{setSaving(false)}}
+  const confirmAvailability=async()=>{setSaving(true);setError('');try{await confirmSaleShippingAvailability(sale.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar a disponibilidade.')}finally{setSaving(false)}}
   const canConfirm=!allocation&&!shipment&&!sale.shipped_at&&Boolean(sale.client_id&&sale.perfume_id&&sale.volume_ml&&sale.volume_ml>0)
   const clientName=sale.clients?.name??sale.original_client??'Venda'
 
@@ -98,6 +99,12 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
     </section>
 
     <Divider label="Custódia e estoque"/>
+    {sale.shipping_availability_kind&&<DefinitionGroup title="Disponibilidade para envio" items={[
+      {label:'Texto da origem',value:sale.shipping_availability_text||'—'},
+      {label:'Interpretação',value:({available_now:'Disponível agora',available_from_date:'Disponível a partir da data',expected_by_date:'Previsão até a data',lead_time:'Prazo em dias úteis',unknown:'Precisa revisar'} as Record<string,string>)[sale.shipping_availability_kind]||sale.shipping_availability_kind},
+      {label:'Data prevista',value:sale.shipping_available_date?shortDate(sale.shipping_available_date):'—'},
+      {label:'Confirmação operacional',value:sale.shipping_availability_confirmed_at?`Confirmada em ${shortDate(sale.shipping_availability_confirmed_at)}`:'Aguardando confirmação física'},
+    ]} action={!sale.shipping_availability_confirmed_at?<PrimaryButton loading={saving} onClick={confirmAvailability}>Confirmar chegada à RUAH</PrimaryButton>:undefined}/>}
     <DefinitionGroup title="Estoque" items={[
       {label:'Allocation',value:allocation?.status?operationalLabel(allocation.status):'Nenhuma operação de estoque vinculada'},
       {label:'Origem',value:allocation?.stock_managed?'Estoque operacional':allocation?'Conferido manualmente':'—'},

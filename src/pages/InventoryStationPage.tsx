@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, Keyboard, ScanLine } from 'lucide-react'
 import { authenticatedOrganization } from '../lib/records'
 import { BottleResolution, SplitResolution, resolveBottleByCode, resolveBottleByToken, resolveSplitByCode } from '../lib/inventory-bottles'
 import { formatMl, parseScannedValue } from '../lib/bottle-scan'
+import {resolvePerfumeOperationalCode} from '../lib/preparation'
 import { BottleConferencePanel } from '../components/bottles/BottleConferencePanel'
 import { QrCameraScanner } from '../components/bottles/QrCameraScanner'
 import { ScanFeedback } from '../components/bottles/ScanFeedback'
@@ -16,7 +17,7 @@ function goToInventory() {
 
 const SPLIT_STATUS_LABEL: Record<SplitResolution['status'], string> = { available: 'Disponível', consumed: 'Usado', void: 'Anulado' }
 
-type Mode = 'waiting' | 'camera' | 'resolving' | 'bottle' | 'split'
+type Mode = 'waiting' | 'camera' | 'resolving' | 'bottle' | 'split'|'perfume'
 
 /**
  * /estoque/leitor — "Estação de Estoque": accepts camera QR, a USB/BT
@@ -27,6 +28,7 @@ export function InventoryStationPage() {
   const [mode, setMode] = useState<Mode>('waiting')
   const [bottle, setBottle] = useState<BottleResolution | null>(null)
   const [split, setSplit] = useState<SplitResolution | null>(null)
+  const [perfume,setPerfume]=useState<{perfume_name:string;brand_house:string|null;operational_code:string}|null>(null)
   const [error, setError] = useState('')
   const [lastRaw, setLastRaw] = useState('')
   const [manualCode, setManualCode] = useState('')
@@ -39,6 +41,7 @@ export function InventoryStationPage() {
     if (!parsed) { setError('Não reconhecemos este frasco.'); setLastRaw(raw); setMode('waiting'); return }
     setMode('resolving'); setError('')
     try {
+      if(parsed.kind==='perfume'){const result=await resolvePerfumeOperationalCode(parsed.value);if(!result){setError('Não reconhecemos este perfume.');setMode('waiting');return}setPerfume(result);setMode('perfume');return}
       if (parsed.kind === 'split') {
         const result = await resolveSplitByCode(parsed.value)
         if (!result) { setError('Não reconhecemos este frasco.'); setLastRaw(raw); setMode('waiting'); return }
@@ -57,7 +60,7 @@ export function InventoryStationPage() {
   useKeyboardWedgeListener(resolve, mode === 'waiting')
 
   function backToWaiting() {
-    setBottle(null); setSplit(null); setMode('waiting'); setManualCode(''); setError(''); setLastRaw('')
+    setBottle(null); setSplit(null);setPerfume(null); setMode('waiting'); setManualCode(''); setError(''); setLastRaw('')
   }
 
   return (
@@ -69,7 +72,7 @@ export function InventoryStationPage() {
       </header>
 
       <main className="station-main">
-        {mode === 'bottle' && bottle ? (
+        {mode==='perfume'&&perfume?<div className="station-result"><ScanFeedback tone="success" title="✓ PERFUME RECONHECIDO"><span>{perfume.perfume_name}{perfume.brand_house?` · ${perfume.brand_house}`:''}</span><span>{perfume.operational_code}</span></ScanFeedback><p>Consulta somente leitura. Nenhuma custódia ou estoque foi alterado.</p><button className="station-camera-btn" onClick={backToWaiting}>Ler próximo</button></div>:mode === 'bottle' && bottle ? (
           <div className="station-result">
             <ScanFeedback tone="success" title="✓ FRASCO RECONHECIDO">
               <span>{bottle.perfume_name}{bottle.brand_house ? ` · ${bottle.brand_house}` : ''}</span>

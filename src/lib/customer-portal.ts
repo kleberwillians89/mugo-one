@@ -27,6 +27,7 @@ export const maskCpf = (digits: string) => digits.length === 11 ? `${digits.slic
 export function customerPortalErrorMessage(reason: unknown, fallback = 'Não foi possível concluir esta ação. Tente novamente.') {
   const raw = reason instanceof Error ? reason.message : String((reason as { message?: unknown })?.message ?? reason ?? '')
   const normalized = raw.toLowerCase()
+  if (normalized.includes('shipping_availability_pending')) return 'Este perfume está previsto, mas ainda não teve a chegada confirmada pela RUAH. A solicitação de envio será liberada assim que ele estiver disponível.'
   if (normalized.includes('invalid_or_unavailable_custody') || normalized.includes('already_requested')) return 'Este perfume já está vinculado a uma solicitação ou não está mais disponível para um novo envio.'
   if (normalized.includes('quote_changed') || normalized.includes('quote_not_available')) return 'A cotação deste envio mudou ou não está mais disponível. Aguarde uma nova cotação da equipe RUAH.'
   if (normalized.includes('request_already_in_progress') || normalized.includes('request_cannot_be_cancelled') || normalized.includes('shipment_cannot_be_cancelled')) return 'Esta solicitação já avançou e não pode mais ser cancelada por aqui. Fale com a equipe RUAH.'
@@ -70,7 +71,7 @@ export async function resolveLoginEmail(identifier: string): Promise<string> {
   return email as string
 }
 
-export type CustodyItem = { allocation_id: string; perfume_id: string; perfume_name: string; quantity_ml: number; sale_date: string | null; allocation_status: 'reserved' | 'shipping'; requested: boolean; request_id: string | null }
+export type CustodyItem = { allocation_id: string; perfume_id: string; perfume_name: string; quantity_ml: number; sale_date: string | null; allocation_status: 'reserved' | 'shipping'; requested: boolean; request_id: string | null; shipping_availability_text?:string|null; shipping_availability_kind?:string|null; shipping_available_date?:string|null; shipping_lead_business_days?:number|null; shipping_availability_confirmed_at?:string|null; shipping_requestable?:boolean;requestable_quantity_ml?:number;prepared_quantity_ml?:number }
 export async function fetchCustody(): Promise<CustodyItem[]> {
   const { data, error } = await supabase!.rpc('customer_custody')
   if (error) portalRpcError(error, 'Não foi possível carregar seus perfumes agora.')
@@ -103,7 +104,8 @@ export async function fetchMyRequests(): Promise<ShipmentRequest[]> {
 
 export type AddressSnapshot = { name: string; postal_code: string; address_line: string; address_number: string; complement?: string; district: string; city: string; state: string; phone?: string }
 export async function createShipmentRequest(allocationIds: string[], address: AddressSnapshot, notes?: string): Promise<ShipmentRequest> {
-  const { data, error } = await supabase!.rpc('customer_shipment_request_create', { p_allocation_ids: allocationIds, p_address: address, p_notes: notes ?? null })
+  const custody=await fetchCustody(),items=allocationIds.map(allocationId=>{const item=custody.find(row=>row.allocation_id===allocationId);return{allocation_id:allocationId,quantity_ml:Number(item?.requestable_quantity_ml??item?.quantity_ml??0)}})
+  const { data, error } = await supabase!.rpc('customer_shipment_request_create_prepared', { p_items:items, p_address: address, p_notes: notes ?? null })
   if (error) portalRpcError(error, 'Não foi possível criar esta solicitação de envio.')
   return data as ShipmentRequest
 }

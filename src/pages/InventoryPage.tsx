@@ -46,6 +46,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
     <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo em ML e movimentações integradas às novas vendas." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
       <SecondaryButton icon={<QrCode size={16}/>} onClick={()=>{history.pushState({},'','/estoque/leitor');dispatchEvent(new PopStateEvent('popstate'))}}>Estação de estoque</SecondaryButton>
+      <SecondaryButton onClick={()=>{history.pushState({},'','/estoque/fracionamento');dispatchEvent(new PopStateEvent('popstate'))}}>Fracionamento</SecondaryButton>
       <SecondaryButton onClick={goToReplenishment}>Reposição inteligente</SecondaryButton>
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setShowCreate(true)}>Cadastrar perfume</PrimaryButton>
     </>}/>

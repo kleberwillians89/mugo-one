@@ -1,0 +1,5 @@
+import {useEffect} from 'react'
+import {BarcodeImage} from '../components/bottles/BarcodeImage'
+import {QrCodeImage} from '../components/bottles/QrCodeImage'
+import './PerfumePrintLabelPage.css'
+export function PerfumePrintLabelPage(){const params=new URLSearchParams(location.search),perfume=params.get('perfume')??'',brand=params.get('brand')??'',code=params.get('codes')??'';useEffect(()=>{document.title='Etiqueta de perfume — RUAH';if(!code)return;const frame=requestAnimationFrame(()=>window.print()),close=()=>window.close();addEventListener('afterprint',close);return()=>{cancelAnimationFrame(frame);removeEventListener('afterprint',close)}},[code]);if(!code)return <p>Nada para imprimir.</p>;return <div className="perfume-print-label"><span>RUAH</span><strong>{perfume}</strong>{brand&&<em>{brand}</em>}<div><BarcodeImage value={code} displayValue={false} height={72} width={1} margin={1}/></div><code>{code}</code><aside><QrCodeImage value={code} size={100} alt={`QR ${code}`}/></aside></div>}

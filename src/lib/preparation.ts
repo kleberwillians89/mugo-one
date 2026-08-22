@@ -1,0 +1,16 @@
+import {authenticatedOrganization} from './records'
+import {supabase} from './supabase'
+
+export type PreparationPerfume={id:string;full_name_raw:string;brand_house:string|null;operational_code:string}
+export type PreparationCandidate={allocation_id:string;client_name:string;quantity_ml:number;prepared_ml:number;remaining_ml:number;bottle_tracking_status:string}
+export type PreparationBottle={id:string;bottle_code:string;bottle_label:string;physical_ml:number}
+export type PreparationItemInput={allocation_id:string;quantity_ml:number;source_bottle_id:string|null}
+
+export async function fetchPreparationPerfumes(){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,brand_house,operational_code').eq('organization_id',organizationId).order('full_name_raw');if(error)throw new Error(error.message);return(data??[])as PreparationPerfume[]}
+export async function fetchPreparationCandidates(perfumeId:string){await authenticatedOrganization();const {data,error}=await supabase!.rpc('preparation_candidates',{p_perfume_id:perfumeId});if(error)throw new Error(error.message);return(data??[])as PreparationCandidate[]}
+export async function fetchPreparationBottles(perfumeId:string){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.from('inventory_bottles').select('id,bottle_code,bottle_label,physical_ml').eq('organization_id',organizationId).eq('perfume_id',perfumeId).eq('status','active').gt('physical_ml',0).order('bottle_code');if(error)throw new Error(error.message);return(data??[])as PreparationBottle[]}
+export async function resolvePerfumeOperationalCode(code:string){await authenticatedOrganization();const {data,error}=await supabase!.rpc('resolve_perfume_operational_code',{p_code:code});if(error)throw new Error(error.message);return((data??[])[0]??null)as({perfume_id:string;perfume_name:string;brand_house:string|null;operational_code:string}|null)}
+export async function createPreparationBatch(perfumeId:string,items:PreparationItemInput[]){await authenticatedOrganization();const {data,error}=await supabase!.rpc('preparation_batch_create',{p_perfume_id:perfumeId,p_items:items});if(error)throw new Error(error.message);return data as string}
+export async function identifyPreparationBatch(batchId:string,code:string){await authenticatedOrganization();const {data,error}=await supabase!.rpc('preparation_batch_identify',{p_batch_id:batchId,p_code:code});if(error)throw new Error(error.message);return data as {ok:boolean;reason?:string;expected?:string;scanned?:string;perfume?:string;total_ml?:number;item_count?:number}}
+export async function confirmPreparationBatch(batchId:string){await authenticatedOrganization();const {data,error}=await supabase!.rpc('preparation_batch_confirm',{p_batch_id:batchId});if(error)throw new Error(error.message);return data as {ok:boolean;already_confirmed:boolean;message?:string;total_ml?:number;item_count?:number}}
+export function printPerfumeLabel(perfume:PreparationPerfume){const query=new URLSearchParams({perfume:perfume.full_name_raw,brand:perfume.brand_house??'',codes:perfume.operational_code});window.open(`/print/perfume?${query}`,'_blank','width=640,height=420')}

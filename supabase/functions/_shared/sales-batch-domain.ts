@@ -1,6 +1,8 @@
 export type ParsedBatchSale={client_name:string;sale_type:'APC'|'SPLIT';volume_ml:number;amount:number;raw:string;phone:string|null;address:string|null;perfume_name?:string;sale_date_raw?:string|null;shipping_deadline_raw?:string|null;sale_date?:string|null;shipping_deadline_date?:string|null;payment_status_raw?:string|null;payment_method_raw?:string|null;paid_at_raw?:string|null}
 export type ParsedPerfumeIdentity={raw_perfume_name:string;normalized_perfume_name:string;display_name:string;brand:string|null;bottle_number:number|null}
 export type ParsedBatchGroup=ParsedPerfumeIdentity&{perfume:string;sales:ParsedBatchSale[];totals:{sales:number;volume_ml:number;amount:number};availability_rows:number;availability_ml:number;availability_amount:number}
+export type ShippingAvailabilityKind='available_now'|'available_from_date'|'expected_by_date'|'lead_time'|'unknown'
+export type ShippingAvailability={shipping_availability_text:string|null;shipping_availability_kind:ShippingAvailabilityKind;shipping_available_date:string|null;shipping_lead_business_days:number|null;shipping_availability_review_required:boolean}
 export type ParsedSalesBatch={source_format:'whatsapp'|'tsv';perfume:string;bottle_number:number|null;original_volume_ml:number|null;quote_per_ml:number|null;recrimping_fee:number|null;apc_volume_ml:number|null;apc_extra:number|null;deadline_raw:string|null;deadline_day_month:string|null;business_days:number|null;announced_balance_ml:number|null;sales:ParsedBatchSale[];groups?:ParsedBatchGroup[];availability_rows?:number;availability_ml?:number;availability_amount?:number;totals:{sales:number;volume_ml:number;amount:number;calculated_balance_ml:number|null;volume_consistent:boolean};raw_text:string}
 
 const number=(value:string)=>Number(value.replace(/\./g,'').replace(',','.'))
@@ -11,6 +13,24 @@ const clean=(value:string)=>value
   .replace(/[\s*_~`•▪◾◼◆◇▶►➤➜➡📦💳🚨🔗]+$/gu,'').replace(/\s+/g,' ').trim()
 
 export function normalizeSalesBatchText(value:string){return String(value??'').replace(/\r\n?/g,'\n').normalize('NFC').replace(/[\u00a0\u200b-\u200d\ufeff]/gu,' ')}
+const isoDate=(year:number,month:number,day:number)=>{const date=new Date(Date.UTC(year,month-1,day));return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day?date.toISOString().slice(0,10):null}
+const addBusinessDays=(iso:string,days:number)=>{const date=new Date(`${iso}T12:00:00Z`);let remaining=days;while(remaining>0){date.setUTCDate(date.getUTCDate()+1);if(date.getUTCDay()!==0&&date.getUTCDay()!==6)remaining--}return date.toISOString().slice(0,10)}
+export function parseShippingAvailability(rawText:string,offerDate:string):ShippingAvailability{
+  const raw=normalizeSalesBatchText(rawText),line=raw.match(/(?:disponibilidade\s+para\s+envio|envio|disponibilidade)\s*:\s*([^\n]+)/i)?.[1]?.trim()??null
+  const source=line??raw.split('\n').map(value=>value.trim()).find(value=>/(pronta entrega|dispon[ií]vel imediatamente|envio a partir|previs[aã]o.*envio|dispon[ií]vel em\s+\d+\s*dias)/i.test(value))??null
+  if(!source)return{shipping_availability_text:null,shipping_availability_kind:'unknown',shipping_available_date:null,shipping_lead_business_days:null,shipping_availability_review_required:true}
+  const normalized=normalizeBatchName(source),lead=source.match(/(\d+)\s*dias?\s+[uú]teis/i),dateMatch=source.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/)
+  let kind:ShippingAvailabilityKind='unknown'
+  if(/pronta entrega|disponivel imediatamente|envio imediato/.test(normalized))kind='available_now'
+  else if(/a partir de/.test(normalized))kind='available_from_date'
+  else if(/ate\s+\d|previsao|previsto|estimad/.test(normalized))kind='expected_by_date'
+  else if(lead)kind='lead_time'
+  let availableDate:string|null=null,review=kind==='unknown'
+  if(dateMatch){const base=new Date(`${offerDate}T12:00:00Z`),year=dateMatch[3]?Number(dateMatch[3]):base.getUTCFullYear();availableDate=isoDate(year,Number(dateMatch[2]),Number(dateMatch[1]));if(!availableDate||availableDate<offerDate){availableDate=null;review=true}}
+  else if(kind==='lead_time'&&lead)availableDate=addBusinessDays(offerDate,Number(lead[1]))
+  if((kind==='available_from_date'||kind==='expected_by_date')&&!availableDate)review=true
+  return{shipping_availability_text:source,shipping_availability_kind:kind,shipping_available_date:availableDate,shipping_lead_business_days:lead?Number(lead[1]):null,shipping_availability_review_required:review}
+}
 export function countSaleCandidateLines(value:string){return normalizeSalesBatchText(value).split('\n').map(clean).filter(line=>/^(?:APC|\d{1,2}\s*mls?)\s*[:\-–—]/i.test(line)&&!/^\s*(?:APC|\d{1,2}\s*mls?)\s*[:\-–—]\s*R\$/i.test(line)).length}
 const mdy=(value:string)=>{const match=value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!match)return null;const month=Number(match[1]),day=Number(match[2]),year=Number(match[3]),date=new Date(Date.UTC(year,month-1,day));return date.getUTCFullYear()===year&&date.getUTCMonth()===month-1&&date.getUTCDate()===day?`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`:null}
 export function isTabularSalesBatch(value:string){return normalizeSalesBatchText(value).split('\n').some(line=>(line.match(/\t/g)||[]).length>=4)}
