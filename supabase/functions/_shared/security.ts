@@ -1,11 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {resolveTenant} from './tenant-resolution.ts'
+import {allowedPublicOrigins} from './public-app-url.ts'
 
-const allowedOrigins = new Set([
-  'https://crmruahparfums.vercel.app',
-  'https://crm.ruahparfums.com.br',
-  'http://localhost:5173',
-])
+const allowedOrigins = allowedPublicOrigins()
 
 export const corsHeaders = (req: Request) => {
   const origin = req.headers.get('origin') ?? ''

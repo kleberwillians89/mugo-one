@@ -7,13 +7,13 @@ import { PeriodValue } from '../lib/period'
 import { exportCsv } from '../lib/csv'
 import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
-  adjustInventory, authenticatedOrganization, createInventoryItem, fetchInventory, fetchOperationalInventory, searchPerfumes,
+  PerfumeCandidate, adjustInventory, authenticatedOrganization, createCanonicalPerfume, createInventoryItem, fetchInventory, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, searchPerfumes,
 } from '../lib/records'
 import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
 import { setPerfumeCost } from '../lib/cost-margin'
 import { Metric } from '../components/shared/Metric'
-import { EmptyState, EntityCombobox, EntityOption, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table } from '../components/ui'
+import { EmptyState, EntityCombobox, EntityOption, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, Table, useToast } from '../components/ui'
 import { BottleOnboardingModal } from '../components/bottles/BottleOnboardingModal'
 import './InventoryPage.css'
 
@@ -25,6 +25,7 @@ function stockState(balance: OperationalInventoryRow): { tone: 'success'|'warnin
 }
 
 export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
+  const {push}=useToast()
   const [summary,setSummary]=useState<InventorySummary|null>(null),[rows,setRows]=useState<InventoryRow[]>([])
   const [operational,setOperational]=useState<OperationalInventoryRow[]>([])
   const [replenishment,setReplenishment]=useState<ReplenishmentSignal[]>([])
@@ -40,7 +41,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   const editCost=async(balance:OperationalInventoryRow)=>{const raw=prompt(`Custo por ML para ${balance.perfume} (R$, vazio para limpar):`,balance.average_cost_per_ml!==null?String(balance.average_cost_per_ml):'');if(raw===null)return;const trimmed=raw.trim();if(trimmed===''){try{await setPerfumeCost(balance.perfume_id,null);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}return}const cost=Number(trimmed.replace(',','.'));if(!Number.isFinite(cost)||cost<0)return alert('Informe um custo válido.');try{await setPerfumeCost(balance.perfume_id,cost);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}}
 
   return <div className="page">
-    {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{setShowCreate(false);reload()}}/>}
+    {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={(name,volume)=>{setShowCreate(false);reload();push(`Perfume cadastrado no estoque\n${name}\n${volume.toLocaleString('pt-BR')} ml`,{tone:'success',duration:6000})}}/>}
     {qrItem&&<BottleOnboardingModal itemId={qrItem.item_id} perfumeName={qrItem.perfume} canManage={canManageBottles} close={()=>setQrItem(null)}/>}
     <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo em ML e movimentações integradas às novas vendas." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
@@ -71,23 +72,39 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   </div>
 }
 
-function InventoryCreate({close,saved}:{close:()=>void;saved:()=>void}) {
+function InventoryCreate({close,saved}:{close:()=>void;saved:(name:string,volume:number)=>void}) {
   const [perfume,setPerfume]=useState<EntityOption|null>(null)
+  const [mode,setMode]=useState<'existing'|'new'>('existing'),[name,setName]=useState(''),[brand,setBrand]=useState(''),[similar,setSimilar]=useState<PerfumeCandidate|null>(null),[empty,setEmpty]=useState(false)
   const [opening,setOpening]=useState(''),[minimum,setMinimum]=useState(''),[reference,setReference]=useState(format(new Date(),'yyyy-MM-dd')),[notes,setNotes]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false)
   const perfumeSearch=useCallback(async(term:string)=>(await searchPerfumes(term)).map(row=>({id:row.id,label:row.full_name_raw,description:[row.brand_house,row.bottle_identifier].filter(Boolean).join(' · ')})),[])
+  useEffect(()=>{perfumeCount().then(count=>setEmpty(count===0)).catch(()=>{})},[])
+  const startNew=useCallback((query='')=>{setMode('new');setPerfume(null);setName(query);setBrand('');setSimilar(null);setError('')},[])
+  const chooseExisting=(candidate:PerfumeCandidate)=>{setPerfume({id:candidate.id,label:candidate.full_name_raw,description:candidate.brand_house??undefined});setMode('existing');setSimilar(null);setError('')}
   const submit=async()=>{
-    if(!perfume||!reference)return setError('Preencha perfume e data corretamente.')
+    if(mode==='existing'&&!perfume)return setError('Selecione um perfume ou cadastre um novo.')
+    if(mode==='new'&&(!name.trim()||!brand.trim()))return setError('Preencha nome do perfume e marca / casa.')
+    if(!reference)return setError('Preencha a data de referência.')
     const openingMl=parseMlAmount(opening)
     if(openingMl===null||openingMl<0)return setError(looksLikeMlWithUnitSuffix(opening)?'Informe apenas o valor numérico. Ex.: 100':'Informe um saldo inicial válido em ml.')
     const minimumMl=parseMlAmount(minimum)
     if(minimumMl===null||minimumMl<0)return setError(looksLikeMlWithUnitSuffix(minimum)?'Informe apenas o valor numérico. Ex.: 100':'Informe um limite mínimo válido em ml.')
     setSaving(true)
-    try{await createInventoryItem({perfumeId:perfume.id,openingMl,minimumMl,referenceDate:reference,notes});saved()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}
+    try{
+      let selected=perfume
+      if(mode==='new'){
+        const equivalents=await findEquivalentPerfumes(name)
+        if(equivalents.length){setSimilar(equivalents[0]);setError('');return}
+        const result=await createCanonicalPerfume({name,brand})
+        selected={id:result.perfume.id,label:result.perfume.full_name_raw,description:result.perfume.brand_house??undefined}
+      }
+      await createInventoryItem({perfumeId:selected!.id,openingMl,minimumMl,referenceDate:reference,notes})
+      saved(selected!.label,openingMl)
+    }catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}
   }
-  return <Modal open onClose={close} eyebrow="CONTROLE DE ESTOQUE" title="Cadastrar perfume" footer={<>
+  return <Modal open onClose={close} eyebrow="CONTROLE DE ESTOQUE" title="Cadastrar perfume no estoque" footer={<>
       <SecondaryButton onClick={close}>Cancelar</SecondaryButton>
-      <PrimaryButton loading={saving} onClick={submit}>Cadastrar estoque</PrimaryButton>
+      <PrimaryButton loading={saving} onClick={submit}>CADASTRAR PERFUME NO ESTOQUE</PrimaryButton>
     </>}>
-    <div className="record-form"><div className="form-grid"><div className="field wide"><EntityCombobox label="Perfume existente" placeholder="Buscar perfume…" value={perfume} onChange={setPerfume} search={perfumeSearch}/></div><label className="field"><span>Saldo inicial</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="100" value={opening} onChange={(event)=>setOpening(event.target.value)} aria-label="Saldo inicial em ml"/><span>ml</span></div></label><label className="field"><span>Limite mínimo</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="5" value={minimum} onChange={(event)=>setMinimum(event.target.value)} aria-label="Limite mínimo em ml"/><span>ml</span></div></label><label className="field"><span>Data de referência</span><input type="date" value={reference} onChange={(event)=>setReference(event.target.value)}/></label><label className="field wide"><span>Observação</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)}/></label></div>{error&&<div className="form-error">{error}</div>}</div>
+    <div className="record-form"><div className="inventory-create-mode" aria-live="polite"><strong>{mode==='new'?'NOVO PERFUME':'PERFUME EXISTENTE'}</strong>{mode==='new'&&<button type="button" onClick={()=>{setMode('existing');setSimilar(null)}}>Buscar existente</button>}</div>{mode==='existing'&&empty&&<div className="inventory-empty-perfumes"><strong>Nenhum perfume cadastrado ainda.</strong><button type="button" onClick={()=>startNew()}>CADASTRAR PRIMEIRO PERFUME</button></div>}<div className="form-grid">{mode==='existing'?<div className="field wide"><EntityCombobox label="Buscar perfume" placeholder="Digite o nome do perfume ou da marca" value={perfume} onChange={setPerfume} search={perfumeSearch} noResultsLabel="Nenhum perfume encontrado." onCreate={startNew} createLabel={query=>`CADASTRAR “${query}”`}/></div>:<><label className="field wide"><span>Nome do perfume</span><input autoFocus value={name} onChange={event=>{setName(event.target.value);setSimilar(null)}}/></label><label className="field wide"><span>Marca / Casa</span><input value={brand} onChange={event=>{setBrand(event.target.value);setSimilar(null)}}/></label>{similar&&<div className="inventory-similar wide"><strong>Encontramos um perfume parecido.</strong><span>{similar.full_name_raw}{similar.brand_house?` · ${similar.brand_house}`:''}</span><button type="button" onClick={()=>chooseExisting(similar)}>USAR PERFUME EXISTENTE</button></div>}</>}<label className="field"><span>Volume físico</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="100" value={opening} onChange={(event)=>setOpening(event.target.value)} aria-label="Volume físico em ml"/><span>ml</span></div></label><label className="field"><span>Reserva mínima</span><div className="field-ml-suffix"><input inputMode="decimal" placeholder="5" value={minimum} onChange={(event)=>setMinimum(event.target.value)} aria-label="Reserva mínima em ml"/><span>ml</span></div></label><label className="field"><span>Data de referência</span><input type="date" value={reference} onChange={(event)=>setReference(event.target.value)}/></label><label className="field wide"><span>Observação</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)}/></label></div>{error&&<div className="form-error">{error}</div>}</div>
   </Modal>
 }

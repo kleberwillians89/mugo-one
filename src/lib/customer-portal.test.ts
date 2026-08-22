@@ -23,10 +23,11 @@ const portalCss = read('portal/customer-portal.css')
 const portalLib = read('lib/customer-portal.ts')
 
 describe('A/B/C — primeiro acesso nunca permite enumeração de CPF', () => {
-  it('A: customer-claim-start busca por normalized_cpf + e-mail e dispara o convite nativo do Supabase Auth quando bate', () => {
+  it('A: customer-claim-start busca por normalized_cpf + e-mail e gera link nativo do Supabase Auth quando bate', () => {
     expect(claimStartFn).toContain("eq('normalized_cpf', cpf)")
     expect(claimStartFn).toContain('ilike(\'email\', email)')
-    expect(claimStartFn).toContain('admin.auth.admin.inviteUserByEmail(email')
+    expect(claimStartFn).toContain('admin.auth.admin.generateLink')
+    expect(claimStartFn).toContain('generated.properties?.action_link')
   })
   it('B/C: toda saída da função usa a MESMA constante genérica — CPF inexistente, e-mail errado, e já ativo são indistinguíveis', () => {
     const genericOccurrences = claimStartFn.match(/json\(generic, 200, req\)/g) ?? []
@@ -208,9 +209,9 @@ describe('idempotência de convite: nunca reconvida quem já está ativo, nunca 
     const fn = claim.slice(claim.indexOf('create or replace function public.client_account_prepare_invite'), claim.indexOf('revoke all on function public.client_account_prepare_invite'))
     expect(fn).toContain("raise exception 'account_already_active'")
   })
-  it('customer-claim-start só chama inviteUserByEmail quando auth_user_id ainda não existe', () => {
-    const block = claimStartFn.slice(claimStartFn.indexOf('if (!account.auth_user_id)'))
-    expect(block).toContain('inviteUserByEmail')
+  it('customer-claim-start cria convite novo e usa recuperação apenas para reenviar acesso pendente', () => {
+    expect(claimStartFn).toContain("const linkType=account.auth_user_id?'recovery':'invite'")
+    expect(claimStartFn).toContain("if(!account.auth_user_id)await admin.rpc('client_account_link_auth_user'")
   })
 })
 

@@ -7,7 +7,7 @@ const TOKEN = 'a'.repeat(64)
 
 describe('parseScannedValue', () => {
   it('extrai o token de uma URL completa de QR (deep link)', () => {
-    expect(parseScannedValue(`https://crm.ruahparfums.com.br/q/${TOKEN}`)).toEqual({ kind: 'token', value: TOKEN })
+    expect(parseScannedValue(`https://crmruahparfums.vercel.app/q/${TOKEN}`)).toEqual({ kind: 'token', value: TOKEN })
   })
   it('aceita a URL sem protocolo/host (o navegador já resolveu a rota)', () => {
     expect(parseScannedValue(`/q/${TOKEN}`)).toEqual({ kind: 'token', value: TOKEN })

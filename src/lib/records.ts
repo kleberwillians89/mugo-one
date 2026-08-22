@@ -422,7 +422,7 @@ export async function createSale(input: SaleInput) {
 }
 export async function parseSaleAssistant(text:string){const {data,error}=await supabase!.functions.invoke('parse-sale-assistant',{body:{text}});if(error)throw new Error('Não foi possível interpretar a anotação agora.');if(data?.error)throw new Error(data.error.message);return data.data as {fields:Record<string,unknown>;client_matches:Array<Record<string,unknown>>;perfume_matches:Array<{id:string;name:string;available_ml:number}>}}
 
-export type AiSalesBatchSale={client_name:string;perfume_name?:string;sale_type:'APC'|'SPLIT';volume_ml:number;amount:number;client_match_status:'found'|'new'|'review';client_id:string|null;client:Record<string,unknown>|null;suggestions:{id:string;name:string;missing_shipping_fields:string[]}[];missing_shipping_fields:string[];possible_duplicate:boolean;payment_status_raw?:string|null}
+export type AiSalesBatchSale={client_name:string;perfume_name?:string;sale_type:'APC'|'SPLIT';volume_ml:number;amount:number;client_match_status:'found'|'new'|'review';client_id:string|null;client:Record<string,unknown>|null;suggestions:{id:string;name:string;missing_shipping_fields:string[]}[];missing_shipping_fields:string[];possible_duplicate:boolean;payment_status_raw?:string|null;client_email?:string|null;client_cpf?:string|null;order_number?:string|number|null;source_order_number?:string|number|null;is_importable?:boolean}
 export type AiSalesBatchGroup={perfume:string;raw_perfume_name:string;normalized_perfume_name:string;display_name:string;brand:string|null;bottle_number:number|null;inventory_item_id:string|null;perfume_id:string|null;perfume_match_status:'found'|'review'|'new';perfume_matches:{id:string;full_name_raw:string}[];inventory:Record<string,unknown>|null;sales:AiSalesBatchSale[];availability_rows:number;availability_ml?:number;availability_amount?:number;totals:{sales:number;volume_ml:number;amount:number}}
 export type AiSalesBatchPreview={source_format?:'whatsapp'|'tsv';groups?:AiSalesBatchGroup[];availability_rows?:number;availability_ml?:number;availability_amount?:number;perfume:string;raw_perfume_name?:string;normalized_perfume_name?:string;display_name?:string;brand?:string|null;bottle_number:number|null;original_volume_ml:number|null;quote_per_ml:number|null;recrimping_fee:number|null;apc_volume_ml:number|null;apc_extra:number|null;deadline_raw:string|null;deadline_day_month:string|null;shipping_deadline_date:string|null;business_days:number|null;announced_balance_ml:number|null;sale_date:string;fingerprint:string;duplicate_batch:Record<string,unknown>|null;perfume_match_status:'found'|'review'|'new';perfume_id:string|null;inventory_item_id:string|null;perfume_matches:{id:string;full_name_raw:string}[];inventory:Record<string,unknown>|null;sales:AiSalesBatchSale[];totals:{sales:number;volume_ml:number;amount:number;calculated_balance_ml:number|null;volume_consistent:boolean};summary:{clients:number;found:number;new:number;review:number;shipping_ready:number;shipping_incomplete:number};raw_text:string}
 export type AiSalesBatchMultiResult={batch_id:string;sales_created:number;clients_created:number;clients_existing:number;perfumes_processed:number;perfumes_matched:number;inventory_items_bootstrapped:number;total_ml_sold:number;total_amount_sold:number;commercial_remaining_ml:number;commercial_remaining_amount:number;shipping_incomplete:number;paid_source_count:number;awaiting_source_count:number;unstated_payment_count:number;idempotent:boolean}
@@ -496,11 +496,53 @@ export async function searchClients(term: string) {
 }
 
 export async function searchPerfumes(term:string){
-  const {organizationId}=await currentOrganization(),normalized=normalizeClient(term)
+  const {organizationId}=await currentOrganization(),normalized=normalizePerfumeIdentity(term)
   if(normalized.length<2)return[]
-  const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').eq('organization_id',organizationId).gte('normalized_name',normalized).lt('normalized_name',`${normalized}\uffff`).order('normalized_name').limit(12)
+  const fields='id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier'
+  const [names,brands]=await Promise.all([
+    supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').eq('organization_id',organizationId).gte('normalized_name',normalized).lt('normalized_name',`${normalized}\uffff`).order('normalized_name').limit(12),
+    supabase!.from('perfumes').select(fields).eq('organization_id',organizationId).ilike('brand_house',`%${term.trim()}%`).order('normalized_name').limit(12),
+  ])
+  if(names.error||brands.error)throw new Error(names.error?.message??brands.error!.message)
+  return [...new Map([...(names.data??[]),...(brands.data??[])].map(row=>[row.id,row])).values()].slice(0,12)
+}
+
+export type PerfumeCandidate={id:string;full_name_raw:string;normalized_name:string;base_name:string;brand_house:string|null;bottle_identifier:string|null}
+
+export const normalizePerfumeIdentity=(value:unknown)=>normalizeClient(value).replace(/[‐‑‒–—―-]+/g,' ').replace(/\s+/g,' ').trim()
+
+export async function perfumeCount(){
+  const {organizationId}=await currentOrganization()
+  const {count,error}=await supabase!.from('perfumes').select('id',{count:'exact',head:true}).eq('organization_id',organizationId)
   if(error)throw new Error(error.message)
-  return data??[]
+  return count??0
+}
+
+export async function findEquivalentPerfumes(name:string){
+  const {organizationId}=await currentOrganization(),normalizedName=normalizePerfumeIdentity(name)
+  if(!normalizedName)return[]
+  const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').eq('organization_id',organizationId).limit(500)
+  if(error)throw new Error(error.message)
+  return ((data??[]) as PerfumeCandidate[]).filter(row=>{
+    return [row.base_name,row.full_name_raw,row.normalized_name].some(value=>normalizePerfumeIdentity(value)===normalizedName)
+  })
+}
+
+export async function createCanonicalPerfume(input:{name:string;brand:string}){
+  const {organizationId}=await currentOrganization(),name=input.name.trim().replace(/\s+/g,' '),brand=input.brand.trim().replace(/\s+/g,' ')
+  if(!name||!brand)throw new Error('Preencha nome do perfume e marca / casa.')
+  const equivalent=await findEquivalentPerfumes(name)
+  if(equivalent.length)return{perfume:equivalent[0],created:false}
+  const normalizedName=normalizePerfumeIdentity(name)
+  const {data,error}=await supabase!.from('perfumes').insert({organization_id:organizationId,full_name_raw:name,normalized_name:normalizedName,base_name:name,brand_house:brand,bottle_identifier:null}).select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').single()
+  if(error){
+    if(error.code==='23505'){
+      const matches=await findEquivalentPerfumes(name)
+      if(matches.length)return{perfume:matches[0],created:false}
+    }
+    throw new Error(error.message)
+  }
+  return{perfume:data as PerfumeCandidate,created:true}
 }
 
 export type InventorySummary = {

@@ -1,13 +1,14 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { completeAccountClaim, finalizeCustomerIdentity, startAccountClaim, startPublicRegistration } from '../lib/customer-portal'
+import { initialInviteCallback, isSupabaseConfigured, supabase } from '../lib/supabase'
+import { completeAccountClaim, finalizeCustomerIdentity, hasValidFirstAccessContext, startAccountClaim, startPublicRegistration } from '../lib/customer-portal'
 import { recordMfaProviderUnavailable } from '../lib/mfa-diagnostics'
 import { publicEnv } from '../lib/publicEnv'
 import { CustomerPortalApp } from './CustomerPortalApp'
 import { createRecoveryConfirmation } from './recovery-confirmation'
 import { hasValidRecoverySession } from './recovery-session'
+import {removeAuthSecretsFromUrl,resolveInviteSession} from './first-access-callback'
 import './customer-portal.css'
 
 const go = (path: string) => { window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate')) }
@@ -43,33 +44,30 @@ function ActivateStartPage() {
 }
 
 function ActivateCompletePage({recovery=false}:{recovery?:boolean}) {
-  const callbackParams=new URLSearchParams(`${location.search.replace(/^\?/,'')}&${location.hash.replace(/^#/,'')}`)
-  const callbackFlow=callbackParams.get('flow')??callbackParams.get('type')
-  // Recovery links are authoritative through the authenticated Supabase session.
-  // Supabase may consume and remove callback parameters before this page renders.
-  // Invite activation still requires explicit invite callback evidence.
-  const invalidCallback=!recovery&&(callbackParams.has('error')||callbackParams.has('error_code')||callbackParams.has('error_description')||callbackFlow!=='invite')
-  const [step, setStep] = useState<'loading' | 'password' | 'success' | 'error'>(invalidCallback?'error':'loading')
+  const [step, setStep] = useState<'loading' | 'password' | 'success' | 'error'>('loading')
   const [accountId, setAccountId] = useState('')
   const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState('')
   const [show,setShow]=useState(false)
   const [saving, setSaving] = useState(false); const [error, setError] = useState('')
+  const processing=useRef(false)
   useEffect(() => {
-    if(invalidCallback)return
+    if(processing.current)return
+    processing.current=true
     if(recovery){
       hasValidRecoverySession(supabase!.auth).then(valid=>setStep(valid?'password':'error'))
       return
     }
-    supabase?.auth.getSession().then(async({data:{session},error:sessionError})=>{
-      if(sessionError||!session){setStep('error');return}
+    resolveInviteSession(supabase!.auth,initialInviteCallback).then(async(session)=>{
+      if(!session){setStep('error');return}
       const {data,error:userError}=await supabase!.auth.getUser()
       if(userError||!data.user){setStep('error');return}
       const id = data.user?.user_metadata?.ruah_client_account_id as string | undefined
       const publicRegistration=Boolean(data.user?.user_metadata?.ruah_public_registration)
       if (!recovery&&!id&&!publicRegistration) return setStep('error')
-      setAccountId(id??''); setStep('password')
+      if(!await hasValidFirstAccessContext())return setStep('error')
+      removeAuthSecretsFromUrl();setAccountId(id??'');setStep('password')
     })
-  }, [recovery,invalidCallback])
+  }, [recovery])
   const submit = async (e: FormEvent) => {
     e.preventDefault(); setError('')
     if (!Object.values(passwordChecks(password)).every(Boolean)) return setError('Sua senha ainda não atende a todos os requisitos.')
@@ -84,11 +82,11 @@ function ActivateCompletePage({recovery=false}:{recovery?:boolean}) {
   }
   if (step === 'loading') return <PortalShell title="Confirmando seu acesso" subtitle="Aguarde um instante."><LoaderCircle className="spin" /></PortalShell>
   if (step === 'error') return <PortalShell title={recovery?'Este link de recuperação não é mais válido.':'Este link não é mais válido.'} subtitle="Ele pode ter expirado, já ter sido utilizado ou estar incompleto."><button className="portal-submit" onClick={() => go(recovery?'/minha-ruah/recuperar':'/minha-ruah/ativar-conta')}>{recovery?'SOLICITAR NOVO LINK':'SOLICITAR NOVO LINK'}</button><button className="portal-link" onClick={()=>go('/minha-ruah/entrar')}>VOLTAR PARA ENTRAR</button></PortalShell>
-  if(step==='success')return <PortalShell title={recovery?'Sua senha foi redefinida com sucesso.':'Senha criada com sucesso.'} subtitle="Seu acesso está protegido e pronto para os próximos logins."><button className="portal-submit" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/entrar'))}>ENTRAR NO MINHA RUAH</button></PortalShell>
+  if(step==='success')return <PortalShell title={recovery?'Sua senha foi redefinida com sucesso.':'Senha criada com sucesso.'} subtitle="Seu acesso está protegido e pronto para os próximos logins."><button className="portal-submit" onClick={()=>go('/minha-ruah')}>ENTRAR NO MINHA RUAH</button></PortalShell>
   return <PortalShell title={recovery?'Defina sua nova senha':'Crie sua senha'} subtitle={recovery?'Escolha uma nova senha forte para recuperar seu acesso.':'Crie uma senha forte para acessar seu espaço privado agora e nos próximos logins.'}>
     <form className="portal-form" onSubmit={submit}>
-      <label><span>{recovery?'Nova senha':'Crie sua senha'}</span><div><LockKeyhole size={16} /><input type={show?'text':'password'} required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /><button type="button" className="portal-password-toggle" onClick={()=>setShow(!show)} aria-label={show?'Ocultar senha':'Mostrar senha'}>{show?<EyeOff/>:<Eye/>}</button></div></label>
-      <label><span>{recovery?'Confirmar nova senha':'Confirmar senha'}</span><div><LockKeyhole size={16} /><input type={show?'text':'password'} required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></div></label>
+      <label><span>Nova senha</span><div><LockKeyhole size={16} /><input type={show?'text':'password'} required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} /><button type="button" className="portal-password-toggle" onClick={()=>setShow(!show)} aria-label={show?'Ocultar senha':'Mostrar senha'}>{show?<EyeOff/>:<Eye/>}</button></div></label>
+      <label><span>Confirmar nova senha</span><div><LockKeyhole size={16} /><input type={show?'text':'password'} required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></div></label>
       <div className="portal-password-requirements">{Object.entries({length:'10 caracteres',upper:'Letra maiúscula',lower:'Letra minúscula',number:'Número',symbol:'Caractere especial'}).map(([key,label])=><span className={passwordChecks(password)[key as keyof ReturnType<typeof passwordChecks>]?'met':''} key={key}>{passwordChecks(password)[key as keyof ReturnType<typeof passwordChecks>]?'✓':'○'} {label}</span>)}</div>
       {error && <div className="portal-error">{error}</div>}
       <button className="portal-submit" disabled={saving}>{saving ? <LoaderCircle className="spin" /> : recovery?'REDEFINIR SENHA':'CRIAR MINHA SENHA'}</button>

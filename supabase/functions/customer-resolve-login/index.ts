@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/security.ts'
+import {isAllowedPublicOrigin} from '../_shared/public-app-url.ts'
 
 // Login "CPF ou e-mail + senha": se a cliente digitar e-mail, o frontend
 // chama signInWithPassword direto (Supabase Auth já resolve). Se digitar
@@ -14,7 +15,7 @@ const PLACEHOLDER_EMAIL = 'conta-nao-encontrada@invalid.ruahparfums.com.br'
 
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin')
-  if (origin && !new Set(['https://crmruahparfums.vercel.app', 'https://crm.ruahparfums.com.br', 'http://localhost:5173']).has(origin))
+  if (!isAllowedPublicOrigin(origin))
     return json({ error: { code: 'origin_forbidden', message: 'Origem não autorizada.' } }, 403, req)
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) })
   if (req.method !== 'POST') return json({ error: { code: 'method_not_allowed', message: 'Método não permitido.' } }, 405, req)

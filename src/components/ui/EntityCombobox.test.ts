@@ -9,6 +9,7 @@ const records=readFileSync('src/lib/records.ts','utf8')
 describe('EntityCombobox',()=>{
   it('supports arrow bounds',()=>{expect(nextComboboxIndex(-1,'ArrowDown',3)).toBe(0);expect(nextComboboxIndex(2,'ArrowDown',3)).toBe(2);expect(nextComboboxIndex(0,'ArrowUp',3)).toBe(0)})
   it('supports Enter, Escape, clear, loading and stale-response protection',()=>{expect(component).toContain("event.key==='Enter'");expect(component).toContain("event.key==='Escape'");expect(component).toContain('aria-label={`Limpar');expect(component).toContain('request.current===current');expect(component).toContain('Buscando…')})
+  it('offers an accessible keyboard-selectable create action when no entity exists',()=>{expect(component).toContain('onCreate?.(query.trim())');expect(component).toContain('entity-combobox-create');expect(component).toContain("noResultsLabel='Nenhum resultado encontrado.'");expect(component).toContain('role="option"')})
   it('uses accessible combobox/listbox semantics',()=>{expect(component).toContain('role="combobox"');expect(component).toContain('role="listbox"');expect(component).toContain('role="option"');expect(component).toContain('aria-activedescendant')})
   it('is mobile safe and touch friendly',()=>{expect(css).toContain('@media(max-width:430px)');expect(css).toMatch(/min-height:52px/);expect(css).toContain('max-height:min(360px,48dvh)')})
 })

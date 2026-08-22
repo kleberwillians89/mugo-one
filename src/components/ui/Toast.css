@@ -24,6 +24,7 @@
   box-shadow: var(--shadow-md);
   animation: ui-toast-in 0.2s ease-out;
 }
+.ui-toast > span { white-space: pre-line; }
 
 .ui-toast--success { background: #263424; color: #d8ecd0; }
 .ui-toast--error { background: #3a2320; color: #f4d3ce; }

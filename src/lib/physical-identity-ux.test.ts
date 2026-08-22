@@ -224,10 +224,10 @@ describe('QR na tela resolve para o mesmo objeto (infra existente reaproveitada,
   it('o QR exibido é o MESMO deep link que /q/:token resolve de volta ao bottle (bottleDeepLink + QrBottlePage compartilham o mesmo token)', () => {
     const globalWithLocation = globalThis as { location?: { origin: string } }
     const previous = globalWithLocation.location
-    globalWithLocation.location = { origin: 'https://crm.ruahparfums.com.br' }
+    globalWithLocation.location = { origin: 'https://crmruahparfums.vercel.app' }
     try {
       const token = 'a'.repeat(64)
-      expect(bottleDeepLink(token)).toBe(`https://crm.ruahparfums.com.br/q/${token}`)
+      expect(bottleDeepLink(token)).toBe(`https://crmruahparfums.vercel.app/q/${token}`)
     } finally {
       globalWithLocation.location = previous
     }

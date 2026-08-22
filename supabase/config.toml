@@ -3,8 +3,8 @@ project_id = "ruah-intelligence"
 [auth]
 site_url = "https://crmruahparfums.vercel.app"
 additional_redirect_urls = [
-  "http://localhost:5173/auth/callback",
-  "https://crmruahparfums.vercel.app/auth/callback",
+  "http://localhost:5173/**",
+  "https://crmruahparfums.vercel.app/**",
 ]
 enable_signup = false
 minimum_password_length = 10

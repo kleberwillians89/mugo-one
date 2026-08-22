@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { audit, context, json } from '../_shared/security.ts'
 import { sendInviteEmail, sendInviteWhatsapp } from '../_shared/customer-invite.ts'
+import {firstAccessRedirectUrl} from '../_shared/public-app-url.ts'
 const maskedEmail=(value:string)=>{const[local,domain]=value.split('@');return local&&domain?`${local[0]}***@${domain}`:'e-mail inválido'}
 
 // "ENVIAR ACESSO / ATIVAR CONTA" no Cliente 360 (staff). Mesmo mecanismo
@@ -29,9 +30,10 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey)
 
   const { data: client } = await admin.from('clients').select('name,phone,whatsapp_phone').eq('id', clientId).single()
-  const portalUrl=Deno.env.get('RUAH_PORTAL_URL')??'https://crm.ruahparfums.com.br'
   console.log({event:'auth_link_generation_start',source:'customer-account-invite',email:maskedEmail(email)})
-  const { data: generated, error: inviteError } = await admin.auth.admin.generateLink({ type: 'invite', email, options: { redirectTo: `${portalUrl}/minha-ruah/criar-senha?flow=invite`, data: { ruah_client_account_id: account.id, full_name: client?.name ?? 'Cliente RUAH', phone: client?.whatsapp_phone ?? client?.phone ?? '' } } })
+  const linkType=account.auth_user_id?'recovery':'invite'
+  const options=linkType==='invite'?{ redirectTo: firstAccessRedirectUrl(), data: { ruah_client_account_id: account.id, full_name: client?.name ?? 'Cliente RUAH', phone: client?.whatsapp_phone ?? client?.phone ?? '' } }:{redirectTo:firstAccessRedirectUrl()}
+  const { data: generated, error: inviteError } = await admin.auth.admin.generateLink({ type: linkType, email, options })
   if (inviteError || !generated.properties?.action_link || !generated.user) { const alreadyExists=/already.*(?:registered|exists)|user.*exists/i.test(`${inviteError?.code??''} ${inviteError?.message??''}`);console.error({event:'auth_link_generation_failed',source:'customer-account-invite',email:maskedEmail(email),code:alreadyExists?'account_already_exists':'invite_link_failed'});return json({ error: { code: alreadyExists?'account_already_exists':'invite_failed', message: alreadyExists?'Já existe uma conta para este e-mail. Oriente a cliente a entrar ou recuperar a senha.':'Não foi possível gerar um convite seguro.' } }, alreadyExists?409:502, req) }
   console.log({event:'auth_link_generation_success',source:'customer-account-invite',email:maskedEmail(email)})
   if (!account.auth_user_id) await admin.rpc('client_account_link_auth_user', { p_account_id: account.id, p_auth_user_id: generated.user.id })

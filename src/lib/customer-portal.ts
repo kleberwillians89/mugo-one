@@ -48,6 +48,11 @@ export async function completeAccountClaim(accountId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function hasValidFirstAccessContext():Promise<boolean>{
+  const {data,error}=await supabase!.rpc('customer_first_access_context_valid')
+  return !error&&data===true
+}
+
 export async function startPublicRegistration(name:string,email:string,phone:string):Promise<{code:'invite_sent';status:'invite_sent';email:string;provider_message_id?:string}>{
   return await invoke('customer-registration-start',{name,email,phone})
 }
