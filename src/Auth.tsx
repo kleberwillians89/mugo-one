@@ -11,6 +11,7 @@ import { InventoryCountPage } from './pages/InventoryCountPage'
 import { PrintLabelPage } from './pages/PrintLabelPage'
 import {PerfumePrintLabelPage} from './pages/PerfumePrintLabelPage'
 import { CustomerPortalRoot } from './portal/CustomerPortalRoot'
+import { ToastProvider } from './components/ui'
 
 const go = (path:string) => { window.history.pushState({},'',path); window.dispatchEvent(new PopStateEvent('popstate')) }
 // Só aceita um "next" relativo à própria origem (nunca "//host" nem uma URL
@@ -113,5 +114,5 @@ export function AuthRoot() {
   if(path==='/estoque/leitor')return <InventoryStationPage/>
   const countMatch=path.match(/^\/estoque\/([0-9a-f-]{36})\/contagem$/i)
   if(countMatch)return <InventoryCountPage itemId={countMatch[1]}/>
-  return <PermissionsProvider><App/></PermissionsProvider>
+  return <PermissionsProvider><ToastProvider><App/></ToastProvider></PermissionsProvider>
 }
