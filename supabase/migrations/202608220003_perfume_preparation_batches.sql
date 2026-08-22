@@ -150,13 +150,30 @@ grant execute on function public.preparation_batch_cancel(uuid) to authenticated
 drop function public.customer_custody();
 create function public.customer_custody() returns table(allocation_id uuid,perfume_id uuid,perfume_name text,quantity_ml numeric,sale_date date,allocation_status text,requested boolean,request_id uuid,shipping_availability_text text,shipping_availability_kind text,shipping_available_date date,shipping_lead_business_days integer,shipping_availability_confirmed_at timestamptz,shipping_requestable boolean,requestable_quantity_ml numeric,prepared_quantity_ml numeric)
 language sql stable security definer set search_path=public as $$
- select a.id,a.perfume_id,p.full_name_raw,a.quantity_ml,s.sale_date,a.status::text,(req.request_id is not null),req.request_id,s.shipping_availability_text,s.shipping_availability_kind,s.shipping_available_date,s.shipping_lead_business_days,s.shipping_availability_confirmed_at,
+ select a.id,a.perfume_id,p.full_name_raw,a.quantity_ml,s.sale_date,a.status::text,(req_current.request_id is not null),req_current.request_id,s.shipping_availability_text,s.shipping_availability_kind,s.shipping_available_date,s.shipping_lead_business_days,s.shipping_availability_confirmed_at,
    greatest(least(a.quantity_ml,coalesce(prep.prepared_ml,0)-coalesce(req.requested_ml,0)),0)>0
      and (s.shipping_availability_kind is null or s.shipping_availability_kind='available_now' or s.shipping_availability_confirmed_at is not null),
    greatest(least(a.quantity_ml,coalesce(prep.prepared_ml,0)-coalesce(req.requested_ml,0)),0),coalesce(prep.prepared_ml,0)
  from public.inventory_allocations a join public.perfumes p on p.id=a.perfume_id join public.sales s on s.id=a.sale_id
  left join lateral(select sum(bi.quantity_ml) prepared_ml from public.preparation_batch_items bi join public.preparation_batches b on b.id=bi.batch_id where bi.allocation_id=a.id and b.status='confirmed') prep on true
- left join lateral(select sum(ri.quantity_ml) filter(where r.status<>'cancelled') requested_ml,min(r.id) filter(where r.status='requested' or sh.status not in('posted','delivered','cancelled')) request_id from public.customer_shipment_request_items ri join public.customer_shipment_requests r on r.id=ri.request_id left join public.shipments sh on sh.id=r.converted_shipment_id where ri.allocation_id=a.id) req on true
+ left join lateral(
+   select sum(ri.quantity_ml) requested_ml
+   from public.customer_shipment_request_items ri
+   join public.customer_shipment_requests r on r.id=ri.request_id
+   left join public.shipments sh on sh.id=r.converted_shipment_id
+   where ri.allocation_id=a.id
+     and ((r.status='requested' and r.converted_shipment_id is null) or (r.status='converted' and sh.id is not null and sh.status not in('posted','delivered','cancelled')))
+ ) req on true
+ left join lateral(
+   select r.id request_id
+   from public.customer_shipment_request_items ri
+   join public.customer_shipment_requests r on r.id=ri.request_id
+   left join public.shipments sh on sh.id=r.converted_shipment_id
+   where ri.allocation_id=a.id
+     and ((r.status='requested' and r.converted_shipment_id is null) or (r.status='converted' and sh.id is not null and sh.status not in('posted','delivered','cancelled')))
+   order by r.requested_at desc,r.id desc
+   limit 1
+ ) req_current on true
  where a.client_id=public.current_customer_client() and a.status in('reserved','shipping') order by p.full_name_raw,s.sale_date;
 $$;
 revoke all on function public.customer_custody() from public,anon;grant execute on function public.customer_custody() to authenticated;
@@ -171,7 +188,12 @@ begin
  for item in select * from jsonb_array_elements(p_items) loop
   select * into a from public.inventory_allocations where id=(item->>'allocation_id')::uuid and client_id=client and status='reserved' for update;qty:=(item->>'quantity_ml')::numeric;if a.id is null or qty<=0 then raise exception 'invalid_or_unavailable_custody';end if;
   select coalesce(sum(bi.quantity_ml),0) into prepared from public.preparation_batch_items bi join public.preparation_batches b on b.id=bi.batch_id where bi.allocation_id=a.id and b.status='confirmed';
-  select coalesce(sum(ri.quantity_ml),0) into requested from public.customer_shipment_request_items ri join public.customer_shipment_requests r on r.id=ri.request_id where ri.allocation_id=a.id and r.status<>'cancelled';
+  select coalesce(sum(ri.quantity_ml),0) into requested
+  from public.customer_shipment_request_items ri
+  join public.customer_shipment_requests r on r.id=ri.request_id
+  left join public.shipments sh on sh.id=r.converted_shipment_id
+  where ri.allocation_id=a.id
+    and ((r.status='requested' and r.converted_shipment_id is null) or (r.status='converted' and sh.id is not null and sh.status not in('posted','delivered','cancelled')));
   select s.shipping_availability_kind is null or s.shipping_availability_kind='available_now' or s.shipping_availability_confirmed_at is not null into availability_ready from public.sales s where s.id=a.sale_id;
   if not coalesce(availability_ready,false) then raise exception 'shipping_availability_pending';end if;
   if qty>least(a.quantity_ml,prepared-requested) then raise exception 'shipping_availability_pending';end if;
@@ -192,7 +214,18 @@ begin
  insert into public.shipments(organization_id,client_id,status,recipient_name,recipient_phone,recipient_document,recipient_email,recipient_postal_code,recipient_address,recipient_number,recipient_complement,recipient_district,recipient_city,recipient_state,package_weight,package_height,package_width,package_length,package_format,declared_value,notes,created_by)
  select req.organization_id,req.client_id,'draft',coalesce(addr->>'name',client.name),coalesce(addr->>'phone',client.phone,client.whatsapp_phone),coalesce(client.cpf,client.cnpj),client.email,addr->>'postal_code',addr->>'address_line',addr->>'address_number',addr->>'complement',addr->>'district',addr->>'city',addr->>'state',cfg.default_weight,cfg.default_height,cfg.default_width,cfg.default_length,coalesce(cfg.default_format,'box'),coalesce(sum(s.amount),0),req.notes,auth.uid() from public.customer_shipment_request_items ri join public.inventory_allocations a on a.id=ri.allocation_id join public.sales s on s.id=a.sale_id where ri.request_id=req.id returning id into shipment;
  for source_count in select count(distinct bi.source_bottle_id) from public.customer_shipment_request_items ri join public.preparation_batch_items bi on bi.allocation_id=ri.allocation_id join public.preparation_batches b on b.id=bi.batch_id and b.status='confirmed' where ri.request_id=req.id group by ri.allocation_id having count(distinct bi.source_bottle_id)>1 loop raise exception 'preparation_source_ambiguous';end loop;
- insert into public.shipment_items(organization_id,shipment_id,allocation_id,sale_id,quantity_ml,bottle_id) select req.organization_id,shipment,a.id,a.sale_id,ri.quantity_ml,(select min(bi.source_bottle_id) from public.preparation_batch_items bi join public.preparation_batches b on b.id=bi.batch_id where bi.allocation_id=a.id and b.status='confirmed') from public.customer_shipment_request_items ri join public.inventory_allocations a on a.id=ri.allocation_id where ri.request_id=req.id;
+ insert into public.shipment_items(organization_id,shipment_id,allocation_id,sale_id,quantity_ml,bottle_id)
+ select req.organization_id,shipment,a.id,a.sale_id,ri.quantity_ml,(
+   select bi.source_bottle_id
+   from public.preparation_batch_items bi
+   join public.preparation_batches b on b.id=bi.batch_id
+   where bi.allocation_id=a.id and b.status='confirmed' and bi.source_bottle_id is not null
+   order by b.confirmed_at desc nulls last,bi.created_at desc,bi.id desc
+   limit 1
+ )
+ from public.customer_shipment_request_items ri
+ join public.inventory_allocations a on a.id=ri.allocation_id
+ where ri.request_id=req.id;
  update public.inventory_allocations a set status='shipping',shipment_id=shipment,updated_at=now() where id in(select allocation_id from public.customer_shipment_request_items where request_id=req.id);
  insert into public.shipment_events(organization_id,shipment_id,event_type,to_status,actor_id) values(req.organization_id,shipment,'shipment_created','draft',auth.uid());update public.customer_shipment_requests set status='converted',converted_shipment_id=shipment,updated_at=now() where id=req.id;return shipment;
 end;$$;

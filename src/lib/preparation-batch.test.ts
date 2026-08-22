@@ -4,6 +4,7 @@ import {parseScannedValue} from './bottle-scan'
 const sql=readFileSync(new URL('../../supabase/migrations/202608220003_perfume_preparation_batches.sql',import.meta.url),'utf8')
 const page=readFileSync(new URL('../pages/PreparationPage.tsx',import.meta.url),'utf8')
 const label=readFileSync(new URL('../pages/PerfumePrintLabelPage.css',import.meta.url),'utf8')
+const custody=sql.slice(sql.indexOf('create function public.customer_custody()'),sql.indexOf('create or replace function public.customer_shipment_request_create_prepared'))
 describe('um código por perfume e fracionamento em lote',()=>{
  it('gera código tenant-safe, atômico, único, imutável e somente no banco',()=>{expect(sql).toContain("'RUAH-P'||lpad(seq::text,6,'0')");expect(sql).toContain('perfumes_org_operational_code_uidx');expect(sql).toContain('operational_code_immutable');expect(sql).toContain('operational_code_generated_by_database')})
  it('QR e Code128 compartilham o P-code',()=>{expect(parseScannedValue('RUAH-P000123')).toEqual({kind:'perfume',value:'RUAH-P000123'});expect(page).toContain('operational_code')})
@@ -18,4 +19,19 @@ describe('um código por perfume e fracionamento em lote',()=>{
  it('mantém post_shipment como baixa final e compatibilidade split',()=>{expect(sql).toContain('create or replace function public.post_shipment');expect(sql).toContain("elsif r.split_unit_id is not null")})
  it('etiqueta nova mede 50 por 30 mm',()=>{expect(label).toContain('width:50mm;height:30mm');expect(label).toContain('size:50mm 30mm')})
  it('mobile evita tabela e oferece controles de 44px',()=>{expect(page).not.toContain('<table');expect(readFileSync(new URL('../pages/PreparationPage.css',import.meta.url),'utf8')).toContain('min-height:44px')})
+})
+
+describe('customer_custody preparado e solicitações ativas',()=>{
+ const active="(r.status='requested' and r.converted_shipment_id is null) or (r.status='converted' and sh.id is not null and sh.status not in('posted','delivered','cancelled'))"
+ it('não agrega UUID com min/max em nenhum RPC da migration',()=>{
+   expect(sql).not.toMatch(/\b(?:min|max)\s*\(\s*(?:[a-z_]+\.)?(?:id|request_id|allocation_id|perfume_id|source_bottle_id|shipment_id|converted_shipment_id)\s*\)/i)
+ })
+ it('A: request ativo retorna request_id',()=>{expect(custody).toContain('(req_current.request_id is not null),req_current.request_id')})
+ it('B: múltiplos requests ativos escolhem deterministicamente o mais recente',()=>{expect(custody).toContain('order by r.requested_at desc,r.id desc');expect(custody).toContain('limit 1')})
+ it('C: requested_ml soma somente requests ativos',()=>{expect(custody).toContain('select sum(ri.quantity_ml) requested_ml');expect(custody.split(active).length-1).toBe(2)})
+ it('D: request cancelado não conta',()=>{expect(active).not.toContain("r.status<>'cancelled'");expect(active).toContain("r.status='requested'")})
+ it('E: shipment postado, entregue ou cancelado não conta como aberto',()=>{expect(custody).toContain("sh.status not in('posted','delivered','cancelled')")})
+ it('F: request sem shipment continua ativo somente enquanto requested',()=>{expect(custody).toContain("r.status='requested' and r.converted_shipment_id is null")})
+ it('G: prepared_quantity_ml continua vindo só de batches confirmados',()=>{expect(custody).toContain("b.status='confirmed'");expect(custody).toContain('coalesce(prep.prepared_ml,0)')})
+ it('H: requestable_quantity_ml preserva preparado menos solicitado sem ficar negativo',()=>{expect(custody).toContain('greatest(least(a.quantity_ml,coalesce(prep.prepared_ml,0)-coalesce(req.requested_ml,0)),0)')})
 })
