@@ -616,12 +616,19 @@ export type OperationalInventoryRow = {
   shipping_ml:number;available_ml:number;minimum_ml:number;reconciliation_status:string
   average_cost_per_ml:number|null
 }
+export type ExternalCustodyRow={perfume_id:string;reserved_ml:number;shipping_ml:number}
 
 export async function fetchOperationalInventory() {
   const {organizationId}=await authenticatedOrganization()
   const {data,error}=await supabase!.rpc('inventory_operational_rows',{org_id:organizationId})
   if(error)throw new Error(error.message)
   return (data??[]) as OperationalInventoryRow[]
+}
+export async function fetchExternalCustody() {
+  const {organizationId}=await authenticatedOrganization()
+  const {data,error}=await supabase!.rpc('inventory_external_custody_rows',{org_id:organizationId})
+  if(error)throw new Error(error.message)
+  return (data??[]) as ExternalCustodyRow[]
 }
 export type InventoryRow = {
   item_id:string;perfume_id:string;perfume:string;available_ml:number;minimum_ml:number

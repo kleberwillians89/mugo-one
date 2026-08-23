@@ -7,7 +7,7 @@ import { PeriodValue } from '../lib/period'
 import { exportCsv } from '../lib/csv'
 import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
-  PerfumeCandidate, adjustInventory, authenticatedOrganization, createCanonicalPerfume, createInventoryItem, fetchInventory, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, searchPerfumes,
+  ExternalCustodyRow, PerfumeCandidate, adjustInventory, authenticatedOrganization, createCanonicalPerfume, createInventoryItem, fetchExternalCustody, fetchInventory, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, searchPerfumes,
 } from '../lib/records'
 import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
@@ -29,13 +29,15 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   const {push}=useToast()
   const [summary,setSummary]=useState<InventorySummary|null>(null),[rows,setRows]=useState<InventoryRow[]>([])
   const [operational,setOperational]=useState<OperationalInventoryRow[]>([])
+  const [externalCustody,setExternalCustody]=useState<ExternalCustodyRow[]>([])
   const [replenishment,setReplenishment]=useState<ReplenishmentSignal[]>([])
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[showCreate,setShowCreate]=useState(false)
   const [qrItem,setQrItem]=useState<OperationalInventoryRow|null>(null),[canManageBottles,setCanManageBottles]=useState(false)
-  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
-  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
+  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchExternalCustody(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,custody,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setExternalCustody(custody);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
+  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchExternalCustody(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,custody,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setExternalCustody(custody);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
   useEffect(()=>{authenticatedOrganization().then((org)=>setCanManageBottles(org.role==='admin'||org.role==='manager')).catch(()=>{})},[])
   const replenishmentByItem=new Map(replenishment.map((signal)=>[signal.item_id,signal.status]))
+  const custodyByPerfume=new Map(externalCustody.map(row=>[row.perfume_id,row]))
   const adjust=async(row:InventoryRow,positive:boolean)=>{const raw=prompt(`${positive?'Entrada':'Ajuste negativo'} em ML para ${row.perfume}:`);if(!raw)return;const amount=Number(raw.replace(',','.'));if(!Number.isFinite(amount)||amount<=0)return alert('Informe uma quantidade válida.');const reason=prompt('Motivo obrigatório:')?.trim();if(!reason)return;if(!positive&&!confirm(`Confirma retirar ${amount} ML de ${row.perfume}?`))return;try{await adjustInventory(row.item_id,positive?amount:-amount,reason);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível registrar o movimento.')}}
   // Fase 8 do roadmap operacional ("Quanto custa?"): custo médio por ML,
   // mantido pela gestão — string vazia limpa o custo (volta a "não informado").
@@ -62,6 +64,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
           {key:'physical_ml',label:'Físico',hideOnMobile:true,render:(balance)=>`${Number(balance.physical_ml).toLocaleString('pt-BR')} ML`},
           {key:'reserved_ml',label:'Reservado',render:(balance)=>`${Number(balance.reserved_ml).toLocaleString('pt-BR')} ML`},
           {key:'shipping_ml',label:'Em preparação',render:(balance)=>`${Number(balance.shipping_ml).toLocaleString('pt-BR')} ML`},
+          {key:'external_custody',label:'Custódia da cliente',hideOnMobile:true,render:(balance)=>{const custody=custodyByPerfume.get(balance.perfume_id);const reserved=Number(custody?.reserved_ml??0),shipping=Number(custody?.shipping_ml??0);return reserved+shipping?`${(reserved+shipping).toLocaleString('pt-BR')} ML (${shipping.toLocaleString('pt-BR')} em envio)`:'—'}},
           {key:'available_ml',label:'Disponível',render:(balance)=><strong className="stock-available">{Number(balance.available_ml).toLocaleString('pt-BR')} ML</strong>},
           {key:'minimum_ml',label:'Mínimo',hideOnMobile:true,render:(balance)=>`${Number(balance.minimum_ml).toLocaleString('pt-BR')} ML`},
           {key:'average_cost_per_ml',label:'Custo/ML',hideOnMobile:true,render:(balance)=>balance.average_cost_per_ml===null?'—':brl(balance.average_cost_per_ml)},
