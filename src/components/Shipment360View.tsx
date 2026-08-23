@@ -681,7 +681,7 @@ export function ShipmentLabelCenter({
             className="label-tertiary"
             onClick={() => window.open(`/print/shipment?id=${encodeURIComponent(shipment.id)}`, "_blank", "noopener,noreferrer")}
           >
-            <Printer /> IMPRIMIR FOLHA DO ENVIO
+            <Printer /> IMPRIMIR NOTA DE ENVIO
           </button>
         </div>
         <p className="label-updated">

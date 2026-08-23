@@ -5,7 +5,7 @@ import { fetchShipment360, OperationalShipment } from '../lib/records'
 import { operationalLabel } from '../lib/presentation'
 import './ShipmentPrintPage.css'
 
-const PAGE_STYLE='@page { size: A4; margin: 12mm; }'
+const PAGE_STYLE='@page { size: A4 portrait; margin: 12mm; }'
 type PrintableShipment=OperationalShipment&{notes?:string|null;requested_at?:string|null}
 const humanReference=(id:string)=>`ENVIO ${id.slice(0,8).toUpperCase()}`
 

@@ -11,7 +11,7 @@ import {useKeyboardWedgeListener} from './bottles/useKeyboardWedgeListener'
 import {Divider, EmptyState, Modal, PageHeader} from './ui'
 import './ShipmentOperations.css'
 
-const nextActionCopy:Record<string,string>={create_label:'Criar etiqueta',checkout:'Confirmar compra',sync:'Atualizar etiqueta',print:'Imprimir etiqueta',track:'Acompanhar rastreio',none:'Sem ação pendente'}
+const nextActionCopy:Record<string,string>={wait_customer:'Aguardar aprovação da cliente',create_label:'Criar etiqueta',checkout:'Confirmar compra',sync:'Atualizar etiqueta',print:'Imprimir etiqueta',track:'Acompanhar rastreio',none:'Sem ação pendente'}
 
 const emptySettings:Partial<ShippingSettings>={default_format:'box',calculator_services:'1,2,17,3,31'}
 const shipmentKeys=['recipient_name','recipient_phone','recipient_document','recipient_email','recipient_postal_code','recipient_address','recipient_number','recipient_complement','recipient_district','recipient_city','recipient_state','package_weight','package_height','package_width','package_length','declared_value'] as const

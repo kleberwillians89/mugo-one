@@ -5,6 +5,7 @@ import type {CustodyItem,ShipmentRequest} from './customer-portal'
 
 const migration=readFileSync('supabase/migrations/202608230003_customer_account_login_activation.sql','utf8')
 const canonical=readFileSync('supabase/migrations/202608210004_customer_shipment_canonical.sql','utf8')
+const legacyVisibility=readFileSync('supabase/migrations/202608230007_customer_shipment_legacy_visibility.sql','utf8')
 const portal=readFileSync('src/portal/CustomerPortalApp.tsx','utf8')
 const root=readFileSync('src/portal/CustomerPortalRoot.tsx','utf8')
 
@@ -15,11 +16,17 @@ describe('regressão do shipment real no Minha RUAH',()=>{
   it('contabiliza o snapshot congelado como 100 ml aguardando aprovação',()=>{
     expect(summarizeCustomerCustody([custody],[shipment])).toEqual({physicalMl:100,availableMl:0,awaitingApprovalMl:100,preparingMl:0,inTransitMl:0})
   })
+  it('não mostra zero quando o shipment canônico existe e a RPC de custódia volta vazia',()=>{
+    expect(summarizeCustomerCustody([],[shipment])).toEqual({physicalMl:100,availableMl:0,awaitingApprovalMl:100,preparingMl:0,inTransitMl:0})
+  })
   it('lista shipment diretamente por client ownership, não por custódia ou request auxiliar',()=>{
-    const list=canonical.slice(canonical.indexOf('create or replace function public.customer_shipments_list'),canonical.indexOf('create or replace function public.customer_shipment_confirm'))
+    const list=legacyVisibility
     expect(list).toContain('from public.shipments sh')
     expect(list).toContain('sh.client_id = public.current_customer_client()')
     expect(list).toContain('from public.shipment_items si')
+    expect(list).toContain('left join public.inventory_allocations')
+    expect(list).toContain('left join public.sales')
+    expect(list).not.toMatch(/^\s+join public\.inventory_allocations a on/m)
     expect(list).not.toContain('customer_shipment_requests r')
   })
   it('exibe item, frete, valor e CTA canônico',()=>{
