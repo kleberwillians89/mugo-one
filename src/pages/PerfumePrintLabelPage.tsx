@@ -11,11 +11,12 @@ export function PerfumePrintLabelPage() {
   const params = new URLSearchParams(location.search)
   const perfume = params.get('perfume') ?? ''
   const brand = params.get('brand') ?? ''
-  const code = params.get('codes') ?? ''
+  const code = (params.get('codes') ?? '').trim().toUpperCase()
+  const validOperationalCode = /^RUAH-P\d{6}$/.test(code)
 
   useEffect(() => {
     document.title = 'Etiqueta de perfume — RUAH'
-    if (!code) return
+    if (!validOperationalCode) return
     const frame = requestAnimationFrame(() => window.print())
     const close = () => window.close()
     addEventListener('afterprint', close)
@@ -23,9 +24,9 @@ export function PerfumePrintLabelPage() {
       cancelAnimationFrame(frame)
       removeEventListener('afterprint', close)
     }
-  }, [code])
+  }, [code, validOperationalCode])
 
-  if (!code) return <p>Nada para imprimir.</p>
+  if (!validOperationalCode) return <p>Código operacional de perfume inválido.</p>
 
   return (
     <>
