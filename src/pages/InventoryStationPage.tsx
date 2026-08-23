@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Camera, Keyboard, ScanLine } from 'lucide-react'
+import { ArrowLeft, Camera, CheckCircle2, Keyboard, ScanLine } from 'lucide-react'
 import { authenticatedOrganization } from '../lib/records'
 import { BottleResolution, SplitResolution, resolveBottleByCode, resolveBottleByToken, resolveSplitByCode } from '../lib/inventory-bottles'
 import { formatMl, parseScannedValue } from '../lib/bottle-scan'
-import {resolvePerfumeOperationalCode} from '../lib/preparation'
+import {confirmPerfumeReceipt,PerfumeReceiptPreview,previewPerfumeReceipt} from '../lib/perfume-receipt'
 import { BottleConferencePanel } from '../components/bottles/BottleConferencePanel'
 import { QrCameraScanner } from '../components/bottles/QrCameraScanner'
 import { ScanFeedback } from '../components/bottles/ScanFeedback'
@@ -28,7 +28,9 @@ export function InventoryStationPage() {
   const [mode, setMode] = useState<Mode>('waiting')
   const [bottle, setBottle] = useState<BottleResolution | null>(null)
   const [split, setSplit] = useState<SplitResolution | null>(null)
-  const [perfume,setPerfume]=useState<{perfume_name:string;brand_house:string|null;operational_code:string}|null>(null)
+  const [perfume,setPerfume]=useState<PerfumeReceiptPreview|null>(null)
+  const [confirmingReceipt,setConfirmingReceipt]=useState(false)
+  const [receiptConfirmed,setReceiptConfirmed]=useState(false)
   const [error, setError] = useState('')
   const [lastRaw, setLastRaw] = useState('')
   const [manualCode, setManualCode] = useState('')
@@ -41,7 +43,7 @@ export function InventoryStationPage() {
     if (!parsed) { setError('Não reconhecemos este frasco.'); setLastRaw(raw); setMode('waiting'); return }
     setMode('resolving'); setError('')
     try {
-      if(parsed.kind==='perfume'){const result=await resolvePerfumeOperationalCode(parsed.value);if(!result){setError('Não reconhecemos este perfume.');setMode('waiting');return}setPerfume(result);setMode('perfume');return}
+      if(parsed.kind==='perfume'){const result=await previewPerfumeReceipt(parsed.value);if(!result){setError('Não reconhecemos este perfume.');setMode('waiting');return}setPerfume(result);setReceiptConfirmed(false);setMode('perfume');return}
       if (parsed.kind === 'split') {
         const result = await resolveSplitByCode(parsed.value)
         if (!result) { setError('Não reconhecemos este frasco.'); setLastRaw(raw); setMode('waiting'); return }
@@ -60,7 +62,15 @@ export function InventoryStationPage() {
   useKeyboardWedgeListener(resolve, mode === 'waiting')
 
   function backToWaiting() {
-    setBottle(null); setSplit(null);setPerfume(null); setMode('waiting'); setManualCode(''); setError(''); setLastRaw('')
+    setBottle(null); setSplit(null);setPerfume(null);setReceiptConfirmed(false); setMode('waiting'); setManualCode(''); setError(''); setLastRaw('')
+  }
+
+  async function confirmReceipt(){
+    if(!perfume||!perfume.sales.length||confirmingReceipt||readOnly)return
+    setConfirmingReceipt(true);setError('')
+    try{await confirmPerfumeReceipt(perfume.operational_code,perfume.sales.map(sale=>sale.sale_id));setReceiptConfirmed(true)}
+    catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar o recebimento.')}
+    finally{setConfirmingReceipt(false)}
   }
 
   return (
@@ -72,7 +82,7 @@ export function InventoryStationPage() {
       </header>
 
       <main className="station-main">
-        {mode==='perfume'&&perfume?<div className="station-result"><ScanFeedback tone="success" title="✓ PERFUME RECONHECIDO"><span>{perfume.perfume_name}{perfume.brand_house?` · ${perfume.brand_house}`:''}</span><span>{perfume.operational_code}</span></ScanFeedback><p>Consulta somente leitura. Nenhuma custódia ou estoque foi alterado.</p><button className="station-camera-btn" onClick={backToWaiting}>Ler próximo</button></div>:mode === 'bottle' && bottle ? (
+        {mode==='perfume'&&perfume?<div className="station-result station-receipt"><ScanFeedback tone="success" title={receiptConfirmed?'✓ RECEBIMENTO CONFIRMADO':'✓ PERFUME IDENTIFICADO'}><span>{perfume.perfume_name}{perfume.brand_house?` · ${perfume.brand_house}`:''}</span><span>{perfume.operational_code}</span></ScanFeedback>{receiptConfirmed?<div className="station-receipt-success"><CheckCircle2/><strong>Perfume recebido</strong><span>As vendas exibidas agora aguardam preparação.</span></div>:<><div className="station-receipt-summary"><strong>{perfume.sales.length} {perfume.sales.length===1?'venda aguardando':'vendas aguardando'} recebimento</strong><span>{formatMl(perfume.sales.reduce((total,sale)=>total+Number(sale.quantity_ml),0))} vendidos</span></div>{perfume.sales.length?<ul className="station-receipt-sales">{perfume.sales.map(sale=><li key={sale.sale_id}><span>{sale.client_name}</span><strong>{formatMl(sale.quantity_ml)}</strong></li>)}</ul>:<p>Nenhuma venda validada aguarda a chegada deste perfume.</p>}<p className="station-readonly-note">O bip apenas identificou o perfume. Nada foi alterado.</p>{error&&<ScanFeedback tone="error" title="NÃO FOI POSSÍVEL CONFIRMAR"><span>{error}</span></ScanFeedback>}<button className="station-camera-btn" disabled={!perfume.sales.length||readOnly||confirmingReceipt} onClick={confirmReceipt}>{confirmingReceipt?'CONFIRMANDO…':readOnly?'PERFIL SOMENTE LEITURA':'CONFIRMAR RECEBIMENTO'}</button></>}<button className="station-secondary-btn" onClick={backToWaiting}>Ler próximo</button></div>:mode === 'bottle' && bottle ? (
           <div className="station-result">
             <ScanFeedback tone="success" title="✓ FRASCO RECONHECIDO">
               <span>{bottle.perfume_name}{bottle.brand_house ? ` · ${bottle.brand_house}` : ''}</span>
@@ -105,7 +115,7 @@ export function InventoryStationPage() {
 
             <div className="station-listening">
               <ScanLine size={22} className={mode === 'resolving' ? '' : 'pulse'} />
-              <p>{mode === 'resolving' ? 'Abrindo frasco…' : 'Scanner conectado? Bipe a etiqueta a qualquer momento.'}</p>
+              <p>{mode === 'resolving' ? 'Identificando…' : 'Bipe a etiqueta do perfume.'}</p>
             </div>
 
             {error && (
@@ -117,7 +127,7 @@ export function InventoryStationPage() {
             <form className="station-manual" onSubmit={(event) => { event.preventDefault(); if (manualCode.trim()) resolve(manualCode) }}>
               <label><Keyboard size={14} /> Ou digite o código manualmente</label>
               <div className="station-manual-row">
-                <input inputMode="text" placeholder="RUAH-F000001" value={manualCode} onChange={(event) => setManualCode(event.target.value)} />
+                <input inputMode="text" placeholder="RUAH-P000123" value={manualCode} onChange={(event) => setManualCode(event.target.value)} />
                 <button type="submit" disabled={!manualCode.trim()}>Consultar</button>
               </div>
             </form>
