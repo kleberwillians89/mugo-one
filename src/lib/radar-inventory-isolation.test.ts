@@ -42,7 +42,9 @@ describe('link Estoque -> Radar não muda regras de estoque', () => {
   })
 
   it('funções de ajuste de estoque continuam intactas', () => {
-    expect(inventoryPage).toContain('const adjust=async(row:InventoryRow,positive:boolean)=>')
-    expect(inventoryPage).toContain('await adjustInventory(row.item_id,positive?amount:-amount,reason)')
+    expect(inventoryPage).toContain('const receiveEntry=async(row:InventoryRow)=>')
+    expect(inventoryPage).toContain('await receiveInventoryPerfume')
+    expect(inventoryPage).toContain('const correctBalance=async(row:InventoryRow)=>')
+    expect(inventoryPage).toContain('await adjustInventory(row.item_id,delta,reason)')
   })
 })
