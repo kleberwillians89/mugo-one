@@ -1,5 +1,8 @@
 import{createClient}from'https://esm.sh/@supabase/supabase-js@2'
-import{corsHeaders,json}from'./http.ts'
+
+const allowedOrigins=new Set(['https://crm.ruahparfums.com.br','https://crmruahparfums.vercel.app','http://localhost:5173'])
+const corsHeaders=(req:Request)=>{const origin=req.headers.get('origin')??'';return{...(allowedOrigins.has(origin)?{'access-control-allow-origin':origin}:{}),'access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'authorization, apikey, content-type, x-client-info','access-control-max-age':'86400',vary:'Origin'}}
+const json=(body:unknown,status=200,req?:Request)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json',...(req?corsHeaders(req):{})}})
 
 const max=10*1024*1024,rules:Record<string,{mime:string;valid:(b:Uint8Array)=>boolean}>={pdf:{mime:'application/pdf',valid:b=>new TextDecoder().decode(b.slice(0,5))==='%PDF-'},jpg:{mime:'image/jpeg',valid:b=>b[0]===255&&b[1]===216&&b[2]===255},jpeg:{mime:'image/jpeg',valid:b=>b[0]===255&&b[1]===216&&b[2]===255},png:{mime:'image/png',valid:b=>[137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v)},webp:{mime:'image/webp',valid:b=>new TextDecoder().decode(b.slice(0,4))==='RIFF'&&new TextDecoder().decode(b.slice(8,12))==='WEBP'}}
 Deno.serve(async req=>{
