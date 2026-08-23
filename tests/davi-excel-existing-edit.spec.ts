@@ -1,0 +1,6 @@
+import{expect,test}from'@playwright/test'
+
+const cells=['Cliente','Data','Prazo de envio','Data de envio','Tipo','ML','Perfume','Valor','Pagamento','Forma de pagamento','Data pagamento','Crédito','Observação']
+const markup=`<table><tbody><tr class="davi-existing-edit" data-state="changed">${cells.map((label,index)=>`<td>${index===12?'<textarea aria-label="Observação">Teste</textarea>':`<input aria-label="${label}" value="Teste">`}</td>`).join('')}<td><button>SALVAR</button><button>CANCELAR</button></td></tr></tbody></table>`
+
+for(const width of [390,1440])test(`edição de venda existente é utilizável em ${width}px`,async({page})=>{await page.setViewportSize({width,height:844});await page.goto('/login');await page.setContent(markup);await page.addStyleTag({path:'src/pages/DaviExcelPage.css'});const row=page.locator('.davi-existing-edit');await expect(row).toBeVisible();if(width===390){const box=await row.boundingBox();expect(box!.width).toBeLessThanOrEqual(390);expect(box!.x).toBeGreaterThanOrEqual(0);for(const button of await row.locator('button').all())expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44)}else expect((await row.boundingBox())!.width).toBeGreaterThan(700);await expect(row.getByRole('button',{name:'SALVAR'})).toBeVisible();await expect(row.getByRole('button',{name:'CANCELAR'})).toBeVisible()})

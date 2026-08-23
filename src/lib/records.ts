@@ -174,22 +174,32 @@ export type SaleFilters = {
   origin?:string;volumeMl?:number;minValue?:number;maxValue?:number;delivery?:string;sort?:string
 }
 
-export type DaviExcelRow={id:string;client_name:string;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string}
+export type DaviExcelRow={id:string;client_name:string;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string;attachment_count:number}
+export type DaviExcelSaleEdit={id:string;client_id:string;perfume_id:string;sale_date:string;shipping_deadline_date:string|null;shipping_deadline_raw:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;updated_at:string;clients:{name:string}|null;perfumes:{full_name_raw:string;brand_house:string|null}|null;inventory_allocations:{id:string}|null;shipment_items:{shipment_id:string;shipments:{status:string}|null}[]|null}
 export type DaviFilterKind='text'|'date'|'number'
 export type DaviColumnFilter={values?:string[];condition?:{operator:string;value?:string;value2?:string}}
-export type DaviExcelFilters={search?:string;columns?:Record<string,DaviColumnFilter>}
+export type DaviExcelFilters={search?:string;attachment?:'all'|'with'|'without';columns?:Record<string,DaviColumnFilter>}
 export type DaviDistinctValue={value:string;count:number}
-export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=100,sort='sale_date_desc'){
+export type DaviSortLevel={column:string;direction:'asc'|'desc'}
+export const DAVI_OPERATIONAL_SORT:DaviSortLevel[]=[{column:'sale_date',direction:'asc'},{column:'perfume',direction:'asc'},{column:'type',direction:'asc'},{column:'volume',direction:'desc'}]
+export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=100,sorts:DaviSortLevel[]=DAVI_OPERATIONAL_SORT){
   await authenticatedOrganization()
-  const{data,error}=await supabase!.rpc('davi_excel_list',{p_filters:filters,p_page:page,p_page_size:pageSize,p_sort:sort})
+  const{data,error}=await supabase!.rpc('davi_excel_list_multi',{p_filters:filters,p_page:page,p_page_size:pageSize,p_sorts:sorts})
   if(error)throw new Error(error.message)
   const result=data as {rows:DaviExcelRow[];total:number}|null
   return result??{rows:[],total:0}
 }
-export async function updateDaviExcelSale(saleId:string,patch:Partial<Pick<DaviExcelRow,'sale_date'|'sale_type'|'amount'|'payment_status'|'payment_method'|'paid_at'|'notes'>>){
-  await authenticatedOrganization()
-  const{error}=await supabase!.rpc('davi_excel_update',{p_sale_id:saleId,p_patch:patch})
+export async function fetchDaviExcelSaleEdit(saleId:string){
+  const{organizationId}=await authenticatedOrganization()
+  const{data,error}=await supabase!.from('sales').select('id,client_id,perfume_id,sale_date,shipping_deadline_date,shipping_deadline_raw,shipped_at,sale_type,volume_ml,amount,payment_status,payment_method,paid_at,credit_reference_amount,notes,updated_at,clients(name),perfumes(full_name_raw,brand_house),inventory_allocations(id),shipment_items(shipment_id,shipments(status))').eq('organization_id',organizationId).eq('id',saleId).single()
   if(error)throw new Error(error.message)
+  return data as unknown as DaviExcelSaleEdit
+}
+export async function updateDaviExcelSale(saleId:string,patch:Record<string,unknown>,expectedUpdatedAt:string,confirmOperational=false){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('davi_excel_update_sale',{p_sale_id:saleId,p_patch:patch,p_expected_updated_at:expectedUpdatedAt,p_confirm_operational:confirmOperational})
+  if(error)throw new Error(error.message)
+  return data as{ id:string;updated_at:string;changed_fields:string[];shipment_snapshot_preserved:boolean }
 }
 export async function fetchDaviExcelDistinct(column:string,filters:DaviExcelFilters,search='',offset=0,limit=200){
   await authenticatedOrganization()
@@ -623,6 +633,7 @@ export type OperationalInventoryRow = {
   average_cost_per_ml:number|null
 }
 export type ExternalCustodyRow={perfume_id:string;reserved_ml:number;shipping_ml:number}
+export type InventoryPreparationTotal={perfume_id:string;preparing_ml:number}
 
 export async function fetchOperationalInventory() {
   const {organizationId}=await authenticatedOrganization()
@@ -636,6 +647,7 @@ export async function fetchExternalCustody() {
   if(error)throw new Error(error.message)
   return (data??[]) as ExternalCustodyRow[]
 }
+export async function fetchInventoryPreparationTotals(){await authenticatedOrganization();const{data,error}=await supabase!.rpc('inventory_preparation_totals');if(error)throw new Error(error.message);return(data??[])as InventoryPreparationTotal[]}
 export type InventoryRow = {
   item_id:string;perfume_id:string;perfume:string;available_ml:number;minimum_ml:number
   status:string;sold_ml:number;monthly_average:number;estimated_days:number|null;last_movement:string|null
@@ -683,4 +695,9 @@ export async function adjustInventory(itemId:string,quantity:number,reason:strin
   })
   if(error)throw new Error(error.message)
   return data
+}
+export async function updateInventoryMinimum(itemId:string,minimumMl:number){
+  await authenticatedOrganization()
+  const{error}=await supabase!.rpc('inventory_update_minimum',{p_item_id:itemId,p_minimum_ml:minimumMl})
+  if(error)throw new Error(error.message)
 }
