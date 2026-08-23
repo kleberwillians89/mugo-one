@@ -22,7 +22,7 @@ const shipmentStatusLabel: Record<string, string> = {
   posted: 'Postado — a caminho', delivered: 'Entregue', cancelled: 'Cancelado',
 }
 
-function RequestFlow({ perfumeName, allocations, onDone, onCancel }: { perfumeName: string; allocations: CustodyItem[]; onDone: () => void; onCancel: () => void }) {
+function RequestFlow({ allocations, onDone, onCancel }: { allocations: CustodyItem[]; onDone: () => void; onCancel: () => void }) {
   const [step, setStep] = useState<'select' | 'address' | 'sending'>('select')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [address, setAddress] = useState<AddressSnapshot>({ name: '', postal_code: '', address_line: '', address_number: '', complement: '', district: '', city: '', state: '' })
@@ -37,11 +37,11 @@ function RequestFlow({ perfumeName, allocations, onDone, onCancel }: { perfumeNa
     catch (reason) { setError(customerPortalErrorMessage(reason, 'Não foi possível enviar sua solicitação.')); setStep('address') }
   }
   return <div className="portal-sheet">
-    <header><strong>Solicitar envio — {perfumeName}</strong><button onClick={onCancel}>Fechar</button></header>
+    <header><strong>Solicitar envio</strong><button onClick={onCancel}>Fechar</button></header>
     {step === 'select' && <div className="portal-sheet-body">
       {allocations.map((a) => <label key={a.allocation_id} className={`portal-check-card ${a.requested ? 'disabled' : ''}`}>
         <input type="checkbox" disabled={a.requested} checked={selected.has(a.allocation_id)} onChange={() => toggle(a.allocation_id)} />
-        <div><strong>{a.quantity_ml} ml</strong><span>{a.requested ? 'Já solicitado' : `Comprado em ${shortDate(a.sale_date)}`}</span></div>
+        <div><strong>{a.perfume_name} · {a.quantity_ml} ml</strong><span>{a.requested ? 'Já solicitado' : `Comprado em ${shortDate(a.sale_date)}`}</span></div>
       </label>)}
       <button className="portal-submit" disabled={selected.size === 0} onClick={() => setStep('address')}>Continuar ({totalMl} ml selecionados)</button>
     </div>}
@@ -66,7 +66,17 @@ function RequestFlow({ perfumeName, allocations, onDone, onCancel }: { perfumeNa
   </div>
 }
 
-function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipments, onHelp }: { custody: CustodyItem[]; requests: ShipmentRequest[]; onRequest: (perfumeId: string) => void;greeting:string;onPerfumes:()=>void;onShipments:()=>void;onHelp:()=>void }) {
+const isActiveRequest=(request:ShipmentRequest)=>request.status!=='cancelled'&&!['posted','delivered','cancelled'].includes(request.shipment_status??'')
+
+function ShippingSnapshotSummary({groups,requests,onRequest,onShipments}:{groups:ReturnType<typeof groupCustomerCustody>;requests:ShipmentRequest[];onRequest:()=>void;onShipments:()=>void}){
+ const active=requests.find(isActiveRequest),next=groups.filter(g=>g.available_ml > 0).flatMap(group=>group.available_allocations)
+ return <section className="portal-shipping-snapshot">
+  {active&&<div className="portal-card"><span>ENVIO EM ANDAMENTO</span><strong>{active.items?.map(item=>`${item.perfume} — ${item.quantity_ml} ml`).join(' · ')||'Solicitação em andamento'}</strong><p>{shipmentStatusLabel[active.shipment_status??'requested']??'Aguardando andamento pela RUAH'}</p><button onClick={onShipments}>ACOMPANHAR ENVIO</button></div>}
+  {next.length>0&&<div className="portal-card"><span>{active?'DISPONÍVEL PARA O PRÓXIMO ENVIO':'DISPONÍVEL PARA ENVIO'}</span>{next.map(item=><strong key={item.allocation_id}>{item.perfume_name} — {item.quantity_ml} ml</strong>)}{active?<p>Você já possui um envio em andamento. Estes perfumes poderão ser enviados em uma nova solicitação quando o envio atual for concluído.</p>:<button onClick={onRequest}>SOLICITAR ENVIO</button>}</div>}
+ </section>
+}
+
+function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipments, onHelp }: { custody: CustodyItem[]; requests: ShipmentRequest[]; onRequest: () => void;greeting:string;onPerfumes:()=>void;onShipments:()=>void;onHelp:()=>void }) {
   const groups = groupCustomerCustody(custody,requests)
   const summary = summarizeCustomerCustody(custody,requests)
   return <div className="portal-page portal-home">
@@ -75,6 +85,7 @@ function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipme
     <h2>Agora na RUAH</h2>
     <div className="portal-summary"><div><strong>{summary.availableMl} ml</strong><span>Disponível para envio</span></div><div><strong>{summary.awaitingApprovalMl} ml</strong><span>Aguardando sua aprovação</span></div><div><strong>{summary.preparingMl} ml</strong><span>Em preparação</span></div><div><strong>{summary.inTransitMl} ml</strong><span>Em transporte</span></div></div>
     <div className="portal-home-links"><button onClick={onShipments}><strong>Meus envios</strong><span>Acompanhe cada etapa</span></button><button onClick={onHelp}><strong>Preciso de ajuda</strong><span>Fale diretamente com a RUAH</span></button></div>
+    <ShippingSnapshotSummary groups={groups} requests={requests} onRequest={onRequest} onShipments={onShipments}/>
     <h2>Meus perfumes</h2>
     {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
     {groups.map((g) => {const activeRequest=g.active_request?.shipment_status==='awaiting_customer_approval'?g.active_request:undefined,forecast=g.allocations.find(item=>item.shipping_requestable===false);return <div className="portal-card" key={g.perfume_id}>
@@ -82,7 +93,6 @@ function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipme
       {g.open_requested_ml>0&&<span>{g.open_requested_ml} ml em solicitação</span>}
       {g.pending_availability_ml>0&&<span>{g.pending_availability_ml} ml aguardando preparação pela RUAH{forecast?.shipping_available_date?` · previsão ${new Date(`${forecast.shipping_available_date}T12:00:00`).toLocaleDateString('pt-BR')}`:''}.</span>}
       {activeRequest&&<span>AGUARDANDO SUA APROVAÇÃO</span>}
-      {g.available_ml > 0 && <button onClick={() => onRequest(g.perfume_id)}>{g.open_requested_ml>0?'SOLICITAR OUTRO ENVIO':'SOLICITAR ENVIO'}</button>}
       {activeRequest&&<button onClick={onShipments}>APROVAR ENVIO</button>}
     </div>})}
   </div>
@@ -164,7 +174,7 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
   const [tab, setTab] = useState<Tab>('inicio')
   const showHistory = path === '/minha-ruah/historico'
   const [custody, setCustody] = useState<CustodyItem[]>([]); const [requests, setRequests] = useState<ShipmentRequest[]>([]); const [tickets, setTickets] = useState<SupportTicket[]>([])
-  const [requesting, setRequesting] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [greeting, setGreeting] = useState('')
+  const [requesting, setRequesting] = useState(false); const [loading, setLoading] = useState(true); const [greeting, setGreeting] = useState('')
   const [onboarding,setOnboarding]=useState(()=>localStorage.getItem('minha_ruah_onboarding_done')!=='true')
   const reload = () => Promise.allSettled([fetchCustody(), fetchMyRequests(), fetchMyTickets()]).then(([c, r, t]) => {
     // Uma indisponibilidade de Envios nunca pode apagar o acervo já confirmado
@@ -175,7 +185,8 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
   })
   useEffect(() => { reload().finally(() => setLoading(false)); supabase?.auth.getUser().then(({ data }) => setGreeting(String(data.user?.user_metadata?.full_name ?? '').split(' ')[0] ?? '')) }, [])
   const groups = groupCustomerCustody(custody,requests)
-  const activeGroup = groups.find((g) => g.perfume_id === requesting)
+  const activeRequest=requests.find(isActiveRequest)
+  const availableForRequest=groups.flatMap(group=>group.available_allocations)
   return <div className="portal-app">
     {onboarding&&<div className="portal-onboarding" role="dialog" aria-modal="true" aria-label="Conheça o Minha RUAH"><section><span>MINHA RUAH</span><h2>Bem-vinda ao seu espaço.</h2><div><article><b>01</b><strong>Seu acervo</strong><p>Veja os perfumes que estão sob sua custódia.</p></article><article><b>02</b><strong>Seus envios</strong><p>Solicite e acompanhe seus perfumes.</p></article><article><b>03</b><strong>Atendimento RUAH</strong><p>Fale diretamente com nossa equipe.</p></article></div><button className="portal-submit" onClick={()=>{localStorage.setItem('minha_ruah_onboarding_done','true');setOnboarding(false)}}>Conhecer meu espaço</button><button className="portal-link" onClick={()=>{localStorage.setItem('minha_ruah_onboarding_done','true');setOnboarding(false)}}>Pular apresentação</button></section></div>}
     <header className="portal-header"><div><span>RUAH</span><strong>Minha RUAH</strong></div>{greeting && <em>Olá, {greeting}</em>}</header>
@@ -184,18 +195,19 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
         <button className="portal-link" onClick={() => {setTab('envios');navigate('/minha-ruah')}}>FECHAR HISTÓRICO</button>
         <HistoryPage />
       </> : <>
-        {tab === 'inicio' && <HomePage custody={custody} requests={requests} onRequest={setRequesting} greeting={greeting} onPerfumes={()=>setTab('perfumes')} onShipments={()=>setTab('envios')} onHelp={()=>setTab('ajuda')} />}
+        {tab === 'inicio' && <HomePage custody={custody} requests={requests} onRequest={()=>setRequesting(true)} greeting={greeting} onPerfumes={()=>setTab('perfumes')} onShipments={()=>setTab('envios')} onHelp={()=>setTab('ajuda')} />}
         {tab === 'perfumes' && <div className="portal-page">
           <h2>Meus perfumes</h2>
+          <ShippingSnapshotSummary groups={groups} requests={requests} onRequest={()=>setRequesting(true)} onShipments={()=>setTab('envios')}/>
           {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
-          {groups.map((g) => {const activeRequest=g.active_request,forecast=g.allocations.find(item=>item.shipping_requestable===false);return <div className="portal-card" key={g.perfume_id}><strong>{g.perfume_name}</strong><span>{g.total_ml} ml são seus</span><span>{g.available_ml} ml disponíveis para envio</span>{g.pending_availability_ml>0&&<span>{g.pending_availability_ml} ml aguardando preparação{forecast?.shipping_available_date?` · previsão ${new Date(`${forecast.shipping_available_date}T12:00:00`).toLocaleDateString('pt-BR')}`:''}</span>}{g.open_requested_ml>0&&<span>Em solicitação: {g.open_requested_ml} ml</span>}{activeRequest?.shipment_status==='awaiting_customer_approval'&&<><span>AGUARDANDO SUA APROVAÇÃO</span><span>{[activeRequest.carrier,activeRequest.service].filter(Boolean).join(' · ')} · {activeRequest.shipping_price!=null?brl(activeRequest.shipping_price):'—'}</span><button onClick={()=>setTab('envios')}>APROVAR ENVIO</button></>}{activeRequest&&activeRequest.shipment_status!=='awaiting_customer_approval'&&<span>{shipmentStatusLabel[activeRequest.shipment_status??'']??'Em preparação'}</span>}{g.available_ml > 0 && <button onClick={() => setRequesting(g.perfume_id)}>SOLICITAR ATÉ {g.available_ml} ML</button>}</div>})}
+          {groups.map((g) => {const groupRequest=g.active_request,forecast=g.allocations.find(item=>item.shipping_requestable===false);return <div className="portal-card" key={g.perfume_id}><strong>{g.perfume_name}</strong><span>{g.total_ml} ml são seus</span><span>{g.available_ml} ml {activeRequest?'para o próximo envio':'disponíveis para envio'}</span>{g.pending_availability_ml>0&&<span>{g.pending_availability_ml} ml aguardando preparação{forecast?.shipping_available_date?` · previsão ${new Date(`${forecast.shipping_available_date}T12:00:00`).toLocaleDateString('pt-BR')}`:''}</span>}{g.open_requested_ml>0&&<span>Em solicitação: {g.open_requested_ml} ml</span>}{groupRequest?.shipment_status==='awaiting_customer_approval'&&<button onClick={()=>setTab('envios')}>APROVAR ENVIO</button>}</div>})}
         </div>}
         {tab === 'envios' && <ShipmentsPage requests={requests} reload={reload} onOpenHistory={() => navigate('/minha-ruah/historico')} />}
         {tab === 'ajuda' && <HelpPage tickets={tickets} reload={reload} />}
         {tab === 'conta' && <AccountPage onSignOut={onSignOut} />}
       </>}
     </main>
-    {activeGroup?.available_allocations.length ? <RequestFlow perfumeName={activeGroup.perfume_name} allocations={activeGroup.available_allocations} onDone={() => { setRequesting(null); reload(); setTab('envios') }} onCancel={() => setRequesting(null)} /> : null}
+    {requesting&&!activeRequest&&availableForRequest.length ? <RequestFlow allocations={availableForRequest} onDone={() => { setRequesting(false); reload(); setTab('envios') }} onCancel={() => setRequesting(false)} /> : null}
     <nav className="portal-bottom-nav" aria-label="Navegação Minha RUAH">{tabs.map(({ id, label, icon: Icon }) => <button key={id} aria-current={!showHistory&&tab===id?'page':undefined} className={!showHistory&&tab === id ? 'active' : ''} onClick={() => {if(showHistory)navigate('/minha-ruah');setTab(id)}}><Icon size={20} /><span>{label}</span></button>)}</nav>
   </div>
 }

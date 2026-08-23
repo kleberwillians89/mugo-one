@@ -29,6 +29,7 @@ export function customerPortalErrorMessage(reason: unknown, fallback = 'Não foi
   const normalized = raw.toLowerCase()
   if (normalized.includes('shipping_availability_pending')) return 'Este perfume está previsto, mas ainda não teve a chegada confirmada pela RUAH. A solicitação de envio será liberada assim que ele estiver disponível.'
   if (normalized.includes('invalid_or_unavailable_custody') || normalized.includes('already_requested')) return 'Este perfume já está vinculado a uma solicitação ou não está mais disponível para um novo envio.'
+  if (normalized.includes('active_shipment_exists')) return 'Você já possui um envio em andamento. Os novos perfumes ficarão disponíveis para a próxima solicitação quando este envio for concluído.'
   if (normalized.includes('quote_changed') || normalized.includes('quote_not_available')) return 'A cotação deste envio mudou ou não está mais disponível. Aguarde uma nova cotação da equipe RUAH.'
   if (normalized.includes('request_already_in_progress') || normalized.includes('request_cannot_be_cancelled') || normalized.includes('shipment_cannot_be_cancelled')) return 'Esta solicitação já avançou e não pode mais ser cancelada por aqui. Fale com a equipe RUAH.'
   if (normalized.includes('external_shipping_cancellation_requires_review')) return 'Este envio já entrou em processamento. Fale com a equipe RUAH para continuar.'

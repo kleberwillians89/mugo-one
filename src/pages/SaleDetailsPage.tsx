@@ -106,7 +106,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
       {label:'Confirmação operacional',value:sale.shipping_availability_confirmed_at?`Confirmada em ${shortDate(sale.shipping_availability_confirmed_at)}`:'Aguardando confirmação física'},
     ]} action={!sale.shipping_availability_confirmed_at?<PrimaryButton loading={saving} onClick={confirmAvailability}>Confirmar chegada à RUAH</PrimaryButton>:undefined}/>}
     <DefinitionGroup title="Estoque" items={[
-      {label:'Allocation',value:allocation?.status?operationalLabel(allocation.status):'Nenhuma operação de estoque vinculada'},
+      {label:'Reserva de estoque',value:allocation?.status?operationalLabel(allocation.status):'Nenhuma operação de estoque vinculada'},
       {label:'Origem',value:allocation?.stock_managed?'Estoque operacional':allocation?'Conferido manualmente':'—'},
       {label:'Quantidade',value:allocation?`${Number(allocation.quantity_ml).toLocaleString('pt-BR')} ml`:'—'},
       {label:'Confirmado em',value:allocation?.verified_at?shortDate(allocation.verified_at):'—'},
@@ -115,7 +115,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
 
     <Divider label="Logística"/>
     <DefinitionGroup title="Envio" items={[
-      {label:'Shipment',value:shipment?.id||'Ainda não preparado'},
+      {label:'Envio',value:shipment?.id||'Ainda não preparado'},
       {label:'Status',value:shipment?.status?operationalLabel(shipment.status):sale.shipping_operational_status?operationalLabel(sale.shipping_operational_status):'—'},
       {label:'Transportadora',value:shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'},
       {label:'Rastreio',value:shipment?.tracking_code||'—'},
