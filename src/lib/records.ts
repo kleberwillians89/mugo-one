@@ -175,7 +175,10 @@ export type SaleFilters = {
 }
 
 export type DaviExcelRow={id:string;client_name:string;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string}
-export type DaviExcelFilters={search?:string;client?:string;perfume?:string;type?:string;payment?:string;method?:string;operational_status?:string;sale_from?:string;sale_to?:string;shipped_from?:string;shipped_to?:string;credit?:'with'|'without'}
+export type DaviFilterKind='text'|'date'|'number'
+export type DaviColumnFilter={values?:string[];condition?:{operator:string;value?:string;value2?:string}}
+export type DaviExcelFilters={search?:string;columns?:Record<string,DaviColumnFilter>}
+export type DaviDistinctValue={value:string;count:number}
 export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=100,sort='sale_date_desc'){
   await authenticatedOrganization()
   const{data,error}=await supabase!.rpc('davi_excel_list',{p_filters:filters,p_page:page,p_page_size:pageSize,p_sort:sort})
@@ -187,6 +190,12 @@ export async function updateDaviExcelSale(saleId:string,patch:Partial<Pick<DaviE
   await authenticatedOrganization()
   const{error}=await supabase!.rpc('davi_excel_update',{p_sale_id:saleId,p_patch:patch})
   if(error)throw new Error(error.message)
+}
+export async function fetchDaviExcelDistinct(column:string,filters:DaviExcelFilters,search='',offset=0,limit=200){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('davi_excel_distinct',{p_column:column,p_filters:filters,p_search:search,p_offset:offset,p_limit:limit})
+  if(error)throw new Error(error.message)
+  return(data??{values:[],total:0,has_more:false})as{values:DaviDistinctValue[];total:number;has_more:boolean}
 }
 
 export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) {
@@ -416,8 +425,14 @@ export type SaleInput = {
   clientId:string;date:string;amount:number;status:string;method:string;notes?:string
   shippingDeadlineRaw?:string;shippingDeadlineDate?:string;shippedAt?:string;saleType:'APC'|'SPLIT'
   volumeMl:number;perfumeId:string;paidAt?:string;creditReferenceAmount?:number|null
+  source?:'manual'|'davi_excel';idempotencyKey?:string
 }
 export async function createSale(input: SaleInput) {
+  if(input.source==='davi_excel'){
+    const {data,error}=await supabase!.rpc('davi_excel_create_sale',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
+    if(error)throw new Error(error.message)
+    return data
+  }
   const { user, organizationId } = await currentOrganization()
   const {data:perfume,error:perfumeError}=await supabase!.from('perfumes').select('id,full_name_raw,base_name').eq('organization_id',organizationId).eq('id',input.perfumeId).single()
   if(perfumeError||!perfume)throw new Error('Selecione um perfume válido da organização.')
