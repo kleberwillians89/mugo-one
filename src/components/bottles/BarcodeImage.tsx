@@ -24,9 +24,9 @@ export function BarcodeImage({ value, displayValue = true, height = 46, width = 
     if (!svgRef.current) return
     try {
       JsBarcode(svgRef.current, value, {
-        format: 'CODE128', displayValue, fontSize, height, width, margin, background: 'transparent',
+        format: 'CODE128B', displayValue, fontSize, height, width, margin, background: 'transparent',
       })
     } catch { /* valor inválido para Code128 — svg fica vazio, sem quebrar a tela */ }
   }, [value, displayValue, height, width, fontSize, margin])
-  return <svg ref={svgRef} className="barcode-image" role="img" aria-label={`Código de barras ${value}`} />
+  return <svg ref={svgRef} className="barcode-image" role="img" aria-label={`Código de barras ${value}`} data-payload={value} />
 }

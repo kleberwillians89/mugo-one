@@ -110,7 +110,7 @@ describe('8/9 — payload do barcode continua a identidade canônica, não mudou
     expect(printLabelPage).toContain('margin={2}')
     expect(barcodeImage).toContain('margin?:number')
     expect(barcodeImage).toContain('margin = 4') // default preservado para todo outro chamador existente
-    expect(barcodeImage).toContain("format: 'CODE128'")
+    expect(barcodeImage).toContain("format: 'CODE128B'")
   })
   it('displayValue continua desligado nesta etiqueta — o texto humano é a própria .print-label-code, não a legenda nativa do gerador', () => {
     expect(printLabelPage).toContain('displayValue={false}')
