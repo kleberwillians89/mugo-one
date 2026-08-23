@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import { EntityCombobox, EntityOption, Modal, useToast } from './ui'
 import { createSale, searchClients, searchPerfumes } from '../lib/records'
 import './DaviExcelNewRows.css'
+import './DaviExcelPolish.css'
 
 type EditableColumn='client'|'date'|'deadline'|'type'|'ml'|'perfume'|'amount'|'payment'|'method'|'paidAt'|'notes'
 type ActiveCell={rowId:string;columnKey:EditableColumn}|null
@@ -24,7 +26,7 @@ const isTextControl=(target:EventTarget|null):target is HTMLInputElement|HTMLTex
 
 export function DaviExcelNewRows({onCreated}:{onCreated:()=>Promise<void>|void}){
   const toast=useToast(),root=useRef<HTMLTableSectionElement>(null),editStart=useRef(new Map<string,string>())
-  const[drafts,setDrafts]=useState<Draft[]>([fresh()]),[activeCell,setActiveCell]=useState<ActiveCell>(null),[review,setReview]=useState<PasteReview>(null)
+  const[drafts,setDrafts]=useState<Draft[]>([fresh()]),[activeCell,setActiveCell]=useState<ActiveCell>(null),[review,setReview]=useState<PasteReview>(null),[collapsed,setCollapsed]=useState(false)
   const patch=(key:string,next:Partial<Draft>)=>setDrafts(rows=>rows.map(row=>row.key===key?{...row,...next}:row))
   const clientSearch=useCallback(async(term:string)=>(await searchClients(term)).map(row=>({id:row.id,label:row.name})),[])
   const perfumeSearch=useCallback(async(term:string)=>(await searchPerfumes(term)).map(row=>({id:row.id,label:row.full_name_raw,description:row.brand_house??undefined})),[])
@@ -56,10 +58,11 @@ export function DaviExcelNewRows({onCreated}:{onCreated:()=>Promise<void>|void})
   const cellProps=(row:Draft,column:EditableColumn)=>({'data-row-id':row.key,'data-column-key':column,'data-active':activeCell?.rowId===row.key&&activeCell.columnKey===column?'true':undefined,onFocusCapture:()=>beginEdit(row,column),onKeyDown:(event:React.KeyboardEvent)=>onCellKeyDown(event,row,column)})
   const summary=useMemo(()=>reviewSummary(review?.rows??[]),[review])
   useEffect(()=>{if(!review)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setReview(null)};addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[review])
+  const invalid=drafts.filter(row=>Boolean(draftIssue(row))).length,valid=drafts.length-invalid
   return <>
-    <table><tbody ref={root} role="rowgroup" aria-label="Novas vendas em rascunho" onPaste={paste}>
-      <tr className="davi-new-row-actions"><td colSpan={14}><button type="button" onClick={()=>setDrafts(rows=>[...rows,fresh()])}><Plus/> ADICIONAR LINHA</button><button type="button" onClick={saveAll}><Save/> SALVAR TODAS AS LINHAS VÁLIDAS</button><small>{drafts.length} rascunho{drafts.length===1?'':'s'} local{drafts.length===1?'':'is'}</small></td></tr>
-      {drafts.map(row=><tr className="davi-new-row" data-draft-key={row.key} key={row.key}>
+    <tbody ref={root} className="davi-drafts-body" role="rowgroup" aria-label="Novas vendas em rascunho" onPaste={paste}>
+      <tr className="davi-new-row-actions"><td colSpan={14}><div><button type="button" onClick={()=>{setCollapsed(false);setDrafts(rows=>[...rows,fresh()])}}><Plus/> NOVA LINHA</button><button type="button" onClick={saveAll}><Save/> SALVAR {valid||''} VÁLIDA{valid===1?'':'S'}</button><small>{drafts.length} rascunho{drafts.length===1?'':'s'} {invalid?`• ${invalid} precisa${invalid===1?'':'m'} de revisão`:'• prontos para salvar'}</small><button className="davi-drafts-toggle" type="button" onClick={()=>setCollapsed(value=>!value)}>{collapsed?'MOSTRAR':'RECOLHER'}</button></div></td></tr>
+      {!collapsed&&drafts.map(row=><tr className="davi-new-row" data-draft-key={row.key} key={row.key}>
         <td {...cellProps(row,'client')}><span className="davi-new-badge">NOVA</span><EntityCombobox label="Cliente" placeholder="Cliente" value={row.client} search={clientSearch} onChange={client=>patch(row.key,{client,clientText:client?.label??'',error:''})} onCreate={()=>window.open('/clientes','_blank')} createLabel={query=>`CADASTRAR CLIENTE “${query}”`}/></td>
         <td {...cellProps(row,'date')}><input aria-label="Data" value={row.date} onChange={e=>patch(row.key,{date:e.target.value})} placeholder="DD/MM/AAAA"/></td>
         <td {...cellProps(row,'deadline')}><input aria-label="Prazo de envio" value={row.deadline} onChange={e=>patch(row.key,{deadline:e.target.value})} placeholder="DD/MM/AAAA"/></td><td className="davi-readonly">—</td>
@@ -73,8 +76,8 @@ export function DaviExcelNewRows({onCreated}:{onCreated:()=>Promise<void>|void})
         <td {...cellProps(row,'notes')}><textarea aria-label="Observação" rows={1} value={row.notes} onChange={e=>patch(row.key,{notes:e.target.value})}/>{row.error&&<small className="davi-draft-error">{row.error}</small>}</td>
         <td><button type="button" disabled={row.saving} onClick={()=>save(row)}><Save/> SALVAR</button><button type="button" aria-label="Remover rascunho" onClick={()=>setDrafts(rows=>rows.filter(item=>item.key!==row.key))}><Trash2/></button></td>
       </tr>)}
-    </tbody></table>
-    <PasteReviewModal review={review} summary={summary} onChange={rows=>setReview({rows})} onCancel={()=>setReview(null)} onAccept={acceptDrafts}/>
+    </tbody>
+    {review&&createPortal(<PasteReviewModal review={review} summary={summary} onChange={rows=>setReview({rows})} onCancel={()=>setReview(null)} onAccept={acceptDrafts}/>,document.body)}
   </>
 }
 
