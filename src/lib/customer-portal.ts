@@ -50,6 +50,12 @@ export async function completeAccountClaim(accountId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function activateCurrentCustomerAccount():Promise<boolean>{
+  const {data,error}=await supabase!.rpc('customer_account_activate_current')
+  if(error)throw new Error(error.message)
+  return data===true
+}
+
 export async function hasValidFirstAccessContext():Promise<boolean>{
   const {data,error}=await supabase!.rpc('customer_first_access_context_valid')
   return !error&&data===true

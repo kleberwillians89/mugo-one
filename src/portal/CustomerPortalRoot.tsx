@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Phone, ShieldCheck, UserRound } from 'lucide-react'
 import { initialInviteCallback, isSupabaseConfigured, supabase } from '../lib/supabase'
-import { completeAccountClaim, finalizeCustomerIdentity, hasValidFirstAccessContext, startAccountClaim, startPublicRegistration } from '../lib/customer-portal'
+import { activateCurrentCustomerAccount, completeAccountClaim, finalizeCustomerIdentity, hasValidFirstAccessContext, startAccountClaim, startPublicRegistration } from '../lib/customer-portal'
 import { recordMfaProviderUnavailable } from '../lib/mfa-diagnostics'
 import { publicEnv } from '../lib/publicEnv'
 import { CustomerPortalApp } from './CustomerPortalApp'
@@ -185,7 +185,7 @@ function PortalLoginPage() {
 
 function IdentityLaunchGate({onReady,onReview}:{onReady:()=>void;onReview:()=>void}){
   const[failed,setFailed]=useState(false)
-  const resolve=async()=>{setFailed(false);try{const status=await finalizeCustomerIdentity();if(status==='review_required')onReview();else onReady()}catch(reason){if(String(reason).includes('identity_request_not_found'))onReady();else setFailed(true)}}
+  const resolve=async()=>{setFailed(false);try{if(await activateCurrentCustomerAccount()){onReady();return}const status=await finalizeCustomerIdentity();if(status==='review_required')onReview();else onReady()}catch(reason){if(String(reason).includes('identity_request_not_found'))onReady();else setFailed(true)}}
   useEffect(()=>{const timer=window.setTimeout(()=>{void resolve()},0);return()=>window.clearTimeout(timer)},[]) // eslint-disable-line react-hooks/exhaustive-deps
   if(failed)return <PortalShell title="Não conseguimos concluir seu acesso agora." subtitle="Tente novamente em alguns instantes. Nenhum dado privado foi liberado."><button className="portal-submit" onClick={resolve}>Tentar novamente</button><button className="portal-link" onClick={()=>supabase!.auth.signOut().then(()=>go('/minha-ruah/entrar'))}>Voltar para entrar</button></PortalShell>
   return <div className="portal-loading"><LoaderCircle className="spin"/></div>
