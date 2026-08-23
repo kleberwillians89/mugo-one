@@ -10,6 +10,7 @@ import { InventoryStationPage } from './pages/InventoryStationPage'
 import { InventoryCountPage } from './pages/InventoryCountPage'
 import { PrintLabelPage } from './pages/PrintLabelPage'
 import {PerfumePrintLabelPage} from './pages/PerfumePrintLabelPage'
+import { ShipmentPrintPage } from './pages/ShipmentPrintPage'
 import { CustomerPortalRoot } from './portal/CustomerPortalRoot'
 import { ToastProvider } from './components/ui'
 
@@ -109,6 +110,7 @@ export function AuthRoot() {
   // Documento de impressão isolado (seção 4 do briefing "finalizar fluxo
   // físico"): rota própria, sem AppShell — ver PrintLabelPage.tsx.
   if(path==='/print/perfume')return <PerfumePrintLabelPage/>
+  if(path==='/print/shipment')return <ShipmentPrintPage/>
   const printMatch=path.match(/^\/print\/(bottle|split)$/)
   if(printMatch)return <PrintLabelPage kind={printMatch[1] as 'bottle'|'split'}/>
   if(path==='/estoque/leitor')return <InventoryStationPage/>

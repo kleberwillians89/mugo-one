@@ -174,6 +174,21 @@ export type SaleFilters = {
   origin?:string;volumeMl?:number;minValue?:number;maxValue?:number;delivery?:string;sort?:string
 }
 
+export type DaviExcelRow={id:string;client_name:string;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string}
+export type DaviExcelFilters={search?:string;client?:string;perfume?:string;type?:string;payment?:string;method?:string;operational_status?:string;sale_from?:string;sale_to?:string;shipped_from?:string;shipped_to?:string;credit?:'with'|'without'}
+export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=100,sort='sale_date_desc'){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('davi_excel_list',{p_filters:filters,p_page:page,p_page_size:pageSize,p_sort:sort})
+  if(error)throw new Error(error.message)
+  const result=data as {rows:DaviExcelRow[];total:number}|null
+  return result??{rows:[],total:0}
+}
+export async function updateDaviExcelSale(saleId:string,patch:Partial<Pick<DaviExcelRow,'sale_date'|'sale_type'|'amount'|'payment_status'|'payment_method'|'paid_at'|'notes'>>){
+  await authenticatedOrganization()
+  const{error}=await supabase!.rpc('davi_excel_update',{p_sale_id:saleId,p_patch:patch})
+  if(error)throw new Error(error.message)
+}
+
 export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) {
   const { organizationId } = await authenticatedOrganization()
   let query=supabase!.from('sales')
