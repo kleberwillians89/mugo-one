@@ -9,6 +9,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), in
  */
 export function useFocusTrap(active: boolean, containerRef: RefObject<HTMLElement | null>, onClose: () => void) {
   const triggerRef = useRef<Element | null>(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
     if (!active) return
@@ -19,7 +21,7 @@ export function useFocusTrap(active: boolean, containerRef: RefObject<HTMLElemen
     first?.focus()
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); onClose(); return }
+      if (event.key === 'Escape') { event.preventDefault(); onCloseRef.current(); return }
       if (event.key !== 'Tab') return
       const items = focusable()
       if (items.length === 0) return
@@ -33,5 +35,5 @@ export function useFocusTrap(active: boolean, containerRef: RefObject<HTMLElemen
       document.removeEventListener('keydown', onKeyDown)
       if (triggerRef.current instanceof HTMLElement) triggerRef.current.focus()
     }
-  }, [active, containerRef, onClose])
+  }, [active, containerRef])
 }

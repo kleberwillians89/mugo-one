@@ -10,19 +10,19 @@ import { Alert, DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton 
 import './SaleDetailsPage.css'
 
 export function SaleDetailsPage({saleId}:{saleId:string}){
-  const [sale,setSale]=useState<CommercialSale|null>(null),[error,setError]=useState(''),[preparing,setPreparing]=useState(false),[confirming,setConfirming]=useState(false),[confirmed,setConfirmed]=useState(false),[location,setLocation]=useState(''),[saving,setSaving]=useState(false)
+  const [sale,setSale]=useState<CommercialSale|null>(null),[loadError,setLoadError]=useState(''),[operationError,setOperationError]=useState(''),[preparing,setPreparing]=useState(false),[confirming,setConfirming]=useState(false),[confirmed,setConfirmed]=useState(false),[location,setLocation]=useState(''),[saving,setSaving]=useState(false)
   const [verificationNote,setVerificationNote]=useState('Produto conferido manualmente para envio.')
-  const reload=()=>fetchSale360(saleId).then(setSale).catch(reason=>setError(reason instanceof Error?reason.message:'Venda não encontrada.'))
-  useEffect(()=>{fetchSale360(saleId).then(setSale).catch(reason=>setError(reason instanceof Error?reason.message:'Venda não encontrada.'))},[saleId])
-  if(error)return <div className="page"><div className="notice"><AlertTriangle/><span>{error}</span></div></div>
+  const reload=()=>fetchSale360(saleId).then(setSale).catch(()=>setOperationError('A operação foi concluída, mas não foi possível atualizar os dados da venda.'))
+  useEffect(()=>{fetchSale360(saleId).then(setSale).catch(()=>setLoadError('Venda não encontrada.'))},[saleId])
+  if(loadError)return <div className="page"><div className="notice"><AlertTriangle/><span>{loadError}</span></div></div>
   if(!sale)return <div className="page"><div className="empty card"><h3>Carregando Venda 360…</h3></div></div>
   const allocation=sale.inventory_allocations?.find(item=>['reserved','shipping','shipped'].includes(item.status)),shipment=sale.shipment_items?.[0]?.shipments
   const missingFields=sale.clients?missingShippingClientFields(sale.clients):[]
   const goToClient=()=>{if(!sale.client_id)return;history.pushState({},'',`/clientes/${sale.client_id}`);dispatchEvent(new PopStateEvent('popstate'))}
-  const prepare=async()=>{if(!sale.client_id||!allocation||missingFields.length>0)return;setPreparing(true);setError('');try{const id=await createDraftShipment(sale.client_id,[allocation.id]);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
-  const confirmCustody=async()=>{if(!confirmed)return;setSaving(true);setError('');try{await confirmLegacyProductCustody(sale.id,location,verificationNote);setConfirming(false);setConfirmed(false);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar o produto.')}finally{setSaving(false)}}
-  const release=async()=>{if(!allocation)return;setSaving(true);try{await releaseLegacyProductCustody(allocation.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível remover a confirmação.')}finally{setSaving(false)}}
-  const confirmAvailability=async()=>{setSaving(true);setError('');try{await confirmSaleShippingAvailability(sale.id);await reload()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível confirmar a disponibilidade.')}finally{setSaving(false)}}
+  const prepare=async()=>{if(!sale.client_id||!allocation||missingFields.length>0)return;setPreparing(true);setOperationError('');try{const id=await createDraftShipment(sale.client_id,[allocation.id]);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'))}catch(reason){setOperationError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setPreparing(false)}}
+  const confirmCustody=async()=>{if(!confirmed)return;setSaving(true);setOperationError('');try{await confirmLegacyProductCustody(sale.id,location,verificationNote);setConfirming(false);setConfirmed(false);await reload()}catch{setOperationError('Não foi possível confirmar a custódia. Nenhuma alteração foi realizada. Tente novamente.')}finally{setSaving(false)}}
+  const release=async()=>{if(!allocation)return;setSaving(true);try{await releaseLegacyProductCustody(allocation.id);await reload()}catch(reason){setOperationError(reason instanceof Error?reason.message:'Não foi possível remover a confirmação.')}finally{setSaving(false)}}
+  const confirmAvailability=async()=>{setSaving(true);setOperationError('');try{await confirmSaleShippingAvailability(sale.id);await reload()}catch(reason){setOperationError(reason instanceof Error?reason.message:'Não foi possível confirmar a disponibilidade.')}finally{setSaving(false)}}
   const canConfirm=!allocation&&!shipment&&!sale.shipped_at&&Boolean(sale.client_id&&sale.perfume_id&&sale.volume_ml&&sale.volume_ml>0)
   const clientName=sale.clients?.name??sale.original_client??'Venda'
 
@@ -67,7 +67,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
       </div>
     </header>
 
-    {error&&<div className="notice"><AlertTriangle/><span>{error}</span></div>}
+    {operationError&&<div className="notice"><AlertTriangle/><span>{operationError}</span></div>}
 
     <Divider label="Cliente"/>
     <DefinitionGroup title="Contato" items={[
