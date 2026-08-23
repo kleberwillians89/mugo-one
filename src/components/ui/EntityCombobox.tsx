@@ -5,8 +5,8 @@ import './EntityCombobox.css'
 
 export type EntityOption = { id: string; label: string; description?: string }
 
-export function EntityCombobox({ value, onChange, search, placeholder, label, error, disabled=false, minimumCharacters=2, debounceMs=250, onCreate, createLabel, noResultsLabel='Nenhum resultado encontrado.' }:{
-  value:EntityOption|null;onChange:(option:EntityOption|null)=>void;search:(query:string)=>Promise<EntityOption[]>;placeholder:string;label:string;error?:string;disabled?:boolean;minimumCharacters?:number;debounceMs?:number;onCreate?:(query:string)=>void;createLabel?:(query:string)=>string;noResultsLabel?:string
+export function EntityCombobox({ value, onChange, search, placeholder, label, error, disabled=false, minimumCharacters=2, debounceMs=250, onCreate, createLabel, shouldOfferCreate, noResultsLabel='Nenhum resultado encontrado.' }:{
+  value:EntityOption|null;onChange:(option:EntityOption|null)=>void;search:(query:string)=>Promise<EntityOption[]>;placeholder:string;label:string;error?:string;disabled?:boolean;minimumCharacters?:number;debounceMs?:number;onCreate?:(query:string)=>void;createLabel?:(query:string)=>string;shouldOfferCreate?:(query:string,options:EntityOption[])=>boolean;noResultsLabel?:string
 }) {
   const id=useId(),request=useRef(0),[query,setQuery]=useState(value?.label??''),[options,setOptions]=useState<EntityOption[]>([]),[open,setOpen]=useState(false),[loading,setLoading]=useState(false),[active,setActive]=useState(-1)
   useEffect(()=>{
@@ -17,7 +17,7 @@ export function EntityCombobox({ value, onChange, search, placeholder, label, er
   },[query,value,search,minimumCharacters,debounceMs,onCreate])
   const choose=(option:EntityOption)=>{onChange(option);setQuery(option.label);setOptions([]);setOpen(false);setActive(-1)}
   const clear=()=>{request.current++;onChange(null);setQuery('');setOptions([]);setOpen(false);setActive(-1)}
-  const canCreate=Boolean(onCreate&&!loading&&!options.length&&query.trim().length>=minimumCharacters)
+  const canCreate=Boolean(onCreate&&!loading&&query.trim().length>=minimumCharacters&&(shouldOfferCreate?shouldOfferCreate(query.trim(),options):!options.length))
   const keyDown=(event:React.KeyboardEvent<HTMLInputElement>)=>{
     const itemCount=options.length+(canCreate?1:0)
     if(event.key==='ArrowDown'){event.preventDefault();setOpen(true);setActive(index=>nextComboboxIndex(index,'ArrowDown',itemCount))}

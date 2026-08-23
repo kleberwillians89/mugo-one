@@ -407,6 +407,26 @@ export async function createClient(input: ClientInput) {
   return data
 }
 
+export type DaviClientCandidate={id:string;name:string;reason:string;exact:boolean}
+export type DaviClientCreateResult=
+  |{status:'created';client:{id:string;name:string}}
+  |{status:'duplicate';candidates:DaviClientCandidate[];force_allowed:boolean}
+
+export async function createDaviExcelClient(input:{name:string;phone?:string;email?:string;cpf?:string},forceSimilar=false):Promise<DaviClientCreateResult>{
+  const {organizationId}=await authenticatedOrganization()
+  const {data,error}=await supabase!.rpc('davi_excel_create_client',{p_organization_id:organizationId,p_payload:input,p_force_similar:forceSimilar})
+  if(error){
+    const code=String(error.message)
+    if(code.includes('permission_denied'))throw new Error('Você não tem permissão para cadastrar clientes.')
+    if(code.includes('invalid_email'))throw new Error('Informe um e-mail válido.')
+    if(code.includes('invalid_cpf'))throw new Error('Informe um CPF válido.')
+    if(code.includes('invalid_phone'))throw new Error('Informe um telefone válido.')
+    if(code.includes('client_name_required'))throw new Error('Informe o nome da cliente.')
+    throw new Error('Não foi possível cadastrar a cliente. Revise os dados e tente novamente.')
+  }
+  return data as DaviClientCreateResult
+}
+
 export async function updateClient(clientId:string,input:ClientInput) {
   const {organizationId}=await currentOrganization()
   const {data,error}=await supabase!.from('clients').update({
@@ -427,11 +447,17 @@ export type SaleInput = {
   volumeMl:number;perfumeId:string;paidAt?:string;creditReferenceAmount?:number|null
   source?:'manual'|'davi_excel';idempotencyKey?:string
 }
-export async function createSale(input: SaleInput) {
+export type SaleCreateResult={id:string;alreadyExisted:boolean}
+export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
   if(input.source==='davi_excel'){
+    const {organizationId}=await authenticatedOrganization()
+    if(!input.idempotencyKey)throw new Error('Identificador da linha ausente.')
+    const {data:existing,error:existingError}=await supabase!.from('sales').select('id').eq('organization_id',organizationId).eq('source','davi_excel').eq('import_signature',input.idempotencyKey).maybeSingle()
+    if(existingError)throw new Error(existingError.message)
+    if(existing)return{id:String(existing.id),alreadyExisted:true}
     const {data,error}=await supabase!.rpc('davi_excel_create_sale',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
     if(error)throw new Error(error.message)
-    return data
+    return{id:String(data),alreadyExisted:false}
   }
   const { user, organizationId } = await currentOrganization()
   const {data:perfume,error:perfumeError}=await supabase!.from('perfumes').select('id,full_name_raw,base_name').eq('organization_id',organizationId).eq('id',input.perfumeId).single()
@@ -449,7 +475,7 @@ export async function createSale(input: SaleInput) {
     operational_created_at:new Date().toISOString(),
   }).select().single()
   if (error) throw new Error(error.message)
-  return data
+  return{id:String(data.id),alreadyExisted:false}
 }
 export async function parseSaleAssistant(text:string){const {data,error}=await supabase!.functions.invoke('parse-sale-assistant',{body:{text}});if(error)throw new Error('Não foi possível interpretar a anotação agora.');if(data?.error)throw new Error(data.error.message);return data.data as {fields:Record<string,unknown>;client_matches:Array<Record<string,unknown>>;perfume_matches:Array<{id:string;name:string;available_ml:number}>}}
 
