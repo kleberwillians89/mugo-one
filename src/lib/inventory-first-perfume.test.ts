@@ -20,7 +20,7 @@ describe('Estoque → primeiro perfume',()=>{
     expect(page).toContain("mode==='new'?'NOVO PERFUME':'PERFUME EXISTENTE'")
   })
   it('cria o canônico antes do inventory_item e usa o id devolvido',()=>{
-    expect(page.indexOf('createCanonicalPerfume({name,brand})')).toBeLessThan(page.indexOf('createInventoryItem({perfumeId:selected!.id'))
+    expect(page.indexOf('createCanonicalPerfume({name,brand})')).toBeLessThan(page.indexOf('receiveInventoryPerfume({perfumeId:selected.id'))
     expect(records).toContain("from('perfumes').insert")
     expect(records).toContain("error.code==='23505'")
   })

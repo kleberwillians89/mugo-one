@@ -14,6 +14,7 @@ function goToInventory() {
   history.pushState({}, '', '/estoque')
   dispatchEvent(new PopStateEvent('popstate'))
 }
+function goToPreparation(perfumeId:string){history.pushState({},'',`/estoque/fracionamento?perfume=${encodeURIComponent(perfumeId)}`);dispatchEvent(new PopStateEvent('popstate'))}
 
 const SPLIT_STATUS_LABEL: Record<SplitResolution['status'], string> = { available: 'Disponível', consumed: 'Usado', void: 'Anulado' }
 
@@ -133,6 +134,7 @@ export function InventoryStationPage() {
             </form>
           </div>
         )}
+        {mode==='perfume'&&perfume&&(receiptConfirmed||!perfume.sales.length)&&<button className="station-camera-btn" onClick={()=>goToPreparation(perfume.perfume_id)}>PREPARAR ESTE PERFUME</button>}
       </main>
     </div>
   )

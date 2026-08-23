@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import { EntityCombobox, EntityOption, Modal, useToast } from './ui'
-import { createSale, searchClients, searchPerfumes } from '../lib/records'
+import { createCanonicalPerfume, createSale, searchClients, searchPerfumes } from '../lib/records'
 import { normalizeClient } from '../lib/importer'
 import { useHasPermission } from '../lib/PermissionsContext'
 import { DaviQuickClientModal } from './DaviQuickClientModal'
@@ -35,6 +35,7 @@ export function DaviExcelNewRows({onCreated}:{onCreated:()=>Promise<void>|void})
   const patch=(key:string,next:Partial<Draft>)=>setDrafts(rows=>rows.map(row=>row.key===key?{...row,...next}:row))
   const clientSearch=useCallback(async(term:string)=>(await searchClients(term)).map(row=>({id:row.id,label:row.name})),[])
   const perfumeSearch=useCallback(async(term:string)=>(await searchPerfumes(term)).map(row=>({id:row.id,label:row.full_name_raw,description:row.brand_house??undefined})),[])
+  const createCatalogPerfume=async(row:Draft,query:string)=>{const brand=prompt(`Marca / Casa de “${query}”:`)?.trim();if(!brand)return;try{const result=await createCanonicalPerfume({name:query,brand}),option={id:result.perfume.id,label:result.perfume.full_name_raw,description:result.perfume.brand_house??undefined};patch(row.key,{perfume:option,perfumeText:option.label,error:''});toast.push(result.created?'Perfume adicionado ao catálogo. Nenhum estoque foi criado.':'Perfume existente selecionado.',{tone:'success'})}catch(reason){toast.push(reason instanceof Error?reason.message:'Não foi possível cadastrar o perfume.',{tone:'error'})}}
   const focusCell=useCallback((rowId:string,columnKey:EditableColumn)=>{setActiveCell({rowId,columnKey});requestAnimationFrame(()=>{const cell=root.current?.querySelector<HTMLElement>(`[data-row-id="${rowId}"][data-column-key="${columnKey}"]`),control=cell?.querySelector<HTMLElement>('input,select,textarea,button');control?.focus({preventScroll:true});cell?.scrollIntoView({block:'nearest',inline:'nearest'})})},[])
   const moveVertical=(rowId:string,columnKey:EditableColumn,direction:1|-1)=>{const index=drafts.findIndex(row=>row.key===rowId),next=index+direction;if(next<0)return;if(next>=drafts.length){if(direction<0)return;const row=fresh();setDrafts(rows=>[...rows,row]);requestAnimationFrame(()=>focusCell(row.key,columnKey));return}focusCell(drafts[next].key,columnKey)}
   const moveHorizontal=(rowId:string,columnKey:EditableColumn,direction:1|-1)=>{const index=EDITABLE_COLUMNS.indexOf(columnKey),next=index+direction;if(next<0||next>=EDITABLE_COLUMNS.length)return;focusCell(rowId,EDITABLE_COLUMNS[next])}
@@ -77,7 +78,7 @@ export function DaviExcelNewRows({onCreated}:{onCreated:()=>Promise<void>|void})
         <td {...cellProps(row,'deadline')}><input aria-label="Prazo de envio" value={row.deadline} onChange={e=>patch(row.key,{deadline:e.target.value})} placeholder="DD/MM/AAAA"/></td><td className="davi-readonly">—</td>
         <td {...cellProps(row,'type')}><select aria-label="Tipo" value={row.type} onChange={e=>patch(row.key,{type:e.target.value as 'APC'|'SPLIT'})}><option>APC</option><option>SPLIT</option></select></td>
         <td {...cellProps(row,'ml')}><input aria-label="ML" inputMode="decimal" value={row.ml} onChange={e=>patch(row.key,{ml:e.target.value})}/></td>
-        <td {...cellProps(row,'perfume')}><EntityCombobox label="Perfume" placeholder="Perfume" value={row.perfume} search={perfumeSearch} onChange={perfume=>patch(row.key,{perfume,perfumeText:perfume?.label??'',error:''})} onCreate={()=>window.open('/estoque','_blank')} createLabel={query=>`CADASTRAR PERFUME “${query}”`}/></td>
+        <td {...cellProps(row,'perfume')}><EntityCombobox label="Perfume" placeholder="Perfume" value={row.perfume} search={perfumeSearch} onChange={perfume=>patch(row.key,{perfume,perfumeText:perfume?.label??'',error:''})} onCreate={query=>void createCatalogPerfume(row,query)} createLabel={query=>`CADASTRAR PERFUME NO CATÁLOGO “${query}”`}/></td>
         <td {...cellProps(row,'amount')}><input aria-label="Valor" inputMode="decimal" value={row.amount} onChange={e=>patch(row.key,{amount:e.target.value})} placeholder="R$ 0,00"/></td>
         <td {...cellProps(row,'payment')}><select aria-label="Pagamento" value={row.payment} onChange={e=>patch(row.key,{payment:e.target.value,paidAt:e.target.value==='paid'&&!row.paidAt?today():row.paidAt})}><option value="paid">PAGO</option><option value="pending">AGUARDANDO</option><option value="cancelled">CANCELADO</option><option value="unknown">DESCONHECIDO</option></select></td>
         <td {...cellProps(row,'method')}><select aria-label="Forma de pagamento" value={row.method} onChange={e=>patch(row.key,{method:e.target.value})}><option>PIX</option><option>CARTÃO DE CRÉDITO</option><option>DEPÓSITO</option><option>CRÉDITO E PIX</option><option>OUTRO</option></select></td>

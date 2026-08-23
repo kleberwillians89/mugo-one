@@ -498,7 +498,8 @@ const AI_IMPORT_ERROR_MESSAGES: Record<string,string> = {
   client_resolution_required: 'Confirme quem é o cliente de cada venda antes de continuar.',
   client_resolution_ambiguous: 'Encontramos mais de um cliente com esse nome. Selecione manualmente o cliente correto.',
   invalid_client: 'Não foi possível vincular um dos clientes desta lista. Atualize a análise e tente novamente.',
-  inventory_resolution_required: 'Resolva o perfume no estoque de todos os grupos antes de continuar.',
+  inventory_resolution_required: 'Resolva o perfume de catálogo de todos os grupos antes de continuar.',
+  perfume_resolution_required: 'Resolva o perfume de catálogo antes de continuar.',
   sales_required: 'Nenhuma venda válida foi encontrada nesta lista.',
   groups_required: 'Nenhum grupo de perfume válido foi encontrado nesta lista.',
   forbidden: 'Seu perfil não tem permissão para confirmar esta importação.',
@@ -510,9 +511,9 @@ function friendlyAiImportError(raw:string):Error{
   return new Error('Não foi possível concluir a importação. Nenhuma venda foi criada.')
 }
 // O wrapper executa internamente o write validado: supabase!.rpc('confirm_ai_sales_batch'
-export async function confirmAiSalesBatch(preview:AiSalesBatchPreview){const {organizationId}=await currentOrganization();if(!preview.inventory_item_id)throw new Error('Selecione um item real do estoque.');const validation=await supabase!.rpc('validate_ai_batch_inventory',{p_organization_id:organizationId,p_inventory_item_id:preview.inventory_item_id});if(validation.error)throw friendlyAiImportError(validation.error.message);const secured={...preview,perfume_id:validation.data},availability={text:preview.shipping_availability_text,kind:preview.shipping_availability_kind,date:preview.shipping_available_date,lead_business_days:preview.shipping_lead_business_days,review_required:preview.shipping_availability_review_required};const {data,error}=await supabase!.rpc('confirm_ai_sales_batch_with_availability',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_batch:secured,p_availability:availability});if(error)throw friendlyAiImportError(error.message);return data as {batch_id:string;sales_created:number;clients_created:number;shipping_incomplete:number;idempotent:boolean}}
+export async function confirmAiSalesBatch(preview:AiSalesBatchPreview){const {organizationId}=await currentOrganization();if(!preview.perfume_id)throw new Error('Resolva o perfume de catálogo.');const availability={text:preview.shipping_availability_text,kind:preview.shipping_availability_kind,date:preview.shipping_available_date,lead_business_days:preview.shipping_lead_business_days,review_required:preview.shipping_availability_review_required};const {data,error}=await supabase!.rpc('confirm_ai_sales_batch_with_availability',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_batch:preview,p_availability:availability});if(error)throw friendlyAiImportError(error.message);return data as {batch_id:string;sales_created:number;clients_created:number;shipping_incomplete:number;idempotent:boolean}}
 export type PerfumeResolutionCandidate={perfume_id:string;name:string;brand:string|null;bottle_identifier:string|null;inventory_item_id:string|null;reconciliation_status:string|null}
-export type BootstrapAiBatchInventoryResult={resolution_status:'resolved'|'idempotent'|'ambiguous';inventory_item_id:string|null;perfume_id:string|null;created:boolean;idempotent:boolean;bootstrap_ml:number;reconciliation_status?:string;candidates?:PerfumeResolutionCandidate[]}
+export type BootstrapAiBatchInventoryResult={resolution_status:'resolved'|'ambiguous';inventory_item_id:string|null;perfume_id:string|null;resolved_name?:string;catalog_created:boolean;operational_code?:string|null;candidates?:PerfumeResolutionCandidate[]}
 export async function bootstrapAiBatchInventory(input:{fingerprint:string;rawPerfumeName:string;brand:string|null;bottleNumber:number|null;referenceDate:string;sales:AiSalesBatchSale[];selectedPerfumeId?:string|null}){
   const {organizationId}=await currentOrganization()
   const base={p_organization_id:organizationId,p_fingerprint:input.fingerprint,p_raw_perfume_name:input.rawPerfumeName,p_brand:input.brand,p_bottle_number:input.bottleNumber,p_reference_date:input.referenceDate,p_sales:input.sales}
@@ -527,7 +528,7 @@ export async function bootstrapAiBatchInventory(input:{fingerprint:string;rawPer
 export async function confirmAiSalesBatchMulti(preview:AiSalesBatchPreview){
   // O wrapper executa internamente: supabase!.rpc('confirm_ai_sales_batch_multi'
   const {organizationId}=await currentOrganization()
-  const groups=(preview.groups??[]).map(group=>({perfume:group.perfume,display_name:group.display_name,inventory_item_id:group.inventory_item_id,availability_ml:group.availability_ml??0,availability_amount:group.availability_amount??0,sales:group.sales}))
+  const groups=(preview.groups??[]).map(group=>({perfume:group.perfume,display_name:group.display_name,perfume_id:group.perfume_id,inventory_item_id:group.inventory_item_id,availability_ml:group.availability_ml??0,availability_amount:group.availability_amount??0,sales:group.sales}))
   const availability={text:preview.shipping_availability_text,kind:preview.shipping_availability_kind,date:preview.shipping_available_date,lead_business_days:preview.shipping_lead_business_days,review_required:preview.shipping_availability_review_required}
   const {data,error}=await supabase!.rpc('confirm_ai_sales_batch_multi_with_availability',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_sale_date:preview.sale_date,p_shipping_deadline_date:preview.shipping_deadline_date,p_deadline_raw:preview.deadline_raw,p_groups:groups,p_availability:availability})
   if(error)throw friendlyAiImportError(error.message)
@@ -567,7 +568,7 @@ export async function searchPerfumes(term:string){
   return [...new Map([...(names.data??[]),...(brands.data??[])].map(row=>[row.id,row])).values()].slice(0,12)
 }
 
-export type PerfumeCandidate={id:string;full_name_raw:string;normalized_name:string;base_name:string;brand_house:string|null;bottle_identifier:string|null;operational_code:string}
+export type PerfumeCandidate={id:string;full_name_raw:string;normalized_name:string;base_name:string;brand_house:string|null;bottle_identifier:string|null;operational_code:string|null}
 
 export const normalizePerfumeIdentity=(value:unknown)=>normalizeClient(value).replace(/[‐‑‒–—―-]+/g,' ').replace(/\s+/g,' ').trim()
 
@@ -602,9 +603,14 @@ export async function createCanonicalPerfume(input:{name:string;brand:string}){
     }
     throw new Error(error.message)
   }
-  const perfume=data as PerfumeCandidate
-  if(!/^RUAH-P\d{6}$/.test(perfume.operational_code??''))throw new Error('O perfume foi criado, mas o código operacional não foi retornado. Atualize a tela antes de continuar.')
-  return{perfume,created:true}
+  return{perfume:data as PerfumeCandidate,created:true}
+}
+
+export async function fetchCanonicalPerfume(perfumeId:string){
+  const {organizationId}=await currentOrganization()
+  const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier,operational_code').eq('organization_id',organizationId).eq('id',perfumeId).single()
+  if(error)throw new Error(error.message)
+  return data as PerfumeCandidate
 }
 
 export type InventorySummary = {
@@ -659,6 +665,13 @@ export async function createInventoryItem(input:{perfumeId:string;openingMl:numb
     p_organization_id:organizationId,p_perfume_id:input.perfumeId,p_opening_ml:input.openingMl,
     p_minimum_ml:input.minimumMl,p_reference_date:input.referenceDate,p_notes:input.notes||null,
   })
+  if(error)throw new Error(error.message)
+  return data
+}
+
+export async function receiveInventoryPerfume(input:{perfumeId:string;receivedMl:number;minimumMl:number;referenceDate:string;notes:string;idempotencyKey:string}){
+  const {organizationId}=await currentOrganization()
+  const {data,error}=await supabase!.rpc('inventory_receive_perfume',{p_organization_id:organizationId,p_perfume_id:input.perfumeId,p_received_ml:input.receivedMl,p_minimum_ml:input.minimumMl,p_reference_date:input.referenceDate,p_notes:input.notes||null,p_idempotency_key:input.idempotencyKey})
   if(error)throw new Error(error.message)
   return data
 }
