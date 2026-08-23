@@ -558,16 +558,16 @@ export async function searchClients(term: string) {
 export async function searchPerfumes(term:string){
   const {organizationId}=await currentOrganization(),normalized=normalizePerfumeIdentity(term)
   if(normalized.length<2)return[]
-  const fields='id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier'
+  const fields='id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier,operational_code'
   const [names,brands]=await Promise.all([
-    supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').eq('organization_id',organizationId).gte('normalized_name',normalized).lt('normalized_name',`${normalized}\uffff`).order('normalized_name').limit(12),
+    supabase!.from('perfumes').select(fields).eq('organization_id',organizationId).gte('normalized_name',normalized).lt('normalized_name',`${normalized}\uffff`).order('normalized_name').limit(12),
     supabase!.from('perfumes').select(fields).eq('organization_id',organizationId).ilike('brand_house',`%${term.trim()}%`).order('normalized_name').limit(12),
   ])
   if(names.error||brands.error)throw new Error(names.error?.message??brands.error!.message)
   return [...new Map([...(names.data??[]),...(brands.data??[])].map(row=>[row.id,row])).values()].slice(0,12)
 }
 
-export type PerfumeCandidate={id:string;full_name_raw:string;normalized_name:string;base_name:string;brand_house:string|null;bottle_identifier:string|null}
+export type PerfumeCandidate={id:string;full_name_raw:string;normalized_name:string;base_name:string;brand_house:string|null;bottle_identifier:string|null;operational_code:string}
 
 export const normalizePerfumeIdentity=(value:unknown)=>normalizeClient(value).replace(/[‐‑‒–—―-]+/g,' ').replace(/\s+/g,' ').trim()
 
@@ -581,7 +581,7 @@ export async function perfumeCount(){
 export async function findEquivalentPerfumes(name:string){
   const {organizationId}=await currentOrganization(),normalizedName=normalizePerfumeIdentity(name)
   if(!normalizedName)return[]
-  const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').eq('organization_id',organizationId).limit(500)
+  const {data,error}=await supabase!.from('perfumes').select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier,operational_code').eq('organization_id',organizationId).limit(500)
   if(error)throw new Error(error.message)
   return ((data??[]) as PerfumeCandidate[]).filter(row=>{
     return [row.base_name,row.full_name_raw,row.normalized_name].some(value=>normalizePerfumeIdentity(value)===normalizedName)
@@ -594,7 +594,7 @@ export async function createCanonicalPerfume(input:{name:string;brand:string}){
   const equivalent=await findEquivalentPerfumes(name)
   if(equivalent.length)return{perfume:equivalent[0],created:false}
   const normalizedName=normalizePerfumeIdentity(name)
-  const {data,error}=await supabase!.from('perfumes').insert({organization_id:organizationId,full_name_raw:name,normalized_name:normalizedName,base_name:name,brand_house:brand,bottle_identifier:null}).select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier').single()
+  const {data,error}=await supabase!.from('perfumes').insert({organization_id:organizationId,full_name_raw:name,normalized_name:normalizedName,base_name:name,brand_house:brand,bottle_identifier:null}).select('id,full_name_raw,normalized_name,base_name,brand_house,bottle_identifier,operational_code').single()
   if(error){
     if(error.code==='23505'){
       const matches=await findEquivalentPerfumes(name)
@@ -602,7 +602,9 @@ export async function createCanonicalPerfume(input:{name:string;brand:string}){
     }
     throw new Error(error.message)
   }
-  return{perfume:data as PerfumeCandidate,created:true}
+  const perfume=data as PerfumeCandidate
+  if(!/^RUAH-P\d{6}$/.test(perfume.operational_code??''))throw new Error('O perfume foi criado, mas o código operacional não foi retornado. Atualize a tela antes de continuar.')
+  return{perfume,created:true}
 }
 
 export type InventorySummary = {
