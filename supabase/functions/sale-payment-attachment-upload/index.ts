@@ -1,5 +1,5 @@
 import{createClient}from'https://esm.sh/@supabase/supabase-js@2'
-import{corsHeaders,json}from'../_shared/security.ts'
+import{corsHeaders,json}from'./http.ts'
 
 const max=10*1024*1024,rules:Record<string,{mime:string;valid:(b:Uint8Array)=>boolean}>={pdf:{mime:'application/pdf',valid:b=>new TextDecoder().decode(b.slice(0,5))==='%PDF-'},jpg:{mime:'image/jpeg',valid:b=>b[0]===255&&b[1]===216&&b[2]===255},jpeg:{mime:'image/jpeg',valid:b=>b[0]===255&&b[1]===216&&b[2]===255},png:{mime:'image/png',valid:b=>[137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v)},webp:{mime:'image/webp',valid:b=>new TextDecoder().decode(b.slice(0,4))==='RIFF'&&new TextDecoder().decode(b.slice(8,12))==='WEBP'}}
 Deno.serve(async req=>{
