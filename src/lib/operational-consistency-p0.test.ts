@@ -9,7 +9,7 @@ const migration=readFileSync('supabase/migrations/202608230004_operational_consi
 describe('consistência operacional P0',()=>{
  it('apresenta pagamentos em PT-BR sem alterar os enums persistidos',()=>{
   for(const label of ['PAGO','AGUARDANDO','CANCELADO','DESCONHECIDO'])expect(davi+drafts).toContain(label)
-  expect(davi).toContain("options={['paid','pending','cancelled','unknown']}")
+  expect(davi).toContain("{['paid','pending','cancelled','unknown'].map(value=><option value={value} key={value}>{paymentLabel[value]}</option>)}")
   expect(drafts).toContain('<option value="unknown">DESCONHECIDO</option>')
   expect(davi).toContain("'PAGAMENTO':valueLabel('payment',row.payment_status)")
  })

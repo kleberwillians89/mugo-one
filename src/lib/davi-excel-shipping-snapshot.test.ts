@@ -25,7 +25,7 @@ describe('filtros Excel server-side',()=>{
  it('combina valores e condições com AND em todas as colunas',()=>{expect(filtersMigration).toContain("p_filter?'values'");for(const operator of ['contains','not_contains','starts_with','ends_with','equals','eq','gt','gte','lt','lte','before','after','between'])expect(filtersMigration).toContain(`'${operator}'`);expect(filtersMigration.match(/davi_excel_filter_matches\(p_filters#/g)).toHaveLength(13)})
  it('mostra filtro ativo e permite limpar uma coluna ou todos',()=>{expect(page).toContain("title={active?'Filtro ativo'");expect(page).toContain('LIMPAR FILTRO DESTA COLUNA');expect(page).toContain('LIMPAR FILTROS')})
  it('preserva edição, export e filtros ao abrir Venda 360',()=>{expect(page).toContain('updateDaviExcelSale');expect(page).toContain('fetchDaviExcel(filters,index,500,sorts)');expect(page).toContain("localStorage.setItem('davi_excel_state'")})
- it('modo planilha recolhe shell sem Fullscreen API',()=>{expect(page).toContain('EXPANDIR PLANILHA');expect(page).toContain('SAIR DA TELA CHEIA');expect(page).toContain("classList.toggle('davi-sheet-mode'");expect(page).not.toContain('requestFullscreen')})
+ it('modo planilha recolhe shell sem Fullscreen API',()=>{expect(page).toContain('EXPANDIR PLANILHA');expect(page).toContain('RECOLHER PLANILHA');expect(page).toContain("classList.toggle('davi-sheet-mode'");expect(page).not.toContain('requestFullscreen')})
 })
 
 describe('snapshot congelado do Minha RUAH',()=>{
