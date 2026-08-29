@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Boxes, Filter, ShoppingBag } from 'lucide-react'
-import { brl, monthYearLabel, shortDate, integer } from '../lib/format'
+import { brl, clientNumber, monthYearLabel, shortDate, integer } from '../lib/format'
 import { ClientModal } from '../components/RecordModals'
 import { operationalLabel, statusLabel } from '../lib/presentation'
-import { ClientPortalStatus, createDraftShipment, fetchClient360, fetchClientPortalStatus, inviteCustomerAccount } from '../lib/records'
+import { ClientPortalStatus, createDraftShipment, fetchClient360, fetchClientPortalStatus, inviteCustomerAccount, setClientGift } from '../lib/records'
+import { useHasPermission } from '../lib/PermissionsContext'
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Drawer, EmptyState, Modal, PrimaryButton, SecondaryButton, SectionHeader, Stepper } from '../components/ui'
 import './ClientDetailsPage.css'
@@ -57,7 +58,44 @@ function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;default
   </div></section>
 }
 
+/** Brinde pertence ao cliente: uma única flag canônica (clients.has_gift).
+ * Marcar/desmarcar chama davi_excel_set_client_gift — audit before/after,
+ * optimistic concurrency, sem criar venda nem tocar estoque. */
+function ClientGiftCard({clientId,hasGift,giftNotes,updatedAt,canEdit,onSaved}:{clientId:string;hasGift:boolean;giftNotes:string|null;updatedAt:string;canEdit:boolean;onSaved:()=>void}) {
+  const [editing,setEditing]=useState(false)
+  const [notes,setNotes]=useState(giftNotes??'')
+  const [saving,setSaving]=useState(false)
+  const [feedback,setFeedback]=useState('')
+  const save=async(nextHasGift:boolean)=>{
+    setSaving(true);setFeedback('')
+    try{
+      await setClientGift(clientId,nextHasGift,nextHasGift?notes.trim()||null:null,updatedAt)
+      setEditing(false);onSaved()
+    }catch(reason){setFeedback(reason instanceof Error?reason.message:'Não foi possível salvar o brinde.')}
+    finally{setSaving(false)}
+  }
+  return <section className="dossier-columns">
+    <DefinitionGroup title="Brinde" items={[
+      {label:'Brinde',value:hasGift?'SIM':'—'},
+      ...(hasGift&&giftNotes?[{label:'Observação do brinde',value:giftNotes}]:[]),
+    ]}/>
+    {canEdit&&<div>
+      {!editing&&<SecondaryButton onClick={()=>{setNotes(giftNotes??'');setEditing(true)}}>{hasGift?'Editar brinde':'Marcar brinde'}</SecondaryButton>}
+      {editing&&<div className="record-form">
+        <label className="field"><span>Observação do brinde (opcional)</span><textarea value={notes} onChange={(event)=>setNotes(event.target.value)} placeholder="Ex.: amostra de 2 ml na próxima remessa"/></label>
+        {feedback&&<Alert tone="danger" title="Não foi possível salvar.">{feedback}</Alert>}
+        <div className="form-actions">
+          <SecondaryButton onClick={()=>{setEditing(false);setFeedback('')}}>Cancelar</SecondaryButton>
+          {hasGift&&<SecondaryButton loading={saving} onClick={()=>save(false)}>Remover brinde</SecondaryButton>}
+          <PrimaryButton loading={saving} onClick={()=>save(true)}>{hasGift?'Salvar':'Marcar brinde'}</PrimaryButton>
+        </div>
+      </div>}
+    </div>}
+  </section>
+}
+
 export function ClientDetailsPage({clientId}:{clientId:string}) {
+  const canEditClient=useHasPermission('clients.edit')
   const [data,setData]=useState<Awaited<ReturnType<typeof fetchClient360>>|null>(null)
   const [selected,setSelected]=useState<string[]>([]),[error,setError]=useState(''),[preparing,setPreparing]=useState(false),[editing,setEditing]=useState(false)
   const [historySearch,setHistorySearch]=useState(''),[historyPayment,setHistoryPayment]=useState(''),[historyType,setHistoryType]=useState(''),[historyShipping,setHistoryShipping]=useState(''),[historyStart,setHistoryStart]=useState(''),[historyEnd,setHistoryEnd]=useState('')
@@ -102,8 +140,8 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     <button className="back-link" onClick={()=>{history.pushState({},'','/clientes');dispatchEvent(new PopStateEvent('popstate'))}}>← Voltar para clientes</button>
 
     <header className="dossier-head surface-dark">
-      <span className="dossier-eyebrow">CLIENTE</span>
-      <h1 className="dossier-name" data-surface-role="primary">{client.name}</h1>
+      <span className="dossier-eyebrow">CLIENTE Nº {clientNumber(client.client_number)}</span>
+      <h1 className="dossier-name" data-surface-role="primary">{client.name}{client.has_gift?<span className="dossier-gift-flag" title="Cliente com brinde"> · 🎁 BRINDE</span>:null}</h1>
       <p className="dossier-since" data-surface-role="secondary">{commercial.first_purchase?`Cliente desde ${monthYearLabel(commercial.first_purchase)}`:'Ainda sem compras registradas'}</p>
       <div className="dossier-stats">
         <div><strong data-surface-role="metric">{integer(Number(commercial.purchases))}</strong><span>compras</span></div>
@@ -119,6 +157,9 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     {missingFields.length>0&&<Alert tone="warning" title="CADASTRO DE ENVIO INCOMPLETO">
       Antes de preparar um envio para este cliente, complete os dados abaixo: {missingFields.map(field=>`• ${field}`).join('  ')}. <SecondaryButton onClick={()=>setEditing(true)}>Completar cadastro</SecondaryButton>
     </Alert>}
+
+    <Divider label="Brinde"/>
+    <ClientGiftCard clientId={clientId} hasGift={client.has_gift} giftNotes={client.gift_notes} updatedAt={client.updated_at} canEdit={canEditClient} onSaved={()=>fetchClient360(clientId).then(setData)}/>
 
     <Divider label="Dados da cliente"/>
     <section className="dossier-columns">

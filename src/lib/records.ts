@@ -97,15 +97,23 @@ export async function fetchClientSummaries() {
 
 export async function fetchClientPeriodSummaries(period:PeriodValue) {
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.rpc('client_period_summary',{
-    org_id:organizationId,start_date:period.start,end_date:period.end,
-  })
+  const [{data,error},{data:numbers,error:numbersError}]=await Promise.all([
+    supabase!.rpc('client_period_summary',{
+      org_id:organizationId,start_date:period.start,end_date:period.end,
+    }),
+    supabase!.from('clients').select('id,client_number,has_gift').eq('organization_id',organizationId).is('deleted_at',null),
+  ])
   if(error)throw new Error(error.message)
-  return data ?? []
+  if(numbersError)throw new Error(numbersError.message)
+  const byId=new Map((numbers??[]).map((row:{id:string;client_number:number|null;has_gift:boolean})=>[String(row.id),row]))
+  return ((data ?? []) as Record<string,unknown>[]).map((row)=>{
+    const extra=byId.get(String(row.client_id))
+    return {...row,client_number:extra?.client_number??null,has_gift:extra?.has_gift??false}
+  })
 }
 
 export type Client360 = {
-  client:{id:string;name:string;phone:string|null;whatsapp_phone:string|null;email:string|null;cpf:string|null;cnpj:string|null;instagram:string|null;birth_date:string|null;postal_code:string|null;address_line:string|null;address_number:string|null;complement:string|null;district:string|null;city:string|null;state:string|null;notes:string|null;status:string;source:string;registration_origin:string|null;created_at:string;updated_at:string}
+  client:{id:string;client_number:number|null;name:string;phone:string|null;whatsapp_phone:string|null;email:string|null;cpf:string|null;cnpj:string|null;instagram:string|null;birth_date:string|null;postal_code:string|null;address_line:string|null;address_number:string|null;complement:string|null;district:string|null;city:string|null;state:string|null;notes:string|null;status:string;source:string;registration_origin:string|null;has_gift:boolean;gift_notes:string|null;created_at:string;updated_at:string}
   commercial:{purchases:number;total_purchased:number;paid:number;pending:number;cancelled:number;credit:number;average_ticket:number;total_ml:number;first_purchase:string|null;last_purchase:string|null;top_perfume:string|null;top_perfume_value:number|null}
   waiting:{waiting_ml:number;waiting_products:number}
 }
@@ -174,11 +182,11 @@ export type SaleFilters = {
   origin?:string;volumeMl?:number;minValue?:number;maxValue?:number;delivery?:string;sort?:string
 }
 
-export type DaviExcelRow={id:string;client_name:string;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string;attachment_count:number}
-export type DaviExcelSaleEdit={id:string;client_id:string;perfume_id:string;sale_date:string;shipping_deadline_date:string|null;shipping_deadline_raw:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;updated_at:string;clients:{name:string}|null;perfumes:{full_name_raw:string;brand_house:string|null}|null;inventory_allocations:{id:string}|null;shipment_items:{shipment_id:string;shipments:{status:string}|null}[]|null}
+export type DaviExcelRow={id:string;client_id:string;client_number:number|null;client_name:string;has_gift:boolean;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;split_completed_at:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string;attachment_count:number}
+export type DaviExcelSaleEdit={id:string;client_id:string;perfume_id:string;sale_date:string;shipping_deadline_date:string|null;shipping_deadline_raw:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;split_completed_at:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;updated_at:string;clients:{name:string}|null;perfumes:{full_name_raw:string;brand_house:string|null}|null;inventory_allocations:{id:string}|null;shipment_items:{shipment_id:string;shipments:{status:string}|null}[]|null}
 export type DaviFilterKind='text'|'date'|'number'
 export type DaviColumnFilter={values?:string[];condition?:{operator:string;value?:string;value2?:string}}
-export type DaviExcelFilters={search?:string;attachment?:'all'|'with'|'without';columns?:Record<string,DaviColumnFilter>}
+export type DaviExcelFilters={search?:string;attachment?:'all'|'with'|'without';split?:'all'|'completed'|'pending';gift?:'all'|'with'|'without';columns?:Record<string,DaviColumnFilter>}
 export type DaviDistinctValue={value:string;count:number}
 export type DaviSortLevel={column:string;direction:'asc'|'desc'}
 export const DAVI_OPERATIONAL_SORT:DaviSortLevel[]=[{column:'sale_date',direction:'asc'},{column:'perfume',direction:'asc'},{column:'type',direction:'asc'},{column:'volume',direction:'desc'}]
@@ -191,7 +199,7 @@ export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=10
 }
 export async function fetchDaviExcelSaleEdit(saleId:string){
   const{organizationId}=await authenticatedOrganization()
-  const{data,error}=await supabase!.from('sales').select('id,client_id,perfume_id,sale_date,shipping_deadline_date,shipping_deadline_raw,shipped_at,sale_type,volume_ml,amount,payment_status,payment_method,paid_at,credit_reference_amount,notes,updated_at,clients(name),perfumes(full_name_raw,brand_house),inventory_allocations(id),shipment_items(shipment_id,shipments(status))').eq('organization_id',organizationId).eq('id',saleId).single()
+  const{data,error}=await supabase!.from('sales').select('id,client_id,perfume_id,sale_date,shipping_deadline_date,shipping_deadline_raw,shipped_at,sale_type,volume_ml,split_completed_at,amount,payment_status,payment_method,paid_at,credit_reference_amount,notes,updated_at,clients(name),perfumes(full_name_raw,brand_house),inventory_allocations(id),shipment_items(shipment_id,shipments(status))').eq('organization_id',organizationId).eq('id',saleId).single()
   if(error)throw new Error(error.message)
   return data as unknown as DaviExcelSaleEdit
 }
@@ -206,6 +214,18 @@ export async function fetchDaviExcelDistinct(column:string,filters:DaviExcelFilt
   const{data,error}=await supabase!.rpc('davi_excel_distinct',{p_column:column,p_filters:filters,p_search:search,p_offset:offset,p_limit:limit})
   if(error)throw new Error(error.message)
   return(data??{values:[],total:0,has_more:false})as{values:DaviDistinctValue[];total:number;has_more:boolean}
+}
+export async function setClientGift(clientId:string,hasGift:boolean,giftNotes:string|null,expectedUpdatedAt?:string){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('davi_excel_set_client_gift',{p_client_id:clientId,p_has_gift:hasGift,p_gift_notes:giftNotes,p_expected_updated_at:expectedUpdatedAt??null})
+  if(error){
+    const message=String(error.message)
+    if(message.includes('stale_client'))throw new Error('Este cliente foi atualizado por outra pessoa. Recarregue antes de salvar.')
+    if(message.includes('forbidden'))throw new Error('Você não tem permissão para editar clientes.')
+    if(message.includes('client_not_found'))throw new Error('Cliente não encontrado nesta organização.')
+    throw new Error(message)
+  }
+  return data as{id:string;has_gift:boolean;gift_notes:string|null;updated_at:string;changed:boolean}
 }
 
 export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) {
@@ -454,7 +474,7 @@ export async function updateClient(clientId:string,input:ClientInput) {
 export type SaleInput = {
   clientId:string;date:string;amount:number;status:string;method:string;notes?:string
   shippingDeadlineRaw?:string;shippingDeadlineDate?:string;shippedAt?:string;saleType:'APC'|'SPLIT'
-  volumeMl:number;perfumeId:string;paidAt?:string;creditReferenceAmount?:number|null
+  volumeMl:number;perfumeId:string;splitCompletedAt?:string;paidAt?:string;creditReferenceAmount?:number|null
   source?:'manual'|'davi_excel';idempotencyKey?:string
 }
 export type SaleCreateResult={id:string;alreadyExisted:boolean}
@@ -465,7 +485,7 @@ export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
     const {data:existing,error:existingError}=await supabase!.from('sales').select('id').eq('organization_id',organizationId).eq('source','davi_excel').eq('import_signature',input.idempotencyKey).maybeSingle()
     if(existingError)throw new Error(existingError.message)
     if(existing)return{id:String(existing.id),alreadyExisted:true}
-    const {data,error}=await supabase!.rpc('davi_excel_create_sale',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
+    const {data,error}=await supabase!.rpc('davi_excel_create_sale',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
     if(error)throw new Error(error.message)
     return{id:String(data),alreadyExisted:false}
   }
@@ -478,6 +498,7 @@ export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
     notes: input.notes || null, source: 'manual', data_quality_status: 'verified', created_by: user.id,
     perfume_name_raw:perfume.full_name_raw,perfume_base_name:perfume.base_name,
     sale_type:input.saleType,volume_ml:input.volumeMl,volume_ml_raw:String(input.volumeMl),
+    split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,
     shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,
     shipping_operational_status:input.shippingDeadlineDate?null:input.shippingDeadlineRaw||null,
     shipped_at:input.shippedAt||null,paid_at:input.status==='pending'?null:input.paidAt||null,
