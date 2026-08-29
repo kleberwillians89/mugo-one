@@ -1,0 +1,55 @@
+.collections-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.collections-stat{background:var(--paper,#fff);border:1px solid var(--line);border-radius:9px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.collections-stat span{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--muted)}
+.collections-stat strong{font:600 22px 'Manrope';color:var(--ink)}
+.collections-stat--primary{background:var(--ink);border-color:var(--ink)}
+.collections-stat--primary span{color:#c4a354}
+.collections-stat--primary strong{color:#fff}
+
+.collections-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.collections-search{flex:1;min-width:240px;display:flex;border:1px solid var(--line);background:#fff;border-radius:7px}
+.collections-search input{width:100%;height:36px;border:0;outline:0;padding:0 12px;font-size:12px;border-radius:7px}
+.collections-filter{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.collections-filter button{border:0;background:#fff;padding:0 12px;height:36px;font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--muted);border-right:1px solid var(--line)}
+.collections-filter button:last-child{border-right:0}
+.collections-filter button.selected{background:var(--ink);color:#e8cc7d}
+
+.collections-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.collections-card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.collections-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.collections-card-number{display:block;font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--gold)}
+.collections-card h3{margin:2px 0 0;font:600 15px 'Manrope';color:var(--ink)}
+.collections-card-total{text-align:right}
+.collections-card-total span{display:block;font-size:8px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+.collections-card-total strong{font:700 18px 'Manrope';color:var(--ink)}
+.collections-card-meta{margin:0;font-size:10px;color:var(--muted)}
+.collections-card-sales{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);max-height:150px;overflow-y:auto}
+.collections-card-sales li{display:grid;grid-template-columns:64px 1fr 52px 52px 74px 64px;gap:6px;align-items:center;padding:5px 2px;font-size:10px;color:#5e574e;border-bottom:1px solid #f1ede5}
+.collections-card-sales li:last-child{border-bottom:0}
+.collections-card-status{font-size:8px;font-weight:800;color:#906b19;text-align:right}
+.collections-card>footer{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+.collections-open-client{margin-left:auto;border:1px solid var(--line);background:#fff;padding:0 10px;height:34px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#5e574e}
+
+.collections-copy-hint{margin:0 0 10px;font-size:11px;color:var(--muted);line-height:1.5}
+.collections-copy-text{width:100%;box-sizing:border-box;border:1px solid var(--line);padding:10px;font:12px/1.6 inherit;resize:vertical}
+
+.collections-payment-client{margin:0 0 8px;font-size:12px;color:#5e574e}
+.collections-payment-sales{list-style:none;margin:0 0 8px;padding:0;border:1px solid var(--line);border-radius:7px;max-height:180px;overflow-y:auto}
+.collections-payment-sales li{border-bottom:1px solid var(--line)}
+.collections-payment-sales li:last-child{border-bottom:0}
+.collections-payment-sales label{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:11px;color:#5e574e}
+.collections-payment-sales label span{flex:1}
+.collections-payment-total{margin:0 0 12px;font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--muted)}
+.collections-payment-total strong{margin-left:6px;font-size:14px;color:var(--ink)}
+.collections-payment-fields{display:grid;gap:10px}
+.collections-payment-fields input,.collections-payment-fields textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);height:36px;padding:0 10px;font:inherit}
+.collections-payment-fields textarea{height:auto;padding:8px 10px}
+.collections-payment-error{color:#a42b20;font-size:11px;margin:8px 0 0}
+
+@media(max-width:760px){
+ .collections-summary{grid-template-columns:1fr}
+ .collections-grid{grid-template-columns:1fr}
+ .collections-card-sales{overflow-x:auto}
+ .collections-card-sales li{min-width:400px;font-size:9px}
+ .collections-toolbar{flex-direction:column;align-items:stretch}
+}

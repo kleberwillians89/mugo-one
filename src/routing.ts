@@ -1,13 +1,13 @@
 import {
-  Boxes, Compass, FileSpreadsheet, FileText, Home, Import, Lightbulb, Radar, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound,
+  Boxes, CircleDollarSign, Compass, FileSpreadsheet, FileText, Home, Import, Lightbulb, Radar, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound,
 } from 'lucide-react'
 
-export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Davi Excel'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
+export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Davi Excel'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
 
 export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Visão Geral', icon: Home }, { label: 'Torre de Controle', icon: Compass },
   { label: 'Clientes', icon: UsersRound },
-  { label: 'Vendas', icon: ShoppingBag }, { label: 'Davi Excel', icon: FileSpreadsheet }, { label: 'Entregas', icon: Truck },
+  { label: 'Vendas', icon: ShoppingBag }, { label: 'Davi Excel', icon: FileSpreadsheet }, { label: 'Cobranças', icon: CircleDollarSign }, { label: 'Entregas', icon: Truck },
   { label: 'Estoque', icon: Boxes },
   { label: 'Relatórios', icon: FileText }, { label: 'Importação', icon: Import },
   { label: 'IA', icon: Sparkles }, { label: 'Insights', icon: Lightbulb },
@@ -16,7 +16,7 @@ export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Configurações', icon: Settings },
 ]
 
-export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':'/torre-de-controle','Clientes':'/clientes','Vendas':'/vendas','Davi Excel':'/davi-excel','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
+export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':'/torre-de-controle','Clientes':'/clientes','Vendas':'/vendas','Davi Excel':'/davi-excel','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
 
 // Permissão mínima para VER cada módulo no menu/rota (briefing "ROTAS E
 // MENU"). Configurações tem três códigos alternativos porque a página tem
@@ -32,7 +32,7 @@ export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':
 export const pagePermission:Record<Page,string[]>={
   'Visão Geral':['dashboard.view'],'Torre de Controle':['dashboard.view'],
   'Clientes':['clients.view'],'Vendas':['sales.view'],'Entregas':['shipping.view'],
-  'Davi Excel':['sales.view'],
+  'Davi Excel':['sales.view'],'Cobranças':['sales.view'],
   'Estoque':['inventory.view'],'Relatórios':['reports.view'],'Importação':['ai_import.view'],
   'IA':['ai_import.view'],'Insights':['reports.view'],'Radar':['radar.view'],
   'Interessados':['waitlist.view'],'Configurações':['settings.view','team.view','team.manage'],

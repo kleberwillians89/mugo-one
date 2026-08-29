@@ -228,6 +228,45 @@ export async function setClientGift(clientId:string,hasGift:boolean,giftNotes:st
   return data as{id:string;has_gift:boolean;gift_notes:string|null;updated_at:string;changed:boolean}
 }
 
+export type CollectionSaleRow={id:string;client_id:string;client_number:number|null;client_name:string;sale_date:string;perfume_name:string|null;sale_type:string|null;volume_ml:number|null;amount:number;payment_status:string;last_message_copied_at:string|null;message_copied_count:number}
+export async function fetchCollectionsPending(search=''){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('collections_pending_sales',{p_search:search||null})
+  if(error)throw new Error(error.message)
+  return(data??[])as CollectionSaleRow[]
+}
+export async function logCollectionMessageCopied(clientId:string,metadata:Record<string,unknown>={}){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('collections_log_message_copied',{p_client_id:clientId,p_metadata:metadata})
+  if(error){
+    const message=String(error.message)
+    if(message.includes('forbidden'))throw new Error('Você não tem permissão para visualizar cobranças.')
+    if(message.includes('client_not_found'))throw new Error('Cliente não encontrado nesta organização.')
+    throw new Error(message)
+  }
+  return data as{id:string;client_id:string;event_type:string;created_at:string}
+}
+export async function registerCollectionPayment(saleIds:string[],paidAt:string,paymentMethod:string,notes?:string){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('collections_register_payment',{p_sale_ids:saleIds,p_paid_at:paidAt,p_payment_method:paymentMethod,p_notes:notes||null})
+  if(error){
+    const message=String(error.message)
+    if(message.includes('forbidden'))throw new Error('Você não tem permissão para registrar pagamentos.')
+    if(message.includes('sale_cancelled'))throw new Error('Uma das vendas selecionadas está cancelada e não pode ser quitada.')
+    if(message.includes('sale_already_paid'))throw new Error('Uma das vendas selecionadas já está paga com outra data/forma. Corrija-a no Davi Excel.')
+    if(message.includes('sale_not_found'))throw new Error('Uma das vendas selecionadas não foi encontrada nesta organização.')
+    if(message.includes('no_sales_selected'))throw new Error('Selecione ao menos uma venda para registrar o pagamento.')
+    if(message.includes('payment_method_required'))throw new Error('Informe a forma de pagamento.')
+    if(message.includes('paid_at_required'))throw new Error('Informe a data do pagamento.')
+    if(message.includes('operator_shipping_only'))throw new Error('Seu perfil de acesso só permite alterar dados de envio nesta venda — peça a um gestor para registrar o pagamento.')
+    if(message.includes('viewer_read_only'))throw new Error('Seu perfil de acesso é somente leitura.')
+    if(message.includes('insufficient_available_inventory'))throw new Error('Estoque comercial insuficiente para reservar uma das vendas selecionadas. Ajuste o estoque antes de registrar este pagamento.')
+    if(message.includes('sale_has_active_shipment_allocation'))throw new Error('Uma das vendas selecionadas já está em separação/envio — resolva a alocação no operacional antes de registrar o pagamento aqui.')
+    throw new Error(message)
+  }
+  return data as{changed_sale_ids:string[];skipped_sale_ids:string[];paid_at:string;payment_method:string}
+}
+
 export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) {
   const { organizationId } = await authenticatedOrganization()
   let query=supabase!.from('sales')
