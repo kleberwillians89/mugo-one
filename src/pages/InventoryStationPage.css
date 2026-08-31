@@ -152,4 +152,17 @@
   .station-waiting { gap: var(--space-4); }
   .station-listening { padding: var(--space-6) var(--space-4); }
 }
-.station-preparation-group{display:grid;gap:8px;margin:12px 0}.station-preparation-group>strong{font-size:11px;letter-spacing:.08em}.station-preparation-group label{display:flex;align-items:center;gap:10px;min-height:46px;padding:8px 10px;border:1px solid var(--line);background:var(--paper);cursor:pointer}.station-preparation-group input{width:20px;height:20px}.station-preparation-group span{font-weight:600}
+.station-preparation-group{display:grid;gap:8px;margin:12px 0}.station-preparation-group>strong{font-size:11px;letter-spacing:.08em}.station-preparation-group input{width:20px;height:20px}.station-preparation-group span{font-weight:600}
+
+.station-prep-item{display:grid;gap:8px;padding:8px 10px;border:1px solid var(--line);background:var(--paper)}
+.station-prep-item label{display:flex;align-items:center;gap:10px;min-height:46px;cursor:pointer}
+.station-prep-item--pending{border-color:var(--warning);background:var(--warning-bg)}
+.station-lot-resolver,.station-lot-empty{display:grid;gap:6px;padding-top:6px;border-top:1px dashed var(--line)}
+.station-lot-badge{justify-self:start;font:var(--fw-bold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;color:var(--warning);background:var(--warning-bg);padding:3px 8px;border-radius:var(--radius-full)}
+.station-lot-badge--danger{color:var(--danger);background:var(--danger-bg)}
+.station-lot-badge--resolved{color:var(--success);background:var(--success-bg)}
+.station-lot-resolver select{min-height:44px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);padding:0 10px;font:var(--fw-medium) var(--fs-sm) var(--font-ui)}
+.station-lot-empty p{margin:0;font-size:var(--fs-sm);color:var(--ink-soft)}
+.station-lot-empty button{min-height:40px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);color:var(--ink);font:var(--fw-semibold) var(--fs-sm) var(--font-ui);cursor:pointer}
+.station-pending-banner{margin:0;padding:10px 12px;border-radius:var(--radius-md);background:var(--warning-bg);color:var(--warning);font:var(--fw-bold) var(--fs-sm) var(--font-ui)}
+.station-ready-banner{margin:0;padding:10px 12px;border-radius:var(--radius-md);background:var(--success-bg);color:var(--success);font:var(--fw-bold) var(--fs-sm) var(--font-ui)}
