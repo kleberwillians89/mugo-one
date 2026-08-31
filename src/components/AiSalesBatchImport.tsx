@@ -40,10 +40,18 @@ export function AiSalesBatchImport({close,completed}:{close:()=>void;completed:(
   const blockers=useMemo<Blocker[]>(()=>{
     if(!preview)return[]
     const list:Blocker[]=[]
-    if(!preview.totals.volume_consistent)list.push({text:'Volumes do lote não conferem'})
+    // Importação de venda é comercial, não recebimento de estoque: o volume
+    // vendido nunca precisa igualar o volume físico do perfume/frasco/lote —
+    // uma venda pode existir sem inventory_item, sem RUAH-P e sem saldo
+    // físico algum. volume_consistent só compara dois números que Davi
+    // digitou no próprio texto ("Frasco original com Xml" vs "Xmls
+    // disponíveis") — é uma checagem de digitação, nunca um gate comercial;
+    // por isso segue disponível como contexto visual (ver .warning no
+    // overview), mas nunca bloqueia a criação das vendas.
     if(preview.source_format==='tsv'){
       for(const group of preview.groups??[])if(!group.perfume_id)list.push({text:`Perfume "${group.display_name||group.perfume}" precisa de resolução no catálogo`,target:`group-${group.normalized_perfume_name}`})
     }else if(!preview.perfume_id)list.push({text:'Resolva o perfume no catálogo da RUAH',target:'single-perfume'})
+    preview.sales.forEach((sale,index)=>{if(sale.volume_ml<=0)list.push({text:`Volume inválido para ${sale.client_name}`,target:`sale-${index}`})})
     preview.sales.forEach((sale,index)=>{if(sale.client_match_status==='review'||(!sale.client_id&&sale.client_match_status!=='new'))list.push({text:`Confirme quem é ${sale.client_name}`,target:`sale-${index}`})})
     preview.sales.forEach((sale,index)=>{if(sale.possible_duplicate)list.push({text:`Possível venda repetida para ${sale.client_name}`,target:`sale-${index}`})})
     if(preview.duplicate_batch)list.push({text:'Esta lista parece já ter sido importada'})
