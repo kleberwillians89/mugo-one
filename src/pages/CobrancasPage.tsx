@@ -1,9 +1,11 @@
-import{useEffect,useMemo,useState}from'react'
-import{ClipboardCopy,CircleDollarSign,ExternalLink}from'lucide-react'
-import{brl,clientNumber,shortDate}from'../lib/format'
+import{useEffect,useMemo,useRef,useState}from'react'
+import{ClipboardCopy,CircleDollarSign,Download,ExternalLink}from'lucide-react'
+import{brl,clientNumber,shortDate,slugify}from'../lib/format'
+import{downloadNodeAsPng}from'../lib/download-image'
 import{useHasPermission}from'../lib/PermissionsContext'
 import{CollectionSaleRow,fetchCollectionsPending,fetchDaviExcelDistinct,logCollectionMessageCopied,registerCollectionPayment}from'../lib/records'
 import{EmptyState,FormField,Modal,PageHeader,PrimaryButton,SecondaryButton,useToast}from'../components/ui'
+import{CollectionSummaryImageCard}from'../components/CollectionSummaryImageCard'
 import'./CobrancasPage.css'
 
 type ClientGroup={client_id:string;client_number:number|null;client_name:string;sales:CollectionSaleRow[];total:number;last_message_copied_at:string|null;message_copied_count:number}
@@ -44,6 +46,37 @@ function CopyMessageModal({group,onClose,onCopied}:{group:ClientGroup;onClose:()
   <p className="collections-copy-hint">Revise o texto antes de copiar — ele é editável. Nenhum WhatsApp é enviado automaticamente; o CRM só registra que a mensagem foi copiada.</p>
   <textarea className="collections-copy-text" value={text} onChange={e=>setText(e.target.value)} rows={11} aria-label="Mensagem de cobrança"/>
  </Modal>
+}
+
+/**
+ * Baixa a imagem em UM clique — sem preview, sem modal. Monta o card fora
+ * da tela (mesmo layout, mesmos dados já em memória — nenhuma nova
+ * consulta), captura com html-to-image assim que ele existe no DOM, baixa
+ * o PNG e se desmonta. group some do estado do pai (onDone) tanto no
+ * sucesso quanto na falha, senão o botão travaria "carregando" para
+ * sempre num erro de captura.
+ */
+function CollectionImageDownload({group,onDone}:{group:ClientGroup;onDone:()=>void}){
+ const toast=useToast()
+ const nodeRef=useRef<HTMLDivElement>(null)
+ useEffect(()=>{
+  let cancelled=false
+  const run=async()=>{
+   if(!nodeRef.current)return
+   try{
+    const name=`cobranca-${slugify(group.client_name)}-${new Date().toISOString().slice(0,10)}.png`
+    await downloadNodeAsPng(nodeRef.current,name,1080/480)
+    if(!cancelled)toast.push('Imagem baixada.',{tone:'success'})
+   }catch(reason){
+    if(!cancelled)toast.push(reason instanceof Error?reason.message:'Não foi possível gerar a imagem.',{tone:'error'})
+   }finally{
+    if(!cancelled)onDone()
+   }
+  }
+  void run()
+  return()=>{cancelled=true}
+ },[group,onDone])
+ return<div className="collections-image-offscreen" aria-hidden="true"><CollectionSummaryImageCard ref={nodeRef} group={group}/></div>
 }
 
 function RegisterPaymentModal({group,onClose,onPaid}:{group:ClientGroup;onClose:()=>void;onPaid:()=>void}){
@@ -95,6 +128,7 @@ export function CobrancasPage(){
  const[search,setSearch]=useState('')
  const[filter,setFilter]=useState<CollectionFilter>('all')
  const[copyGroup,setCopyGroup]=useState<ClientGroup|null>(null)
+ const[downloadGroup,setDownloadGroup]=useState<ClientGroup|null>(null)
  const[paymentGroup,setPaymentGroup]=useState<ClientGroup|null>(null)
 
  const load=(term:string)=>fetchCollectionsPending(term).then(setRows).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar as cobranças.')).finally(()=>setLoading(false))
@@ -112,6 +146,7 @@ export function CobrancasPage(){
 
  return<div className="page collections-page">
   {copyGroup&&<CopyMessageModal group={copyGroup} onClose={()=>setCopyGroup(null)} onCopied={reload}/>}
+  {downloadGroup&&<CollectionImageDownload group={downloadGroup} onDone={()=>setDownloadGroup(null)}/>}
   {paymentGroup&&<RegisterPaymentModal group={paymentGroup} onClose={()=>setPaymentGroup(null)} onPaid={reload}/>}
   <PageHeader eyebrow="RUAH INTELLIGENCE" title="Cobranças" description="Clientes com vendas comercialmente pendentes de pagamento."/>
   <div className="collections-summary">
@@ -142,8 +177,9 @@ export function CobrancasPage(){
      </ul>
      <footer>
       <SecondaryButton icon={<ClipboardCopy size={14}/>} onClick={()=>setCopyGroup(group)}>COPIAR COBRANÇA</SecondaryButton>
-      {canRegisterPayment&&<PrimaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</PrimaryButton>}
+      {group.sales.length>0&&<SecondaryButton icon={<Download size={14}/>} loading={downloadGroup?.client_id===group.client_id} disabled={!!downloadGroup&&downloadGroup.client_id!==group.client_id} onClick={()=>setDownloadGroup(group)}>BAIXAR IMAGEM DO PEDIDO</SecondaryButton>}
       <button className="collections-open-client" onClick={()=>openClient(group.client_id)}><ExternalLink size={14}/>ABRIR CLIENTE</button>
+      {canRegisterPayment&&<PrimaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</PrimaryButton>}
      </footer>
     </article>)}
    </div>}

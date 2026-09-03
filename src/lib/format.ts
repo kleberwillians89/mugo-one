@@ -11,6 +11,15 @@ export const clientNumber = (value: number | null | undefined) => {
   return String(Math.trunc(n)).padStart(3, '0')
 }
 
+/** "Caroline Batistelli" → "caroline-batistelli". Usado para nomes de arquivo baixados (ex.: imagem de cobrança). */
+export const slugify = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'cliente'
+
 export const plural = (count: number, singular: string, pluralForm: string) => count === 1 ? singular : pluralForm
 export const countedLabel = (count: number, singular: string, pluralForm: string) => `${integer(count)} ${plural(count, singular, pluralForm)}`
 

@@ -129,3 +129,57 @@ describe('CobrancasPage — arquitetura pronta para WhatsApp oficial sem reconst
     expect(page).toContain('logCollectionMessageCopied(group.client_id,{sale_ids:group.sales.map(s=>s.id)})')
   })
 })
+
+describe('CobrancasPage — baixar imagem do pedido (1 clique, sem preview/modal)',()=>{
+  it('botão BAIXAR IMAGEM DO PEDIDO só aparece quando o cliente tem vendas pendentes (guard explícito, não implícito)',()=>{
+    expect(page).toContain("{group.sales.length>0&&<SecondaryButton icon={<Download size={14}/>} loading={downloadGroup?.client_id===group.client_id} disabled={!!downloadGroup&&downloadGroup.client_id!==group.client_id} onClick={()=>setDownloadGroup(group)}>BAIXAR IMAGEM DO PEDIDO</SecondaryButton>}")
+  })
+  it('clicar no botão não abre modal — monta CollectionImageDownload direto na página, fora da tela',()=>{
+    expect(page).toContain('{downloadGroup&&<CollectionImageDownload group={downloadGroup} onDone={()=>setDownloadGroup(null)}/>}')
+    expect(page).toContain('<div className="collections-image-offscreen" aria-hidden="true"><CollectionSummaryImageCard ref={nodeRef} group={group}/></div>')
+  })
+  it('a imagem usa exatamente o mesmo group já montado (só vendas pending — mesma fonte do card, da mensagem e do pagamento)',()=>{
+    expect(page).toContain('function CollectionImageDownload({group,onDone}:{group:ClientGroup;onDone:()=>void})')
+  })
+  it('não recarrega nem refiltra dados para gerar a imagem — reaproveita o group já em memória, sem nova consulta',()=>{
+    const componentFn=page.slice(page.indexOf('function CollectionImageDownload'),page.indexOf('function RegisterPaymentModal'))
+    expect(componentFn).not.toContain('fetchCollectionsPending')
+    expect(componentFn).not.toMatch(/\.rpc\(/)
+  })
+  it('nome do arquivo: cobranca-{slug do cliente}-{data}.png',()=>{
+    expect(page).toContain("const name=`cobranca-${slugify(group.client_name)}-${new Date().toISOString().slice(0,10)}.png`")
+  })
+  it('captura em pixelRatio 1080/480 — exporta em resolução alta a partir de um card compacto, largura final ~1080px',()=>{
+    expect(page).toContain('await downloadNodeAsPng(nodeRef.current,name,1080/480)')
+  })
+  it('sucesso e falha da captura sempre liberam o botão (onDone chamado nos dois casos, guardado por cancelled)',()=>{
+    const componentFn=page.slice(page.indexOf('function CollectionImageDownload'),page.indexOf('function RegisterPaymentModal'))
+    expect(componentFn).toContain('if(!cancelled)onDone()')
+  })
+  it('container de captura fica fora da tela (position:fixed off-canvas), nunca visível nem sobrepondo a página',()=>{
+    const css=readFileSync(new URL('./CobrancasPage.css',import.meta.url),'utf8')
+    expect(css).toContain('.collections-image-offscreen{position:fixed;top:-10000px;left:-10000px}')
+  })
+})
+
+describe('CobrancasPage — baixar imagem não exige sales.edit (item Permissões)',()=>{
+  it('BAIXAR IMAGEM DO PEDIDO não está condicionado a canRegisterPayment — basta sales.view para abrir a página',()=>{
+    const footerBlock=page.slice(page.indexOf('<footer>'),page.indexOf('</footer>'))
+    expect(footerBlock).toContain('BAIXAR IMAGEM DO PEDIDO</SecondaryButton>}')
+    expect(footerBlock.indexOf('BAIXAR IMAGEM DO PEDIDO')).toBeLessThan(footerBlock.indexOf('canRegisterPayment'))
+  })
+  it('REGISTRAR PAGAMENTO continua exigindo canRegisterPayment (sales.edit) — o botão de imagem não afrouxou esse gate',()=>{
+    expect(page).toContain('{canRegisterPayment&&<PrimaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</PrimaryButton>}')
+  })
+})
+
+describe('CobrancasPage — invariantes de estoque/logística (item "Invariantes obrigatórias")',()=>{
+  it('nenhuma menção a estoque físico/logística em toda a página, incluindo o fluxo de imagem',()=>{
+    for(const forbidden of ['inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','physical_ml','operational_code','RUAH-P','shipment','preparation_batch'])
+      expect(page.toLowerCase()).not.toContain(forbidden.toLowerCase())
+  })
+  it('baixar imagem não chama nenhuma RPC de escrita — só as chamadas await já esperadas continuam presentes (log de cópia, geração local de PNG, registro de pagamento)',()=>{
+    const rpcCalls=[...page.matchAll(/await (\w+)\(/g)].map((match)=>match[1])
+    expect(new Set(rpcCalls)).toEqual(new Set(['logCollectionMessageCopied','downloadNodeAsPng','registerCollectionPayment']))
+  })
+})
