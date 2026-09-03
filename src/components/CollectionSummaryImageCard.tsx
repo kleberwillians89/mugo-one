@@ -5,6 +5,17 @@ import'./CollectionSummaryImageCard.css'
 
 export type CollectionSummaryGroup={client_name:string;sales:CollectionSaleRow[];total:number}
 
+/**
+ * pixelRatio usado na exportação deste card (ver download-image.ts) — 2,
+ * não 3: o card já é renderizado no tamanho físico real (1080px, ver CSS),
+ * então pixelRatio=2 já produz um PNG de 2160px de largura. Para uma
+ * cobrança longa (ex.: 36 itens ~7-8mil px de altura a 1080px), pixelRatio=3
+ * levaria a altura final a ~23 mil px — perto ou acima do limite de canvas
+ * de navegadores móveis mais antigos. 2 é o maior valor que garante
+ * nitidez alta sem esse risco.
+ */
+export const COLLECTION_IMAGE_PIXEL_RATIO=2
+
 /** Layout puro para captura (html-to-image) — só o que está nos dados: nenhum campo inventado (ex.: sem casa/marca separada, que a RPC de cobranças não expõe). */
 export const CollectionSummaryImageCard=forwardRef<HTMLDivElement,{group:CollectionSummaryGroup}>(({group},ref)=>{
  const count=group.sales.length

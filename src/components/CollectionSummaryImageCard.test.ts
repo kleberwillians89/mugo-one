@@ -40,10 +40,23 @@ describe('CollectionSummaryImageCard — só o que os dados têm, nada inventado
   it('logo RUAH no topo',()=>{
     expect(component).toContain('src="/ruah-brand.svg"')
   })
-  it('largura fixa em CSS para exportação consistente, formato retrato, estética clara/dourada',()=>{
-    expect(css).toContain('.collection-summary-image{width:480px')
+  it('largura fixa em CSS no tamanho FÍSICO real de exportação (1080px) — não um card pequeno para depois ampliar; formato retrato, estética clara/dourada',()=>{
+    expect(css).toContain('.collection-summary-image{width:1080px')
     expect(css).toMatch(/background:#faf6ee/)
     expect(css).toMatch(/'Playfair Display'/)
+  })
+  it('altura é automática (sem height/max-height fixos em nenhuma regra) — cresce conforme a quantidade de itens, nunca corta uma cobrança longa',()=>{
+    const containerRule=css.slice(css.indexOf('.collection-summary-image{'),css.indexOf('}')+1)
+    expect(containerRule).not.toContain('height:')
+    expect(css).not.toContain('max-height')
+  })
+  it('exporta COLLECTION_IMAGE_PIXEL_RATIO=2 — densidade real (retina) sobre o nó já em 1080px, não 3 (risco de canvas gigante em listas longas/celulares)',()=>{
+    expect(component).toContain('export const COLLECTION_IMAGE_PIXEL_RATIO=2')
+  })
+  it('divisórias em px inteiros (crisp em qualquer pixelRatio inteiro, sem sub-pixel/serrilhado)',()=>{
+    expect(css).toMatch(/border-bottom:2px solid #d8c9a3/)
+    expect(css).toMatch(/border-bottom:1px solid #ece5d6/)
+    expect(css).toMatch(/border-top:4px solid #c7a969/)
   })
 })
 
@@ -63,14 +76,27 @@ describe('download-image.ts — geração 100% local, sem backend/upload/storage
     expect(downloadLib).toContain("from'html-to-image'")
     expect(downloadLib).toContain('toBlob(node,')
   })
-  it('baixa localmente via Blob + <a download>, mesmo padrão já usado por exportCsv — nunca faz upload',()=>{
+  it('baixa localmente via Blob + <a download>, mesmo padrão já usado por exportCsv — nunca faz upload; link é limpo do DOM depois do click',()=>{
     expect(downloadLib).toContain('URL.createObjectURL(blob)')
     expect(downloadLib).toContain("link.download=name")
     expect(downloadLib).toContain('link.click()')
+    expect(downloadLib).toContain('link.remove()')
     expect(downloadLib).toContain('URL.revokeObjectURL(url)')
   })
-  it('pixelRatio é parametrizável (permite exportar maior que o tamanho exibido em tela)',()=>{
-    expect(downloadLib).toContain('pixelRatio=1')
+  it('pixelRatio é parametrizável e o padrão é uma densidade real (2), não 1 — a resolução física do PNG deve ser maior por padrão',()=>{
+    expect(downloadLib).toContain('pixelRatio=2')
+  })
+  it('espera document.fonts.ready antes de capturar — evita fallback de fonte/inconsistência visual na exportação',()=>{
+    const beforeToBlob=downloadLib.slice(0,downloadLib.indexOf('toBlob('))
+    expect(beforeToBlob).toContain('await document.fonts.ready')
+  })
+  it('fundo explícito na captura é o off-white aprovado do card (EXPORT_BACKGROUND_COLOR=#faf6ee), nunca branco puro nem transparente',()=>{
+    expect(downloadLib).toContain("export const EXPORT_BACKGROUND_COLOR='#faf6ee'")
+    expect(downloadLib).toContain('backgroundColor:EXPORT_BACKGROUND_COLOR')
+    expect(downloadLib).not.toContain("'#ffffff'")
+  })
+  it('revogação da blob URL é adiada (setTimeout), não imediata após o click — click síncrono seguido de revoke imediato pode cancelar o download em alguns navegadores',()=>{
+    expect(downloadLib).toContain('setTimeout(()=>URL.revokeObjectURL(url)')
   })
   it('nunca chama supabase, faz fetch para o backend ou referencia bucket (o comentário do arquivo já documenta "sem storage" como propósito, não como código)',()=>{
     for(const forbidden of ['supabase','bucket','fetch('])

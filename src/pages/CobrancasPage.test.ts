@@ -149,8 +149,12 @@ describe('CobrancasPage — baixar imagem do pedido (1 clique, sem preview/modal
   it('nome do arquivo: cobranca-{slug do cliente}-{data}.png',()=>{
     expect(page).toContain("const name=`cobranca-${slugify(group.client_name)}-${new Date().toISOString().slice(0,10)}.png`")
   })
-  it('captura em pixelRatio 1080/480 — exporta em resolução alta a partir de um card compacto, largura final ~1080px',()=>{
-    expect(page).toContain('await downloadNodeAsPng(nodeRef.current,name,1080/480)')
+  it('captura usa COLLECTION_IMAGE_PIXEL_RATIO (densidade sobre um nó já no tamanho físico real — nunca um valor calculado tipo 1080/480, que é o padrão antigo de "card pequeno ampliado")',()=>{
+    expect(page).toContain('await downloadNodeAsPng(nodeRef.current,name,COLLECTION_IMAGE_PIXEL_RATIO)')
+    expect(page).not.toMatch(/1080\s*\/\s*480/)
+  })
+  it('importa a largura/densidade de exportação do próprio componente do card (fonte única), não reimplementa nem hardcoda de novo na página',()=>{
+    expect(page).toContain("import{COLLECTION_IMAGE_PIXEL_RATIO,CollectionSummaryImageCard}from'../components/CollectionSummaryImageCard'")
   })
   it('sucesso e falha da captura sempre liberam o botão (onDone chamado nos dois casos, guardado por cancelled)',()=>{
     const componentFn=page.slice(page.indexOf('function CollectionImageDownload'),page.indexOf('function RegisterPaymentModal'))
@@ -159,6 +163,18 @@ describe('CobrancasPage — baixar imagem do pedido (1 clique, sem preview/modal
   it('container de captura fica fora da tela (position:fixed off-canvas), nunca visível nem sobrepondo a página',()=>{
     const css=readFileSync(new URL('./CobrancasPage.css',import.meta.url),'utf8')
     expect(css).toContain('.collections-image-offscreen{position:fixed;top:-10000px;left:-10000px}')
+  })
+})
+
+describe('CobrancasPage — qualidade da exportação não trunca listas longas',()=>{
+  it('nenhum limite de altura/overflow no card ou no offscreen que pudesse cortar uma cobrança com muitos itens (ex.: Larissa, 36 pedidos)',()=>{
+    const css=readFileSync(new URL('./CobrancasPage.css',import.meta.url),'utf8')
+    expect(css).not.toMatch(/\.collections-image-offscreen[^}]*(max-height|overflow)/)
+  })
+  it('lista de itens nunca é fatiada/paginada — .map roda sobre TODAS as vendas do group, sem slice/limit',()=>{
+    const componentFn=readFileSync(new URL('../components/CollectionSummaryImageCard.tsx',import.meta.url),'utf8')
+    expect(componentFn).toContain('group.sales.map((sale,index)=>')
+    expect(componentFn).not.toMatch(/\.slice\(|\.filter\(.*\.length|MAX_ITEMS/)
   })
 })
 

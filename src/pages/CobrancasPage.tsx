@@ -5,7 +5,7 @@ import{downloadNodeAsPng}from'../lib/download-image'
 import{useHasPermission}from'../lib/PermissionsContext'
 import{CollectionSaleRow,fetchCollectionsPending,fetchDaviExcelDistinct,logCollectionMessageCopied,registerCollectionPayment}from'../lib/records'
 import{EmptyState,FormField,Modal,PageHeader,PrimaryButton,SecondaryButton,useToast}from'../components/ui'
-import{CollectionSummaryImageCard}from'../components/CollectionSummaryImageCard'
+import{COLLECTION_IMAGE_PIXEL_RATIO,CollectionSummaryImageCard}from'../components/CollectionSummaryImageCard'
 import'./CobrancasPage.css'
 
 type ClientGroup={client_id:string;client_number:number|null;client_name:string;sales:CollectionSaleRow[];total:number;last_message_copied_at:string|null;message_copied_count:number}
@@ -65,7 +65,7 @@ function CollectionImageDownload({group,onDone}:{group:ClientGroup;onDone:()=>vo
    if(!nodeRef.current)return
    try{
     const name=`cobranca-${slugify(group.client_name)}-${new Date().toISOString().slice(0,10)}.png`
-    await downloadNodeAsPng(nodeRef.current,name,1080/480)
+    await downloadNodeAsPng(nodeRef.current,name,COLLECTION_IMAGE_PIXEL_RATIO)
     if(!cancelled)toast.push('Imagem baixada.',{tone:'success'})
    }catch(reason){
     if(!cancelled)toast.push(reason instanceof Error?reason.message:'Não foi possível gerar a imagem.',{tone:'error'})
