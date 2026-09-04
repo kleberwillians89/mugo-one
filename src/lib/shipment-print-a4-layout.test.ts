@@ -74,4 +74,40 @@ describe('layout de impressão A4 da nota de envio', () => {
     expect(doc).toMatch(/width:\s*min\(210mm,\s*100%\)/)
     expect(doc).toMatch(/margin:\s*auto/)
   })
+
+  it('reseta position/height do header explicitamente contra o vazamento da tag global <header> do app shell', () => {
+    // src/styles.css define um seletor de tag <header>{position:sticky;top:0;
+    // height:91px} para a barra do app shell — sem este reset, QUALQUER
+    // <header> da aplicação (inclusive este documento isolado) herda essa
+    // regra, e um header "sticky" corrompe a paginação de impressão do
+    // Chromium (repinta uma cópia grudada sobre o conteúdo seguinte).
+    const header = block(css, '.shipment-document-header {')
+    expect(header).toMatch(/position:\s*static/)
+    expect(header).toMatch(/height:\s*auto/)
+  })
+
+  it('rede de segurança de @media print neutraliza position/overflow/height herdados em todas as seções do corpo', () => {
+    const printBlock = css.slice(css.indexOf('@media print'))
+    for (const selector of [
+      '.shipment-document-header',
+      '.shipment-document-destination',
+      '.shipment-document-logistics',
+      '.shipment-document-items',
+      '.shipment-document-summary',
+      '.shipment-document-notes',
+      '.shipment-document-signature',
+      '.shipment-document footer',
+    ]) expect(printBlock).toContain(selector)
+    expect(printBlock).toMatch(/visibility:\s*visible/)
+    expect(printBlock).toMatch(/overflow:\s*visible/)
+    expect(printBlock).toMatch(/position:\s*static/)
+    expect(printBlock).toMatch(/height:\s*auto/)
+    expect(printBlock).toMatch(/max-height:\s*none/)
+  })
+
+  it('reseta font-size/line-height na raiz do documento para não herdar a tipografia do app (que empurra conteúdo para a página 2)', () => {
+    const doc = block(css, '.shipment-document {')
+    expect(doc).toMatch(/line-height:\s*normal/)
+    expect(doc).toMatch(/font-size:\s*10pt/)
+  })
 })

@@ -43,10 +43,19 @@
   background: #fff;
   box-shadow: 0 18px 60px #2b251b22;
   font-family: Arial, sans-serif;
+  font-size: 10pt;
+  line-height: normal;
 }
 
 /* Cabeçalho: logo + meta empilhada em grid normal, sem posicionamento
-   absoluto — o status nunca pode flutuar sobre a seção seguinte. */
+   absoluto — o status nunca pode flutuar sobre a seção seguinte.
+   position/height são resetados explicitamente porque o seletor global
+   de tag <header> (barra fixa do app shell, ver src/styles.css) aplica
+   position:sticky;top:0;height:91px a QUALQUER <header>, inclusive este
+   — no Chromium, um <header> "sticky" herdado corrompe a paginação de
+   impressão (o navegador repinta uma cópia "grudada" sobre o conteúdo
+   seguinte). Este documento nunca é renderizado dentro do app shell,
+   então a regra global nunca deveria ter alcançado este elemento. */
 .shipment-document-header {
   display: grid;
   grid-template-columns: 38% 62%;
@@ -55,6 +64,9 @@
   padding-bottom: 7mm;
   margin-bottom: 10mm;
   border-bottom: 1px solid #1d1b17;
+  position: static;
+  top: auto;
+  height: auto;
 }
 
 .shipment-document-brand {
@@ -429,5 +441,26 @@
 
   .shipment-document thead {
     display: table-header-group;
+  }
+
+  /* Rede de segurança: nenhuma seção do corpo do documento pode ser
+     escondida ou cortada por uma regra global de tag (ex.: <header>,
+     <footer>) que não conheça este documento — só ações da aplicação
+     (.shipment-document-actions, acima) somem na impressão. Não força
+     display:block em elementos que precisam de grid/flex; só neutraliza
+     position/overflow/height herdados. */
+  .shipment-document-header,
+  .shipment-document-destination,
+  .shipment-document-logistics,
+  .shipment-document-items,
+  .shipment-document-summary,
+  .shipment-document-notes,
+  .shipment-document-signature,
+  .shipment-document footer {
+    visibility: visible;
+    overflow: visible;
+    position: static;
+    height: auto;
+    max-height: none;
   }
 }
