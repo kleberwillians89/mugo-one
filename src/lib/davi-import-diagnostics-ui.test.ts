@@ -11,7 +11,7 @@ describe('Davi import diagnostics UI gate',()=>{
    {...base,source_row:3,identity_classification:'PROBABLE_DUPLICATE',stock_classification:null},
    {...base,source_row:4,identity_classification:'CONFLICT',stock_classification:null},
    {...base,source_row:5,identity_classification:'NEW_SALE',stock_classification:'STOCK_INSUFFICIENT'},
-    ],organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig'}as unknown as DaviDiagnosticReport
+    ],organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig',snapshot_created_at:'2026-09-04T12:00:00Z'}as unknown as DaviDiagnosticReport
   expect(safeDaviRows(report).map(row=>row.source_row)).toEqual([1,2])
  })
  it('mantém análise e apply como ações visivelmente separadas',()=>{
@@ -30,6 +30,8 @@ describe('Davi import diagnostics UI gate',()=>{
   expect(source).toContain('Esse relatório não altera nada')
   expect(source).toContain('ANALISAR NOVA PLANILHA')
   expect(source).toContain('Use esta opção somente quando houver uma nova versão')
+  expect(source).toContain('davi-diagnostic-toggle')
+  expect(source).toContain('VER DIAGNÓSTICO')
   expect(source.indexOf('VERIFICAR AGORA')).toBeLessThan(source.indexOf('ANALISAR NOVA PLANILHA'))
  })
  it('usa os formatadores compartilhados pt-BR em todas as datas do diagnóstico',()=>{

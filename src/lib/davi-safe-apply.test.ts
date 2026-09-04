@@ -6,7 +6,7 @@ const migration=readFileSync('supabase/migrations/202609040003_davi_safe_diagnos
 const component=readFileSync('src/components/DaviImportDiagnostics.tsx','utf8')
 const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
 const baseRow: DaviDiagnosticRow={source_row:2,client:'Cliente',perfume:'Perfume',type:'split',ml:5,amount:50,date:'2026-09-01',identity_classification:'NEW_SALE',sale_id:null,candidate_sale_ids:[],reason:'Sem correspondência.',confidence:.95,action:'criar_apos_aprovacao',stock_classification:'STOCK_NOT_REQUIRED',stock_reason:'Sem estoque necessário.',inventory:null,proposed_changes:{},organization_id:'00000000-0000-4000-8000-000000000001',source_signature:'sig-2',normalized_client:'cliente',normalized_perfume:'perfume',payment_status:'pending'}
-const report=(rows:DaviDiagnosticRow[],patch:Partial<DaviDiagnosticReport>={})=>({organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig',rows,...patch}as unknown as DaviDiagnosticReport)
+const report=(rows:DaviDiagnosticRow[],patch:Partial<DaviDiagnosticReport>={})=>({organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig',snapshot_created_at:'2026-09-04T12:00:00Z',rows,...patch}as unknown as DaviDiagnosticReport)
 const candidate=(patch:Partial<DaviSafeApplyCandidate>={}):DaviSafeApplyCandidate=>({...daviSafeApplyCandidates(report([baseRow]))[0],...patch})
 
 describe('Davi safe diagnostic apply',()=>{
@@ -74,6 +74,11 @@ describe('Davi safe diagnostic apply',()=>{
   expect(component).toContain('alterações aplicadas com sucesso')
   expect(component).toContain('davi_safe_apply_conflict:')
   expect(component).toContain('requer nova análise')
+  expect(component).toContain('setReport(null)')
+  expect(component).toContain('O diagnóstico foi atualizado automaticamente')
+  expect(component).toContain('const refreshed=await analyzeDaviFile(file)')
+  expect(component).toContain('vendas existentes encontradas')
+  expect(component).toContain('alterações propostas')
     expect(component).toContain('await onApplied();const refreshed=await analyzeDaviFile(file)')
   expect(page).toContain('<DaviImportDiagnostics onApplied={load}/>')
  })

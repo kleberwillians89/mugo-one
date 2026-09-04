@@ -216,6 +216,18 @@ export async function updateDaviExcelSale(saleId:string,patch:Record<string,unkn
   if(error)throw new Error(error.message)
   return data as{ id:string;updated_at:string;changed_fields:string[];shipment_snapshot_preserved:boolean }
 }
+export type DaviSaleDeleteReason='duplicate_sale'|'incorrect_entry'|'customer_cancelled'|'import_error'|'other'
+export async function softDeleteDaviSale(saleId:string,expectedUpdatedAt:string,reason:DaviSaleDeleteReason,note?:string){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('soft_delete_davi_sale',{p_sale_id:saleId,p_expected_updated_at:expectedUpdatedAt,p_reason:reason,p_note:note||null})
+  if(error){
+    const message=String(error.message)
+    if(message.includes('stale_sale'))throw new Error('Esta venda foi atualizada por outra pessoa. Recarregue antes de excluir.')
+    if(message.includes('sale_has_operational_dependency')||message.includes('sale_has_active_shipment_allocation')||message.includes('sale_has_manual_verified_allocation'))throw new Error('Esta venda já possui movimentação operacional e não pode ser excluída diretamente.')
+    throw new Error(message)
+  }
+  return data as{id:string;idempotent:boolean;deleted_at:string;released_allocation:boolean}
+}
 export async function fetchDaviExcelDistinct(column:string,filters:DaviExcelFilters,search='',offset=0,limit=200){
   await authenticatedOrganization()
   const{data,error}=await supabase!.rpc('davi_excel_distinct',{p_column:column,p_filters:filters,p_search:search,p_offset:offset,p_limit:limit})
