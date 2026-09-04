@@ -1,0 +1,12 @@
+{
+  "batch_id": "663b08a9-bac4-4ba6-9bf8-333d0356aca2",
+  "organization_id": "032fd96e-638f-428b-8cc2-37afc71e10ea",
+  "source_sha256": "d0356aca28a6a3fd9d7bff6705975b437b1b7e08d430d5d5dd85d246723c5082",
+  "manifest_sha256": "4cf42afc970f513a808b523ea452ab2e694ee9c49572e2c279253254d6c690ff",
+  "payload_sha256": "f5f23a81e5fb3465962117a3e6f29f90787bc0fb643862589a13771fd06abad3",
+  "sale_count": 333,
+  "amount": "75793.00",
+  "reason": "absent_from_canonical_davi_snapshot",
+  "canonical_format": "sale_id|organization_id|expected_updated_at|amount(2)|client_id|perfume_id|sale_date|sale_type|volume_ml(3)|payment_status; rows sorted by sale_id",
+  "private_payload": "private_data/canonical-davi-sales-archive-manifest-d0356aca28a6.json"
+}
