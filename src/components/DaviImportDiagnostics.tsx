@@ -1,11 +1,60 @@
 import{useMemo,useRef,useState}from'react'
 import{AlertTriangle,CheckCircle2,ChevronRight,Database,FileSpreadsheet,Info,LoaderCircle,RefreshCw,ShieldCheck,Upload,XCircle}from'lucide-react'
-import{analyzeCurrentCrmState,analyzeDaviFile,CrmFinding,CurrentCrmDiagnostic,DaviDiagnosticReport,DaviDiagnosticRow,safeDaviRows}from'../lib/davi-import-diagnostics'
+import{analyzeCurrentCrmState,analyzeDaviFile,CrmFinding,CurrentCrmDiagnostic,DataWarning,DaviDiagnosticReport,DaviDiagnosticRow,DaviRowDivergence,safeDaviRows}from'../lib/davi-import-diagnostics'
 import{dateTime,shortDate}from'../lib/format'
 import{useToast}from'./ui'
 import'./DaviImportDiagnostics.css'
 
 const money=(value:number|null)=>value==null?'—':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value)
+const divergenceCategoryLabel:Record<DaviRowDivergence['category'],string>={MATCHED_SAME_AMOUNT:'Mesmo valor',MATCHED_DIFFERENT_AMOUNT:'Valor divergente',SPREADSHEET_ONLY:'Só na planilha',DUPLICATE_CANDIDATE:'Possível duplicidade',CRM_ONLY:'Só no CRM',INVALID:'Linha inválida'}
+
+function DataWarnings({warnings}:{warnings:DataWarning[]}){
+ if(!warnings.length)return null
+ return <div className="davi-data-warnings">{warnings.map(warning=><p key={warning.table}><AlertTriangle/><span><b>{warning.table}</b> indisponível nesta leitura (opcional — a análise continuou). {warning.message}{warning.code?` (code: ${warning.code})`:''}</span></p>)}</div>
+}
+
+function TotalsReconciliation({totals}:{totals:DaviDiagnosticReport['totals']}){
+ const hasDifference=Math.abs(totals.differences.spreadsheet_vs_corresponding)>=0.01
+ const visibleDivergences=totals.divergences.filter(row=>row.category!=='MATCHED_SAME_AMOUNT')
+ const category=(name:DaviRowDivergence['category'])=>totals.categories[name]
+ return <div className="davi-totals">
+  <div className="davi-totals-headline">
+   <div><span>TOTAL DA PLANILHA</span><strong>{money(totals.spreadsheet.gross_sum)}</strong></div>
+   <div><span>TOTAL CORRESPONDENTE NO CRM</span><strong>{money(totals.crm.corresponding.sum)}</strong><small>{totals.crm.corresponding.count.toLocaleString('pt-BR')} vendas com correspondência individual inequívoca</small></div>
+   <div className={hasDifference?'davi-totals-diff bad':'davi-totals-diff ok'}><span>DIFERENÇA EXATA</span><strong>{money(totals.differences.spreadsheet_vs_corresponding)}</strong><small>Planilha − CRM correspondente</small></div>
+  </div>
+  <div className="davi-totals-overall"><span>Total geral ativo exibido pelo CRM: <b>{money(totals.crm.overview.total_general.sum)}</b></span><span>Planilha − total geral do CRM: <b>{money(totals.differences.spreadsheet_vs_total_crm)}</b></span></div>
+  {hasDifference&&<details className="davi-totals-divergences"><summary><ChevronRight/>VER DIVERGÊNCIAS<b>{totals.divergences.length}</b></summary>
+   <div className="davi-totals-explanation">
+    <p><b>Fechamento 1 — Planilha versus CRM correspondente</b></p>
+    <p>{money(totals.spreadsheet.gross_sum)} − {money(totals.crm.corresponding.sum)} = {money(totals.differences.spreadsheet_vs_corresponding)}</p>
+    <dl>
+     <div><dt>MATCHED_DIFFERENT_AMOUNT: diferença planilha − CRM</dt><dd>{money(category('MATCHED_DIFFERENT_AMOUNT').difference)}</dd></div>
+     <div><dt>SPREADSHEET_ONLY: valor presente apenas na planilha</dt><dd>{money(category('SPREADSHEET_ONLY').spreadsheet_sum)}</dd></div>
+     <div><dt>DUPLICATE_CANDIDATE: valor da planilha ainda sem match confirmado</dt><dd>{money(category('DUPLICATE_CANDIDATE').spreadsheet_sum)}</dd></div>
+     <div><dt>INVALID: valor contabilizado em linhas inválidas</dt><dd>{money(category('INVALID').spreadsheet_sum)}</dd></div>
+     <div><dt><b>Soma dos componentes</b></dt><dd>{money(totals.bridges.spreadsheet_vs_corresponding)}</dd></div>
+    </dl>
+    <p><b>Fechamento 2 — Planilha versus total geral ativo do CRM</b></p>
+    <p>{money(totals.spreadsheet.gross_sum)} − {money(totals.crm.overview.total_general.sum)} = {money(totals.differences.spreadsheet_vs_total_crm)}</p>
+    <dl>{(['MATCHED_SAME_AMOUNT','MATCHED_DIFFERENT_AMOUNT','SPREADSHEET_ONLY','DUPLICATE_CANDIDATE','INVALID','CRM_ONLY']as const).map(name=><div key={name}><dt>{name}: {category(name).count} registro(s) na planilha / {category(name).crm_count} no CRM</dt><dd>{money(category(name).spreadsheet_sum)} − {money(category(name).crm_sum)} = {money(category(name).difference)}</dd></div>)}<div><dt><b>Soma de todas as categorias</b></dt><dd>{money(totals.bridges.spreadsheet_vs_total_crm)}</dd></div></dl>
+    {(!totals.reconciles.spreadsheet_vs_corresponding||!totals.reconciles.spreadsheet_vs_total_crm)&&<p className="davi-totals-note bad"><AlertTriangle/>A composição não bateu com a diferença calculada — reveja as divergências antes de confiar neste resumo.</p>}
+   </div>
+   <div className="davi-totals-list">{visibleDivergences.map((row,index)=><article key={`${row.category}-${row.source_row??'crm'}-${row.sale_id??index}`}>
+    <header><span>{divergenceCategoryLabel[row.category]}</span>{row.source_row!=null&&<b>Linha {row.source_row}</b>}</header>
+    <p>{row.client||'—'} · {row.perfume||'—'}</p>
+    <div className="davi-totals-list-amounts"><span>Planilha: {money(row.spreadsheet_amount)}</span><span>CRM: {money(row.crm_amount)}</span>{row.difference!=null&&<span>Diferença: {money(row.difference)}</span>}</div>
+    <small>{row.reason}</small>
+   </article>)}</div>
+  </details>}
+  <details className="davi-totals-status"><summary><ChevronRight/>Quebra por status na planilha</summary><dl>
+   {Object.entries(totals.spreadsheet.by_status).map(([status,agg])=><div key={status}><dt>{status}</dt><dd>{agg.count.toLocaleString('pt-BR')} linha(s) · {money(agg.sum)}</dd></div>)}
+   <div><dt>Sem valor</dt><dd>{totals.spreadsheet.lines_without_value.toLocaleString('pt-BR')} linha(s)</dd></div>
+   <div><dt>Valor inválido</dt><dd>{totals.spreadsheet.lines_invalid_value.toLocaleString('pt-BR')} linha(s)</dd></div>
+   <div><dt>Possíveis duplicidades</dt><dd>{totals.spreadsheet.duplicate_value_candidates.toLocaleString('pt-BR')}</dd></div>
+  </dl></details>
+ </div>
+}
 const confidence=(value:number)=>`${Math.round(value*100)}%`
 const displayStructuredDates=(value:unknown):unknown=>Array.isArray(value)?value.map(displayStructuredDates):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,displayStructuredDates(item)])):typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(value)?dateTime(value):typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)?shortDate(value):value
 
@@ -37,6 +86,7 @@ export function DaviImportDiagnostics(){
   {currentError&&<p className="davi-diagnostic-error"><XCircle/>{currentError}</p>}
   {current&&<div className="davi-current-results"><div className="davi-diagnostic-heading"><div><span>DIAGNÓSTICO ATUAL DO CRM</span><h3>Base analisada agora</h3><p>Vendas: {current.analyzed.sales.toLocaleString('pt-BR')} · Clientes: {current.analyzed.clients.toLocaleString('pt-BR')} · Perfumes: {current.analyzed.perfumes.toLocaleString('pt-BR')}</p></div>{current.consistency.changed_during_read?<AlertTriangle/>:<CheckCircle2/>}</div>
    {current.consistency.changed_during_read&&<p className="davi-snapshot-warning"><AlertTriangle/>A base mudou durante a leitura. Execute novamente antes de tomar decisões.</p>}
+   <DataWarnings warnings={current.data_warnings}/>
    <div className="davi-diagnostic-metrics davi-severity-metrics"><Metric tone={severityTone.CRITICAL} value={current.severity.CRITICAL} label="críticos"/><Metric tone={severityTone.WARNING} value={current.severity.WARNING} label="alertas"/><Metric tone={severityTone.REVIEW} value={current.severity.REVIEW} label="revisões"/><Metric tone={severityTone.INFO} value={current.severity.INFO} label="informativos"/></div>
    <div className="davi-current-summary"><div><b>DUPLICIDADES</b><span>{current.summary.possible_duplicates} possíveis</span></div><div><b>PERFUMES</b><span>{current.summary.possible_aliases} possíveis aliases</span><span>{current.summary.perfume_conflicts} conflitos</span></div><div><b>ESTOQUE</b><span>{current.summary.sales_without_item} vendas sem item</span><span>{current.summary.paid_without_allocation} pagas sem alocação</span><span>{current.summary.incompatible_allocations} alocações incompatíveis</span><span>{current.summary.perfumes_with_projected_deficit} perfumes com déficit</span></div><div><b>REFERÊNCIAS</b><span>{current.summary.reference_inconsistencies} inconsistências</span></div><div><b>COMERCIAL</b><span>{current.summary.value_conflicts} conflitos de valor</span><span>{current.summary.commercial_incompatibilities} dados incompatíveis</span></div></div>
    <div className="davi-diagnostic-groups"><details><summary><AlertTriangle/>Duplicidades <b>{currentGroups.duplicates.length}</b><ChevronRight/></summary><FindingList findings={currentGroups.duplicates}/></details><details><summary><Info/>Perfumes e aliases <b>{currentGroups.perfumes.length}</b><ChevronRight/></summary><FindingList findings={currentGroups.perfumes}/></details><details><summary><AlertTriangle/>Estoque e alocações <b>{currentGroups.inventory.length}</b><ChevronRight/></summary><FindingList findings={currentGroups.inventory}/></details><details><summary><XCircle/>Referências <b>{currentGroups.references.length}</b><ChevronRight/></summary><FindingList findings={currentGroups.references}/></details><details><summary><AlertTriangle/>Dados comerciais e valores <b>{currentGroups.commercial.length}</b><ChevronRight/></summary><FindingList findings={currentGroups.commercial}/></details>
@@ -47,6 +97,8 @@ export function DaviImportDiagnostics(){
   {error&&<p className="davi-diagnostic-error"><XCircle/>{error}</p>}
   {report&&<div className="davi-diagnostic-results">
    <div className="davi-diagnostic-heading"><div><span>ANÁLISE CONCLUÍDA</span><h3>{report.total_lines.toLocaleString('pt-BR')} linhas analisadas</h3><p>{safe.length?`${safe.length} alteração(ões) segura(s) aguardando confirmação.`:`Esta planilha não tem nenhuma alteração segura nova para aplicar. Existem ${report.stock.excluded_for_manual_review} itens para revisão.`}</p></div><CheckCircle2/></div>
+   <DataWarnings warnings={report.data_warnings}/>
+   <TotalsReconciliation totals={report.totals}/>
    <div className="davi-diagnostic-metrics"><Metric tone="ok" value={report.identity.updates} label="vendas já conciliadas"/><Metric tone="new" value={report.identity.new_sales} label="vendas novas"/><Metric tone="ok" value={report.identity.updates_with_changes} label="atualizações seguras"/><Metric tone="warn" value={report.identity.probable_duplicates} label="possíveis duplicidades"/><Metric tone="warn" value={report.identity.conflicts} label="conflitos"/><Metric tone="bad" value={report.identity.invalid} label="linhas inválidas"/></div>
    <div className="davi-diagnostic-stock"><h4>ESTOQUE</h4>{report.stock.stock_ok.sales===0&&report.stock.stock_insufficient.sales===0&&report.stock.stock_item_missing.sales===0?<p><CheckCircle2/> Nenhuma nova demanda de estoque neste arquivo.</p>:<div className="davi-diagnostic-metrics"><Metric tone="ok" value={report.stock.stock_ok.sales} label={`${report.stock.stock_ok.ml} ml com estoque`}/><Metric tone="warn" value={report.stock.stock_insufficient.sales} label={`${report.stock.stock_insufficient.ml} ml insuficientes`}/><Metric tone="bad" value={report.stock.stock_item_missing.sales} label={`${report.stock.stock_item_missing.ml} ml sem item físico`}/></div>}
     {report.inventory_by_perfume.length>0&&<details><summary><ChevronRight/>Ver simulação por perfume</summary><div className="davi-diagnostic-inventory">{report.inventory_by_perfume.map(item=><article key={item.inventory_item_id}><strong>{item.perfume}</strong><span>Disponível: {item.available_ml} ml</span><span>Já reservado: {item.already_reserved_ml} ml</span><span>Nova demanda: {item.new_demand_ml} ml</span><b>Saldo projetado: {item.projected_balance_ml} ml</b></article>)}</div></details>}
