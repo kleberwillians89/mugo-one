@@ -18,7 +18,7 @@ describe('Davi import diagnostics UI gate',()=>{
   const source=fs.readFileSync('src/components/DaviImportDiagnostics.tsx','utf8')
   expect(source).toContain('ANALISAR PLANILHA')
   expect(source).toContain('APLICAR ALTERAÇÕES SEGURAS')
-  expect(source).toContain('disabled={!safe.length||applying}')
+  expect(source).toContain('disabled={!safe.length||applying||refreshing}')
   expect(source).toContain('onClick={()=>void applySafe()}')
   expect(source).toContain("identity_classification==='PROBABLE_DUPLICATE'")
   expect(source).toContain("identity_classification==='CONFLICT'")

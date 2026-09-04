@@ -69,7 +69,7 @@ describe('Davi safe diagnostic apply',()=>{
   for(const value of["status='completed' for update","'idempotent',true","'davi_safe_diagnostic_sale_applied'","'davi_safe_diagnostic_batch_applied'","'batch_id'","'sale_id'","'before'","'after'","'source'","'row'","'fingerprint'","'timestamp'"])expect(migration).toContain(value)
  })
  it('liga estados do botão, mostra erro e atualiza diagnóstico e tabela depois do sucesso',()=>{
-  expect(component).toContain('disabled={!safe.length||applying}')
+  expect(component).toContain('disabled={!safe.length||applying||refreshing}')
   expect(component).toContain('APLICANDO...')
   expect(component).toContain('alterações aplicadas com sucesso')
   expect(component).toContain('davi_safe_apply_conflict:')
@@ -87,5 +87,41 @@ describe('Davi safe diagnostic apply',()=>{
   expect(source).toContain("select(columns,{count:'exact'})")
   expect(source).toContain('Paginação incompleta em')
   expect(source).toContain('incomplete_tables')
+ })
+ it('reconhece o conflito de estado mesmo com o espaçamento real do cast jsonb::text do Postgres',()=>{
+  // O Postgres normaliza jsonb::text inserindo um espaço após ':' — o regex antigo
+  // ("code":" sem espaço) nunca batia com isso, então todo conflito caía no toast
+  // técnico bruto. A correção detecta apenas o prefixo estável da mensagem.
+  const realPostgresMessage='davi_safe_apply_conflict:{"row": "57", "code": "mutable_state_changed"}'
+  const oldBrokenRegex=/davi_safe_apply_conflict:\{.*?"code":"([^"]+)".*?\}/
+  expect(oldBrokenRegex.test(realPostgresMessage)).toBe(false)
+  expect(realPostgresMessage.startsWith('davi_safe_apply_conflict:')).toBe(true)
+  expect(component).toContain("raw.startsWith('davi_safe_apply_conflict:')")
+  expect(component).not.toMatch(/"code":"\(\[\^"\]\+\)"/)
+  for(const guardCode of['mutable_state_changed','stale_updated_at','stock_became_insufficient','diagnostic_fingerprint_mismatch'])
+   expect(`davi_safe_apply_conflict:{"row": "9", "code": "${guardCode}"}`.startsWith('davi_safe_apply_conflict:')).toBe(true)
+ })
+ it('invalida o relatório, bloqueia o apply e reanalisa o mesmo arquivo automaticamente após conflito de estado',()=>{
+  const staleBranch=component.slice(component.indexOf('isStaleConflict){'),component.indexOf('}else{setError(raw)'))
+  expect(staleBranch).toContain('setReport(null)')
+  expect(staleBranch).toContain('setRefreshing(true)')
+  expect(staleBranch).toContain('const refreshed=await analyzeDaviFile(file)')
+  expect(staleBranch).toContain('setReport(refreshed)')
+  expect(staleBranch).toContain('finally{setRefreshing(false)}')
+  expect(staleBranch).toContain('A base mudou desde a última análise. O diagnóstico foi atualizado automaticamente. Confira os novos resultados antes de aplicar.')
+  expect(staleBranch).not.toContain('void applySafe()')
+  expect(staleBranch).not.toContain('toast.push(raw')
+  expect(component).toContain('console.warn(\'[davi-safe-apply]')
+ })
+ it('trata arquivo indisponível na reanálise mantendo o apply bloqueado, sem vazar erro técnico',()=>{
+  const refreshFailure=component.slice(component.indexOf('}catch{setError('),component.indexOf('}finally{setRefreshing(false)}'))
+  expect(refreshFailure).toContain('A base mudou. Analise novamente a planilha antes de aplicar.')
+  expect(refreshFailure).not.toMatch(/P0001|mutable_state_changed|"row"|"code"/)
+ })
+ it('recalcula contadores e exige novo clique manual a partir do relatório reanalisado',()=>{
+  expect(component).toContain('const safe=report?safeDaviRows(report):[]')
+  expect(component).toContain('const groups=useMemo(()=>{const rows=report?.rows??[]')
+  expect(component).toContain('ATUALIZANDO DIAGNÓSTICO...')
+  expect(component).toContain('{refreshing&&<p className="davi-diagnostic-refreshing">')
  })
 })
