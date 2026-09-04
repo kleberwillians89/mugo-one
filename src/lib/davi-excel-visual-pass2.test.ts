@@ -2,6 +2,7 @@ import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
 const css=readFileSync('src/pages/DaviExcelPage.css','utf8')
 const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
+const drafts=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
 describe('Davi Excel visual pass 2',()=>{
  it('libera a página ao lado da sidebar e faz a tabela dominar a área',()=>{
   expect(css).toContain('.app-shell>main:has(.davi-excel) .page.davi-excel{width:100%;max-width:none')
@@ -20,5 +21,9 @@ describe('Davi Excel visual pass 2',()=>{
  it('não deixa menu contextual preso ao overflow da tabela',()=>{
   expect(page).toContain('createPortal(<div className="davi-action-menu"')
   expect(css).toContain('.davi-action-menu{position:fixed;top:auto;right:auto;z-index:1000}')
+ })
+ it('mantém ações compactas do draft dentro da coluna fixa',()=>{
+  expect(css).toContain('.davi-grid .davi-draft-actions{width:64px;min-width:64px')
+    expect(drafts).toContain('className="davi-draft-actions"')
  })
 })

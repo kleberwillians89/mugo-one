@@ -20,6 +20,7 @@ describe('Davi Excel soft delete',()=>{
  })
  it('oferece exclusão contextual, confirmação, motivo e ação local de draft',()=>{
   for(const value of['Ações da venda','Ver cliente','Excluir venda','Excluir venda?','Motivo da exclusão','Lançamento duplicado','Cliente desistiu / pedido não deve existir','Erro de importação','EXCLUIR VENDA'])expect(page).toContain(value)
+  expect(drafts).toContain('title="Salvar"')
   expect(drafts).toContain('title="Excluir linha"')
   expect(page).toContain('onDeleted={load}')
  })
