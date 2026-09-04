@@ -5,7 +5,7 @@ import {supabase} from './supabase'
 import {analyzeCurrentCrm,analyzeDaviImport,safeDaviDiagnosticRows,stageDaviParsedRows} from '../../scripts/davi-import-diagnostics-lib.mjs'
 
 export type DaviDiagnosticCandidate={sale_id:string;client_id:string;client:string;perfume_id:string;perfume:string;date:string;type:string;ml:number;amount:number}
-export type DaviDiagnosticRow={source_row:number;client:string;perfume:string;type:string;ml:number|null;amount:number|null;date:string|null;identity_classification:'EXACT_EXISTING'|'PROBABLE_DUPLICATE'|'NEW_SALE'|'CONFLICT'|'INVALID';sale_id:string|null;candidate_sale_ids:string[];existing_matches?:DaviDiagnosticCandidate[];reason:string;confidence:number;action:string;stock_classification:'STOCK_OK'|'STOCK_INSUFFICIENT'|'STOCK_ITEM_MISSING'|'STOCK_NOT_REQUIRED'|null;stock_reason:string;inventory:Record<string,number|string|null>|null;proposed_changes:Record<string,unknown>;organization_id?:string|null;source_signature?:string|null;expected_updated_at?:string|null;resolved_client_id?:string|null;normalized_client?:string;resolved_perfume_id?:string|null;normalized_perfume?:string;payment_status?:string;payment_method?:string|null;paid_at?:string|null;shipped_at?:string|null;credit?:number|null;note?:string|null;split_completed_at?:string|null;expected_payment_status?:string|null;expected_payment_method?:string|null;expected_paid_at?:string|null;expected_shipped_at?:string|null;expected_credit?:number|null;expected_note?:string|null;expected_split_completed_at?:string|null;approved_new_decision?:string|null}
+export type DaviDiagnosticRow={source_row:number;client:string;perfume:string;type:string;ml:number|null;amount:number|null;date:string|null;identity_classification:'EXACT_EXISTING'|'PROBABLE_DUPLICATE'|'NEW_SALE'|'CONFLICT'|'INVALID';diagnostic_status?:'COMPLETE'|'INCOMPLETE_DIAGNOSTIC';sale_id:string|null;candidate_sale_ids:string[];existing_matches?:DaviDiagnosticCandidate[];reason:string;confidence:number;action:string;stock_classification:'STOCK_OK'|'STOCK_INSUFFICIENT'|'STOCK_ITEM_MISSING'|'STOCK_NOT_REQUIRED'|null;stock_reason:string;inventory:Record<string,number|string|null>|null;proposed_changes:Record<string,unknown>;organization_id?:string|null;source_signature?:string|null;expected_updated_at?:string|null;resolved_client_id?:string|null;normalized_client?:string;resolved_perfume_id?:string|null;normalized_perfume?:string;payment_status?:string;payment_method?:string|null;paid_at?:string|null;shipped_at?:string|null;credit?:number|null;note?:string|null;split_completed_at?:string|null;expected_payment_status?:string|null;expected_payment_method?:string|null;expected_paid_at?:string|null;expected_shipped_at?:string|null;expected_credit?:number|null;expected_note?:string|null;expected_split_completed_at?:string|null;approved_new_decision?:string|null}
 export type DataWarning={table:string;code?:string;message:string;details?:string;hint?:string}
 export type StatusAmount={count:number;sum:number}
 export type DaviReconciliationCategory='MATCHED_SAME_AMOUNT'|'MATCHED_DIFFERENT_AMOUNT'|'SPREADSHEET_ONLY'|'CRM_ONLY'|'DUPLICATE_CANDIDATE'|'INVALID'
@@ -20,7 +20,7 @@ export type DaviTotalsReconciliation={
   reconciles:{spreadsheet_vs_corresponding:boolean;spreadsheet_vs_total_crm:boolean}
   divergences:DaviRowDivergence[]
 }
-export type DaviDiagnosticReport={zero_write:true;organization_id:string;source_sha256:string;total_lines:number;identity:{new_sales:number;updates:number;updates_with_changes:number;probable_duplicates:number;conflicts:number;invalid:number};stock:{stock_ok:{sales:number;ml:number};stock_insufficient:{sales:number;ml:number};stock_item_missing:{sales:number;ml:number};stock_not_required:number;excluded_for_manual_review:number;perfumes_with_deficit:number;total_deficit_ml:number};inventory_by_perfume:{inventory_item_id:string;perfume_id:string;perfume:string;available_ml:number;already_reserved_ml:number;new_demand_ml:number;projected_balance_ml:number;deficit_ml:number;surplus_ml:number}[];rows:DaviDiagnosticRow[];totals:DaviTotalsReconciliation;data_warnings:DataWarning[];file_name:string}
+export type DaviDiagnosticReport={zero_write:true;organization_id:string;source_sha256:string;total_lines:number;identity:{new_sales:number;updates:number;updates_with_changes:number;probable_duplicates:number;conflicts:number;invalid:number};stock:{stock_ok:{sales:number;ml:number};stock_insufficient:{sales:number;ml:number};stock_item_missing:{sales:number;ml:number};stock_not_required:number;excluded_for_manual_review:number;perfumes_with_deficit:number;total_deficit_ml:number};inventory_by_perfume:{inventory_item_id:string;perfume_id:string;perfume:string;available_ml:number;already_reserved_ml:number;new_demand_ml:number;projected_balance_ml:number;deficit_ml:number;surplus_ml:number}[];rows:DaviDiagnosticRow[];totals:DaviTotalsReconciliation;data_warnings:DataWarning[];file_name:string;snapshot_complete:boolean;snapshot_signature:string}
 export type CrmFinding={id:string;code:string;severity:'CRITICAL'|'WARNING'|'REVIEW'|'INFO';category:'duplicates'|'perfumes'|'inventory'|'references'|'commercial';sale_id:string|null;title:string;reason:string;expected:unknown;actual:unknown;related_entities:Record<string,unknown>}
 export type CurrentCrmDiagnostic={zero_write:true;mode:'current_crm';organization_id:string;created_at:string;analyzed:{sales:number;clients:number;perfumes:number;inventory_items:number;inventory_allocations:number};severity:Record<'CRITICAL'|'WARNING'|'REVIEW'|'INFO',number>;category:Record<'duplicates'|'perfumes'|'inventory'|'references'|'commercial',number>;summary:{possible_duplicates:number;possible_aliases:number;perfume_conflicts:number;sales_without_item:number;paid_without_allocation:number;incompatible_allocations:number;perfumes_with_projected_deficit:number;reference_inconsistencies:number;value_conflicts:number;commercial_incompatibilities:number};consistency:{changed_during_read:boolean;signature?:string};inventory_by_perfume:{inventory_item_id:string;perfume_id:string;perfume:string;available_ml:number;reserved_ml:number;unallocated_demand_ml:number;projected_balance_ml:number;deficit_ml:number}[];findings:CrmFinding[];data_warnings:DataWarning[]}
 export type DaviSafeApplyCandidate={identity_classification:'NEW_SALE'|'EXACT_EXISTING';source_row:number;source_signature:string;sale_id:string|null;expected_updated_at:string|null;resolved_client_id:string|null;client:string;display_client:string;resolved_perfume_id:string|null;perfume:string;display_perfume:string;sale_date:string;sale_type:string;volume_ml:string;amount:string;payment_status:string;payment_method:string|null;paid_at:string|null;shipped_at:string|null;credit:string|null;note:string|null;split_completed_at:string|null;expected_payment_status:string|null;expected_payment_method:string|null;expected_paid_at:string|null;expected_shipped_at:string|null;expected_credit:string|null;expected_note:string|null;expected_split_completed_at:string|null;change_keys:string[];stock_classification:'STOCK_OK'|'STOCK_NOT_REQUIRED';inventory_item_id:string|null;required_inventory_ml:string;approved_new_decision:string|null;reason:string;confidence:string}
@@ -33,17 +33,21 @@ function describeSupabaseError(table:string,error:{code?:string;message?:string;
 
 async function allRows(table:string,columns:string,organizationId:string){
   const rows:Record<string,unknown>[]=[]
+  let expectedCount:number|null=null
   for(let from=0;;from+=1000){
-    const{data,error}=await supabase!.from(table).select(columns).eq('organization_id',organizationId).order('id').range(from,from+999)
+    const{data,count,error}=await supabase!.from(table).select(columns,{count:'exact'}).eq('organization_id',organizationId).order('id').range(from,from+999)
     if(error){
       const detail=describeSupabaseError(table,error)
       console.error(`[davi-import-diagnostics] Erro Supabase ao ler ${table}: code=${detail.code} message=${detail.message} details=${detail.details} hint=${detail.hint}`)
       throw new Error(`Não foi possível ler ${table} para a análise.`,{cause:detail})
     }
     const page=(data??[]) as unknown as Record<string,unknown>[]
+    if(count==null)throw new Error(`Não foi possível confirmar a contagem de ${table} para a análise.`)
+    expectedCount??=count
     rows.push(...page)
     if((data?.length??0)<1000)break
   }
+  if(expectedCount!==rows.length)throw new Error(`Paginação incompleta em ${table}: esperado ${expectedCount}, coletado ${rows.length}.`)
   if(new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error(`Paginação inconsistente em ${table}. Execute novamente.`)
   return rows
 }
@@ -63,7 +67,7 @@ async function allRowsOptional(table:string,columns:string,organizationId:string
 
 async function childRows(table:string,columns:string,foreignKey:string,ids:string[]){
  const rows:Record<string,unknown>[]=[]
- for(let index=0;index<ids.length;index+=100){const chunk=ids.slice(index,index+100);for(let from=0;;from+=1000){const{data,error}=await supabase!.from(table).select(columns).in(foreignKey,chunk).order('id').range(from,from+999);if(error){const detail=describeSupabaseError(table,error);console.error(`[davi-import-diagnostics] Erro Supabase ao ler ${table}: code=${detail.code} message=${detail.message} details=${detail.details} hint=${detail.hint}`);throw new Error(`Não foi possível ler ${table} para a análise.`,{cause:detail})};const page=(data??[])as unknown as Record<string,unknown>[];rows.push(...page);if(page.length<1000)break}}
+ for(let index=0;index<ids.length;index+=100){const chunk=ids.slice(index,index+100);let expectedCount:number|null=null;let chunkRows=0;for(let from=0;;from+=1000){const{data,count,error}=await supabase!.from(table).select(columns,{count:'exact'}).in(foreignKey,chunk).order('id').range(from,from+999);if(error){const detail=describeSupabaseError(table,error);console.error(`[davi-import-diagnostics] Erro Supabase ao ler ${table}: code=${detail.code} message=${detail.message} details=${detail.details} hint=${detail.hint}`);throw new Error(`Não foi possível ler ${table} para a análise.`,{cause:detail})};if(count==null)throw new Error(`Não foi possível confirmar a contagem de ${table} para a análise.`);expectedCount??=count;const page=(data??[])as unknown as Record<string,unknown>[];chunkRows+=page.length;rows.push(...page);if(page.length<1000)break}if(expectedCount!==chunkRows)throw new Error(`Paginação incompleta em ${table}: esperado ${expectedCount}, coletado ${chunkRows}.`)}
  if(new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error(`Paginação inconsistente em ${table}. Execute novamente.`)
  return rows
 }
@@ -87,12 +91,13 @@ async function fetchDiagnosticSnapshot(organizationId:string){
  ])
  const preparationBatches=preparationBatchesRead.rows
  const dataWarnings:DataWarning[]=preparationBatchesRead.warning?[preparationBatchesRead.warning]:[]
+ const incompleteTables=preparationBatchesRead.warning?['preparation_batches']:[]
  const preparationItems=await childRows('preparation_batch_items','id,batch_id,allocation_id,quantity_ml','batch_id',preparationBatches.map(row=>String(row.id)))
  const[afterSales,afterItems,afterAllocations]=await Promise.all([endMarker('sales',organizationId),endMarker('inventory_items',organizationId),endMarker('inventory_allocations',organizationId)])
  const before={sales:{count:sales.length,latest:latest(sales)},inventory_items:{count:inventoryItems.length,latest:latest(inventoryItems)},inventory_allocations:{count:inventoryAllocations.length,latest:latest(inventoryAllocations)}}
  const after={sales:afterSales,inventory_items:afterItems,inventory_allocations:afterAllocations}
  const changed=Object.keys(before).some(key=>before[key as keyof typeof before].count!==after[key as keyof typeof after].count||before[key as keyof typeof before].latest!==after[key as keyof typeof after].latest)
- return{organization_id:organizationId,consistency:{changed_during_read:changed,signature:JSON.stringify({before,after})},data_warnings:dataWarnings,tables:{clients,perfumes,sales,inventory_items:inventoryItems,inventory_allocations:inventoryAllocations,shipments,shipment_items:shipmentItems,preparation_batches:preparationBatches,preparation_batch_items:preparationItems}}
+ return{organization_id:organizationId,consistency:{changed_during_read:changed,incomplete_tables:incompleteTables,signature:JSON.stringify({before,after})},data_warnings:dataWarnings,tables:{clients,perfumes,sales,inventory_items:inventoryItems,inventory_allocations:inventoryAllocations,shipments,shipment_items:shipmentItems,preparation_batches:preparationBatches,preparation_batch_items:preparationItems}}
 }
 
 const toCents=(value:unknown)=>{const number=Number(value);return value==null||!Number.isFinite(number)?0:Math.round(number*100)}
@@ -189,12 +194,14 @@ export function computeTotals(preview:ImportPreview,rows:DaviDiagnosticRow[],sal
 
 export async function analyzeDaviFile(file:File):Promise<DaviDiagnosticReport>{
   if(!supabase)throw new Error('Conecte o Supabase para analisar a planilha.')
-  const[{preview},{organizationId},fileBytes]=await Promise.all([readWorkbook(file),authenticatedOrganization(),file.arrayBuffer()])
+   const[{preview},{organizationId},fileBytes]=await Promise.all([readWorkbook(file),authenticatedOrganization(),file.arrayBuffer()])
   const snapshot=await fetchDiagnosticSnapshot(organizationId)
   const staging=stageDaviParsedRows(preview.rows,snapshot)
   const analysis=analyzeDaviImport({staging,snapshot})
   const totals=computeTotals(preview,analysis.rows,snapshot.tables.sales)
-  return{...analysis,organization_id:organizationId,source_sha256:await sha256Hex(fileBytes),totals,data_warnings:snapshot.data_warnings,file_name:file.name}as DaviDiagnosticReport
+    const source_sha256=await sha256Hex(fileBytes)
+    const report={...analysis,organization_id:organizationId,source_sha256,totals,data_warnings:snapshot.data_warnings,file_name:file.name,snapshot_complete:!snapshot.consistency.changed_during_read&&!snapshot.consistency.incomplete_tables?.length,snapshot_signature:snapshot.consistency.signature??''} as DaviDiagnosticReport
+    return{...report,rows:report.rows.map(row=>({...row,diagnostic_status:validateDaviSafeDiagnosticRow(row,report).ok?'COMPLETE':'INCOMPLETE_DIAGNOSTIC'}))}
 }
 
 export async function analyzeCurrentCrmState():Promise<CurrentCrmDiagnostic>{
@@ -203,7 +210,27 @@ export async function analyzeCurrentCrmState():Promise<CurrentCrmDiagnostic>{
  return {...analyzeCurrentCrm(snapshot,{organizationId}),data_warnings:snapshot.data_warnings}as CurrentCrmDiagnostic
 }
 
-export const safeDaviRows=(report:DaviDiagnosticReport)=>safeDaviDiagnosticRows(report) as DaviDiagnosticRow[]
+const isSha256=(value:unknown)=>typeof value==='string'&&/^[0-9a-f]{64}$/.test(value)
+const isUuid=(value:unknown)=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+const approvedChangeKeys=new Set(['payment_status','payment_method','paid_at','shipped_at','credit','note','split_completed_at'])
+export type DaviSafeValidation={ok:true}|{ok:false;reason:string}
+export function validateDaviSafeDiagnosticRow(row:DaviDiagnosticRow,report?:DaviDiagnosticReport):DaviSafeValidation{
+ if(report&&(!report.snapshot_complete||!isUuid(report.organization_id)||!isSha256(report.source_sha256)||!report.file_name||!report.snapshot_signature))return{ok:false,reason:'Snapshot ou identidade do diagnóstico incompleto.'}
+ if(report&&row.organization_id!==report.organization_id)return{ok:false,reason:'Tenant da linha não corresponde ao diagnóstico.'}
+ if(!Number.isInteger(row.source_row)||row.source_row<1||!row.source_signature||!row.date||!row.client||!row.perfume||!['APC','SPLIT'].includes(row.type.toUpperCase())||row.ml==null||!Number.isFinite(Number(row.ml))||Number(row.ml)<=0||row.amount==null||!Number.isFinite(Number(row.amount))||Number(row.amount)<0||!row.payment_status||!['paid','pending','cancelled','unknown'].includes(row.payment_status))return{ok:false,reason:'Dados comerciais obrigatórios ausentes ou inválidos.'}
+ if(!['NEW_SALE','EXACT_EXISTING'].includes(row.identity_classification)||!['STOCK_OK','STOCK_NOT_REQUIRED'].includes(row.stock_classification??''))return{ok:false,reason:'Classificação comercial ou de estoque não é aplicável.'}
+ const changeKeys=Object.keys(row.proposed_changes??{}).sort()
+ if(changeKeys.some(key=>!approvedChangeKeys.has(key)))return{ok:false,reason:'Campo proposto não é aplicável.'}
+ if(row.identity_classification==='NEW_SALE'&&(row.sale_id||row.expected_updated_at||changeKeys.length>0))return{ok:false,reason:'Payload de venda nova inconsistente.'}
+ if(row.identity_classification==='EXACT_EXISTING'&&(!isUuid(row.sale_id)||!row.expected_updated_at||Number.isNaN(Date.parse(row.expected_updated_at))||!isUuid(row.resolved_client_id)||!isUuid(row.resolved_perfume_id)||changeKeys.length===0||!row.expected_payment_status))return{ok:false,reason:'Snapshot esperado da venda existente ausente.'}
+ const requiredMl=Number(row.inventory?.needed_ml??0)
+ if(!Number.isFinite(requiredMl)||requiredMl<0)return{ok:false,reason:'Demanda de estoque inválida.'}
+ if(row.stock_classification==='STOCK_OK'&&(!isUuid(row.inventory?.inventory_item_id)||requiredMl<=0))return{ok:false,reason:'Diagnóstico de estoque incompleto.'}
+ if(row.stock_classification==='STOCK_NOT_REQUIRED'&&requiredMl!==0)return{ok:false,reason:'Diagnóstico de estoque inconsistente.'}
+ return{ok:true}
+}
+export const incompleteDaviRows=(report:DaviDiagnosticReport)=>report.rows.filter(row=>safeDaviDiagnosticRows({rows:[row]}).length>0&&!validateDaviSafeDiagnosticRow(row,report).ok)
+export const safeDaviRows=(report:DaviDiagnosticReport)=>report.rows.filter(row=>safeDaviDiagnosticRows({rows:[row]}).length>0&&validateDaviSafeDiagnosticRow(row,report).ok) as DaviDiagnosticRow[]
 
 const fixed=(value:number|null|undefined,digits:number)=>value==null?null:Number(value).toFixed(digits)
 const sha256Hex=async(value:ArrayBuffer|string)=>{
@@ -214,8 +241,9 @@ const sha256Hex=async(value:ArrayBuffer|string)=>{
 const fingerprintFields:(keyof DaviSafeApplyCandidate)[]=['identity_classification','source_row','source_signature','sale_id','expected_updated_at','resolved_client_id','client','display_client','resolved_perfume_id','perfume','display_perfume','sale_date','sale_type','volume_ml','amount','payment_status','payment_method','paid_at','shipped_at','credit','note','split_completed_at','expected_payment_status','expected_payment_method','expected_paid_at','expected_shipped_at','expected_credit','expected_note','expected_split_completed_at','change_keys','stock_classification','inventory_item_id','required_inventory_ml','approved_new_decision','reason','confidence']
 
 export const daviSafeApplyCandidates=(report:DaviDiagnosticReport):DaviSafeApplyCandidate[]=>safeDaviRows(report).map(row=>{
+ const validation=validateDaviSafeDiagnosticRow(row,report)
+ if(!validation.ok)throw new Error(`Linha ${row.source_row}: ${validation.reason} Execute a análise novamente.`)
  if(!row.source_signature||!row.date||row.ml==null||row.amount==null||!row.payment_status)throw new Error(`Linha ${row.source_row}: diagnóstico seguro incompleto; execute a análise novamente.`)
- if(row.identity_classification==='EXACT_EXISTING'&&(!row.sale_id||!row.expected_updated_at))throw new Error(`Linha ${row.source_row}: snapshot da venda ausente; execute a análise novamente.`)
  return{
   identity_classification:row.identity_classification as 'NEW_SALE'|'EXACT_EXISTING',source_row:row.source_row,source_signature:row.source_signature,
   sale_id:row.sale_id,expected_updated_at:row.expected_updated_at??null,resolved_client_id:row.resolved_client_id??null,

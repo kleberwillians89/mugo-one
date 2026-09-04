@@ -4,14 +4,14 @@ import{safeDaviRows,type DaviDiagnosticReport}from'./davi-import-diagnostics'
 
 describe('Davi import diagnostics UI gate',()=>{
  it('envia ao apply apenas venda nova ou atualização efetiva com estoque aprovado',()=>{
-  const base={source_row:1,client:'Cliente',perfume:'Perfume',type:'split',ml:5,amount:50,date:'2026-09-01',sale_id:null,candidate_sale_ids:[],reason:'',confidence:1,action:'',stock_reason:'',inventory:null,proposed_changes:{}}
+    const base={source_row:1,client:'Cliente',perfume:'Perfume',type:'split',ml:5,amount:50,date:'2026-09-01',sale_id:null,candidate_sale_ids:[],reason:'',confidence:1,action:'',stock_reason:'',inventory:null,proposed_changes:{},organization_id:'00000000-0000-4000-8000-000000000001',source_signature:'sig-1',payment_status:'pending'}
   const report={rows:[
-   {...base,identity_classification:'NEW_SALE',stock_classification:'STOCK_OK'},
-   {...base,source_row:2,identity_classification:'EXACT_EXISTING',stock_classification:'STOCK_NOT_REQUIRED',proposed_changes:{payment_method:{before:null,after:'pix'}}},
+     {...base,identity_classification:'NEW_SALE',stock_classification:'STOCK_OK',inventory:{inventory_item_id:'00000000-0000-4000-8000-000000000005',needed_ml:5}},
+     {...base,source_row:2,identity_classification:'EXACT_EXISTING',sale_id:'00000000-0000-4000-8000-000000000002',resolved_client_id:'00000000-0000-4000-8000-000000000003',resolved_perfume_id:'00000000-0000-4000-8000-000000000004',expected_updated_at:'2026-09-04T12:00:00Z',expected_payment_status:'pending',stock_classification:'STOCK_NOT_REQUIRED',proposed_changes:{payment_method:{before:null,after:'pix'}}},
    {...base,source_row:3,identity_classification:'PROBABLE_DUPLICATE',stock_classification:null},
    {...base,source_row:4,identity_classification:'CONFLICT',stock_classification:null},
    {...base,source_row:5,identity_classification:'NEW_SALE',stock_classification:'STOCK_INSUFFICIENT'},
-  ]}as unknown as DaviDiagnosticReport
+    ],organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig'}as unknown as DaviDiagnosticReport
   expect(safeDaviRows(report).map(row=>row.source_row)).toEqual([1,2])
  })
  it('mantém análise e apply como ações visivelmente separadas',()=>{

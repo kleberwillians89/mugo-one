@@ -1,19 +1,38 @@
 import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
-import{canonicalDaviSafeCandidates,daviSafeApplyCandidates,fingerprintDaviSafeCandidates,safeDaviRows,type DaviDiagnosticReport,type DaviDiagnosticRow,type DaviSafeApplyCandidate}from'./davi-import-diagnostics'
+import{canonicalDaviSafeCandidates,daviSafeApplyCandidates,fingerprintDaviSafeCandidates,incompleteDaviRows,safeDaviRows,type DaviDiagnosticReport,type DaviDiagnosticRow,type DaviSafeApplyCandidate,validateDaviSafeDiagnosticRow}from'./davi-import-diagnostics'
 
 const migration=readFileSync('supabase/migrations/202609040003_davi_safe_diagnostic_apply.sql','utf8')
 const component=readFileSync('src/components/DaviImportDiagnostics.tsx','utf8')
 const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
-const baseRow: DaviDiagnosticRow={source_row:2,client:'Cliente',perfume:'Perfume',type:'split',ml:5,amount:50,date:'2026-09-01',identity_classification:'NEW_SALE',sale_id:null,candidate_sale_ids:[],reason:'Sem correspondência.',confidence:.95,action:'criar_apos_aprovacao',stock_classification:'STOCK_NOT_REQUIRED',stock_reason:'Sem estoque necessário.',inventory:null,proposed_changes:{},source_signature:'sig-2',normalized_client:'cliente',normalized_perfume:'perfume',payment_status:'pending'}
-const report=(rows:DaviDiagnosticRow[])=>({organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',rows}as unknown as DaviDiagnosticReport)
+const baseRow: DaviDiagnosticRow={source_row:2,client:'Cliente',perfume:'Perfume',type:'split',ml:5,amount:50,date:'2026-09-01',identity_classification:'NEW_SALE',sale_id:null,candidate_sale_ids:[],reason:'Sem correspondência.',confidence:.95,action:'criar_apos_aprovacao',stock_classification:'STOCK_NOT_REQUIRED',stock_reason:'Sem estoque necessário.',inventory:null,proposed_changes:{},organization_id:'00000000-0000-4000-8000-000000000001',source_signature:'sig-2',normalized_client:'cliente',normalized_perfume:'perfume',payment_status:'pending'}
+const report=(rows:DaviDiagnosticRow[],patch:Partial<DaviDiagnosticReport>={})=>({organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig',rows,...patch}as unknown as DaviDiagnosticReport)
 const candidate=(patch:Partial<DaviSafeApplyCandidate>={}):DaviSafeApplyCandidate=>({...daviSafeApplyCandidates(report([baseRow]))[0],...patch})
 
 describe('Davi safe diagnostic apply',()=>{
+ it('exclui da contagem a linha segura sem fingerprint ou snapshot esperado',()=>{
+  const incomplete={...baseRow,source_signature:null}
+  expect(validateDaviSafeDiagnosticRow(incomplete,report([incomplete]))).toEqual({ok:false,reason:'Dados comerciais obrigatórios ausentes ou inválidos.'})
+  expect(safeDaviRows(report([incomplete]))).toEqual([])
+  expect(incompleteDaviRows(report([incomplete])).map(row=>row.source_row)).toEqual([2])
+  expect(incompleteDaviRows(report([{...incomplete,identity_classification:'PROBABLE_DUPLICATE',stock_classification:null}]))).toEqual([])
+  expect(()=>daviSafeApplyCandidates(report([incomplete]))).not.toThrow()
+  const staleUpdate={...baseRow,identity_classification:'EXACT_EXISTING' as const,sale_id:'00000000-0000-4000-8000-000000000002',resolved_client_id:'00000000-0000-4000-8000-000000000003',resolved_perfume_id:'00000000-0000-4000-8000-000000000004',expected_payment_status:'pending',proposed_changes:{payment_status:{before:'pending',after:'paid'}}}
+  expect(safeDaviRows(report([staleUpdate]))).toEqual([])
+ })
+ it('bloqueia todos os candidatos quando o snapshot está incompleto ou mudou durante a leitura',()=>{
+  expect(safeDaviRows(report([baseRow],{snapshot_complete:false}))).toEqual([])
+  expect(safeDaviRows(report([baseRow],{snapshot_complete:false,source_sha256:'f'.repeat(63)}))).toEqual([])
+ })
+ it('todo candidato contado como seguro monta payload sem falhar',()=>{
+  const rows=safeDaviRows(report([baseRow]))
+  expect(rows).toHaveLength(1)
+  expect(()=>daviSafeApplyCandidates(report(rows))).not.toThrow()
+ })
  it('preserva literalmente o gate atual e exclui duplicidade, conflito, inválida e falhas de estoque',()=>{
   const rows:DaviDiagnosticRow[]=[
    baseRow,
-   {...baseRow,source_row:3,identity_classification:'EXACT_EXISTING',sale_id:'00000000-0000-4000-8000-000000000002',expected_updated_at:'2026-09-04T12:00:00Z',proposed_changes:{payment_status:{before:'pending',after:'paid'}}},
+  {...baseRow,source_row:3,identity_classification:'EXACT_EXISTING',sale_id:'00000000-0000-4000-8000-000000000002',resolved_client_id:'00000000-0000-4000-8000-000000000003',resolved_perfume_id:'00000000-0000-4000-8000-000000000004',expected_updated_at:'2026-09-04T12:00:00Z',expected_payment_status:'pending',proposed_changes:{payment_status:{before:'pending',after:'paid'}}},
    {...baseRow,source_row:4,identity_classification:'PROBABLE_DUPLICATE',stock_classification:null},
    {...baseRow,source_row:5,identity_classification:'CONFLICT',stock_classification:'STOCK_OK'},
    {...baseRow,source_row:6,identity_classification:'INVALID',stock_classification:null},
@@ -54,7 +73,14 @@ describe('Davi safe diagnostic apply',()=>{
   expect(component).toContain('APLICANDO...')
   expect(component).toContain('alterações aplicadas com sucesso')
   expect(component).toContain('davi_safe_apply_conflict:')
+  expect(component).toContain('requer nova análise')
     expect(component).toContain('await onApplied();const refreshed=await analyzeDaviFile(file)')
   expect(page).toContain('<DaviImportDiagnostics onApplied={load}/>')
+ })
+ it('mantém paginação completa e rejeita snapshot estruturalmente incompleto',()=>{
+  const source=readFileSync('src/lib/davi-import-diagnostics.ts','utf8')
+  expect(source).toContain("select(columns,{count:'exact'})")
+  expect(source).toContain('Paginação incompleta em')
+  expect(source).toContain('incomplete_tables')
  })
 })
