@@ -295,7 +295,27 @@ export function analyzeDaviImport({staging, snapshot, options = {}}) {
       amount: row.amount,
       date: row.date,
       source_signature: row.signature ?? null,
+      organization_id: sale?.organization_id ?? staging.organization_id ?? snapshot.organization_id ?? null,
+      expected_updated_at: sale?.updated_at ?? null,
+      resolved_client_id: row.resolved_client_id ?? sale?.client_id ?? null,
+      normalized_client: row.client,
+      resolved_perfume_id: row.resolved_perfume_id ?? sale?.perfume_id ?? null,
+      normalized_perfume: row.perfume,
       payment_status: row.payment_status,
+      payment_method: row.raw?.['FORMA DE PAGAMENTO'] == null ? null : String(row.raw['FORMA DE PAGAMENTO']).trim() || null,
+      paid_at: row.paid_at ?? null,
+      shipped_at: row.shipped_at ?? null,
+      credit: row.credit ?? null,
+      note: row.raw?.['OBSERVAÇÃO'] == null ? null : String(row.raw['OBSERVAÇÃO']).trim() || null,
+      split_completed_at: row.split_completed_at ?? null,
+      expected_payment_status: sale?.payment_status ?? null,
+      expected_payment_method: sale ? normalize(sale.payment_method) || null : null,
+      expected_paid_at: sale ? sourceDate(sale.paid_at) : null,
+      expected_shipped_at: sale ? sourceDate(sale.shipped_at) : null,
+      expected_credit: sale ? numeric(sale.credit_reference_amount) : null,
+      expected_note: sale ? normalize(sale.notes) || null : null,
+      expected_split_completed_at: sale ? sourceDate(sale.split_completed_at) : null,
+      approved_new_decision: row.approved_new_decision ?? null,
       proposed_changes: row.proposed_changes,
       ...identity,
       allocation_need: {...need, allocation_conflict: allocationConflict},
@@ -403,6 +423,11 @@ export function analyzeDaviImport({staging, snapshot, options = {}}) {
     rows,
   }
 }
+
+/** Regra canônica do botão de apply. Mantida junto ao motor para CLI e frontend não divergirem. */
+export const safeDaviDiagnosticRows = (report) => report.rows.filter((row) =>
+  (row.identity_classification === 'NEW_SALE' || (row.identity_classification === 'EXACT_EXISTING' && Object.keys(row.proposed_changes ?? {}).length > 0))
+  && ['STOCK_OK', 'STOCK_NOT_REQUIRED'].includes(row.stock_classification ?? ''))
 
 const stableHash = (value) => {
   let hash = 2166136261

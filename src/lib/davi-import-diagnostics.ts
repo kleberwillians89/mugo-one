@@ -2,10 +2,10 @@ import {ImportPreview,readWorkbook} from './importer'
 import {authenticatedOrganization} from './records'
 import {supabase} from './supabase'
 // @ts-expect-error O motor é ESM puro compartilhado com os scripts Node.
-import {analyzeCurrentCrm,analyzeDaviImport,stageDaviParsedRows} from '../../scripts/davi-import-diagnostics-lib.mjs'
+import {analyzeCurrentCrm,analyzeDaviImport,safeDaviDiagnosticRows,stageDaviParsedRows} from '../../scripts/davi-import-diagnostics-lib.mjs'
 
 export type DaviDiagnosticCandidate={sale_id:string;client_id:string;client:string;perfume_id:string;perfume:string;date:string;type:string;ml:number;amount:number}
-export type DaviDiagnosticRow={source_row:number;client:string;perfume:string;type:string;ml:number|null;amount:number|null;date:string|null;identity_classification:'EXACT_EXISTING'|'PROBABLE_DUPLICATE'|'NEW_SALE'|'CONFLICT'|'INVALID';sale_id:string|null;candidate_sale_ids:string[];existing_matches?:DaviDiagnosticCandidate[];reason:string;confidence:number;action:string;stock_classification:'STOCK_OK'|'STOCK_INSUFFICIENT'|'STOCK_ITEM_MISSING'|'STOCK_NOT_REQUIRED'|null;stock_reason:string;inventory:Record<string,number|string|null>|null;proposed_changes:Record<string,unknown>}
+export type DaviDiagnosticRow={source_row:number;client:string;perfume:string;type:string;ml:number|null;amount:number|null;date:string|null;identity_classification:'EXACT_EXISTING'|'PROBABLE_DUPLICATE'|'NEW_SALE'|'CONFLICT'|'INVALID';sale_id:string|null;candidate_sale_ids:string[];existing_matches?:DaviDiagnosticCandidate[];reason:string;confidence:number;action:string;stock_classification:'STOCK_OK'|'STOCK_INSUFFICIENT'|'STOCK_ITEM_MISSING'|'STOCK_NOT_REQUIRED'|null;stock_reason:string;inventory:Record<string,number|string|null>|null;proposed_changes:Record<string,unknown>;organization_id?:string|null;source_signature?:string|null;expected_updated_at?:string|null;resolved_client_id?:string|null;normalized_client?:string;resolved_perfume_id?:string|null;normalized_perfume?:string;payment_status?:string;payment_method?:string|null;paid_at?:string|null;shipped_at?:string|null;credit?:number|null;note?:string|null;split_completed_at?:string|null;expected_payment_status?:string|null;expected_payment_method?:string|null;expected_paid_at?:string|null;expected_shipped_at?:string|null;expected_credit?:number|null;expected_note?:string|null;expected_split_completed_at?:string|null;approved_new_decision?:string|null}
 export type DataWarning={table:string;code?:string;message:string;details?:string;hint?:string}
 export type StatusAmount={count:number;sum:number}
 export type DaviReconciliationCategory='MATCHED_SAME_AMOUNT'|'MATCHED_DIFFERENT_AMOUNT'|'SPREADSHEET_ONLY'|'CRM_ONLY'|'DUPLICATE_CANDIDATE'|'INVALID'
@@ -20,9 +20,11 @@ export type DaviTotalsReconciliation={
   reconciles:{spreadsheet_vs_corresponding:boolean;spreadsheet_vs_total_crm:boolean}
   divergences:DaviRowDivergence[]
 }
-export type DaviDiagnosticReport={zero_write:true;total_lines:number;identity:{new_sales:number;updates:number;updates_with_changes:number;probable_duplicates:number;conflicts:number;invalid:number};stock:{stock_ok:{sales:number;ml:number};stock_insufficient:{sales:number;ml:number};stock_item_missing:{sales:number;ml:number};stock_not_required:number;excluded_for_manual_review:number;perfumes_with_deficit:number;total_deficit_ml:number};inventory_by_perfume:{inventory_item_id:string;perfume_id:string;perfume:string;available_ml:number;already_reserved_ml:number;new_demand_ml:number;projected_balance_ml:number;deficit_ml:number;surplus_ml:number}[];rows:DaviDiagnosticRow[];totals:DaviTotalsReconciliation;data_warnings:DataWarning[];file_name:string}
+export type DaviDiagnosticReport={zero_write:true;organization_id:string;source_sha256:string;total_lines:number;identity:{new_sales:number;updates:number;updates_with_changes:number;probable_duplicates:number;conflicts:number;invalid:number};stock:{stock_ok:{sales:number;ml:number};stock_insufficient:{sales:number;ml:number};stock_item_missing:{sales:number;ml:number};stock_not_required:number;excluded_for_manual_review:number;perfumes_with_deficit:number;total_deficit_ml:number};inventory_by_perfume:{inventory_item_id:string;perfume_id:string;perfume:string;available_ml:number;already_reserved_ml:number;new_demand_ml:number;projected_balance_ml:number;deficit_ml:number;surplus_ml:number}[];rows:DaviDiagnosticRow[];totals:DaviTotalsReconciliation;data_warnings:DataWarning[];file_name:string}
 export type CrmFinding={id:string;code:string;severity:'CRITICAL'|'WARNING'|'REVIEW'|'INFO';category:'duplicates'|'perfumes'|'inventory'|'references'|'commercial';sale_id:string|null;title:string;reason:string;expected:unknown;actual:unknown;related_entities:Record<string,unknown>}
 export type CurrentCrmDiagnostic={zero_write:true;mode:'current_crm';organization_id:string;created_at:string;analyzed:{sales:number;clients:number;perfumes:number;inventory_items:number;inventory_allocations:number};severity:Record<'CRITICAL'|'WARNING'|'REVIEW'|'INFO',number>;category:Record<'duplicates'|'perfumes'|'inventory'|'references'|'commercial',number>;summary:{possible_duplicates:number;possible_aliases:number;perfume_conflicts:number;sales_without_item:number;paid_without_allocation:number;incompatible_allocations:number;perfumes_with_projected_deficit:number;reference_inconsistencies:number;value_conflicts:number;commercial_incompatibilities:number};consistency:{changed_during_read:boolean;signature?:string};inventory_by_perfume:{inventory_item_id:string;perfume_id:string;perfume:string;available_ml:number;reserved_ml:number;unallocated_demand_ml:number;projected_balance_ml:number;deficit_ml:number}[];findings:CrmFinding[];data_warnings:DataWarning[]}
+export type DaviSafeApplyCandidate={identity_classification:'NEW_SALE'|'EXACT_EXISTING';source_row:number;source_signature:string;sale_id:string|null;expected_updated_at:string|null;resolved_client_id:string|null;client:string;display_client:string;resolved_perfume_id:string|null;perfume:string;display_perfume:string;sale_date:string;sale_type:string;volume_ml:string;amount:string;payment_status:string;payment_method:string|null;paid_at:string|null;shipped_at:string|null;credit:string|null;note:string|null;split_completed_at:string|null;expected_payment_status:string|null;expected_payment_method:string|null;expected_paid_at:string|null;expected_shipped_at:string|null;expected_credit:string|null;expected_note:string|null;expected_split_completed_at:string|null;change_keys:string[];stock_classification:'STOCK_OK'|'STOCK_NOT_REQUIRED';inventory_item_id:string|null;required_inventory_ml:string;approved_new_decision:string|null;reason:string;confidence:string}
+export type DaviSafeApplyResult={batch_id:string;idempotent:boolean;updates:number;inserts:number;applied:number;fingerprint:string}
 
 /** Extrai code/message/details/hint reais do Postgres/PostgREST — nunca escondidos, só reformatados para uma mensagem amigável. */
 function describeSupabaseError(table:string,error:{code?:string;message?:string;details?:string;hint?:string}):DataWarning{
@@ -187,12 +189,12 @@ export function computeTotals(preview:ImportPreview,rows:DaviDiagnosticRow[],sal
 
 export async function analyzeDaviFile(file:File):Promise<DaviDiagnosticReport>{
   if(!supabase)throw new Error('Conecte o Supabase para analisar a planilha.')
-  const[{preview},{organizationId}]=await Promise.all([readWorkbook(file),authenticatedOrganization()])
+  const[{preview},{organizationId},fileBytes]=await Promise.all([readWorkbook(file),authenticatedOrganization(),file.arrayBuffer()])
   const snapshot=await fetchDiagnosticSnapshot(organizationId)
   const staging=stageDaviParsedRows(preview.rows,snapshot)
   const analysis=analyzeDaviImport({staging,snapshot})
   const totals=computeTotals(preview,analysis.rows,snapshot.tables.sales)
-  return{...analysis,totals,data_warnings:snapshot.data_warnings,file_name:file.name}as DaviDiagnosticReport
+  return{...analysis,organization_id:organizationId,source_sha256:await sha256Hex(fileBytes),totals,data_warnings:snapshot.data_warnings,file_name:file.name}as DaviDiagnosticReport
 }
 
 export async function analyzeCurrentCrmState():Promise<CurrentCrmDiagnostic>{
@@ -201,6 +203,49 @@ export async function analyzeCurrentCrmState():Promise<CurrentCrmDiagnostic>{
  return {...analyzeCurrentCrm(snapshot,{organizationId}),data_warnings:snapshot.data_warnings}as CurrentCrmDiagnostic
 }
 
-export const safeDaviRows=(report:DaviDiagnosticReport)=>report.rows.filter(row=>
-  (row.identity_classification==='NEW_SALE'||(row.identity_classification==='EXACT_EXISTING'&&Object.keys(row.proposed_changes).length>0))
-  &&['STOCK_OK','STOCK_NOT_REQUIRED'].includes(row.stock_classification??''))
+export const safeDaviRows=(report:DaviDiagnosticReport)=>safeDaviDiagnosticRows(report) as DaviDiagnosticRow[]
+
+const fixed=(value:number|null|undefined,digits:number)=>value==null?null:Number(value).toFixed(digits)
+const sha256Hex=async(value:ArrayBuffer|string)=>{
+ const bytes=typeof value==='string'?new TextEncoder().encode(value):value
+ const digest=await crypto.subtle.digest('SHA-256',bytes)
+ return[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('')
+}
+const fingerprintFields:(keyof DaviSafeApplyCandidate)[]=['identity_classification','source_row','source_signature','sale_id','expected_updated_at','resolved_client_id','client','display_client','resolved_perfume_id','perfume','display_perfume','sale_date','sale_type','volume_ml','amount','payment_status','payment_method','paid_at','shipped_at','credit','note','split_completed_at','expected_payment_status','expected_payment_method','expected_paid_at','expected_shipped_at','expected_credit','expected_note','expected_split_completed_at','change_keys','stock_classification','inventory_item_id','required_inventory_ml','approved_new_decision','reason','confidence']
+
+export const daviSafeApplyCandidates=(report:DaviDiagnosticReport):DaviSafeApplyCandidate[]=>safeDaviRows(report).map(row=>{
+ if(!row.source_signature||!row.date||row.ml==null||row.amount==null||!row.payment_status)throw new Error(`Linha ${row.source_row}: diagnóstico seguro incompleto; execute a análise novamente.`)
+ if(row.identity_classification==='EXACT_EXISTING'&&(!row.sale_id||!row.expected_updated_at))throw new Error(`Linha ${row.source_row}: snapshot da venda ausente; execute a análise novamente.`)
+ return{
+  identity_classification:row.identity_classification as 'NEW_SALE'|'EXACT_EXISTING',source_row:row.source_row,source_signature:row.source_signature,
+  sale_id:row.sale_id,expected_updated_at:row.expected_updated_at??null,resolved_client_id:row.resolved_client_id??null,
+  client:row.normalized_client??row.client,display_client:row.client,resolved_perfume_id:row.resolved_perfume_id??null,
+  perfume:row.normalized_perfume??row.perfume,display_perfume:row.perfume,sale_date:row.date,sale_type:row.type.toUpperCase(),
+  volume_ml:Number(row.ml).toFixed(3),amount:Number(row.amount).toFixed(2),payment_status:row.payment_status,
+  payment_method:row.payment_method??null,paid_at:row.paid_at??null,shipped_at:row.shipped_at??null,credit:fixed(row.credit,2),
+  note:row.note??null,split_completed_at:row.split_completed_at??null,expected_payment_status:row.expected_payment_status??null,
+  expected_payment_method:row.expected_payment_method??null,expected_paid_at:row.expected_paid_at??null,expected_shipped_at:row.expected_shipped_at??null,
+  expected_credit:fixed(row.expected_credit,2),expected_note:row.expected_note??null,expected_split_completed_at:row.expected_split_completed_at??null,
+  change_keys:Object.keys(row.proposed_changes).sort(),stock_classification:row.stock_classification as 'STOCK_OK'|'STOCK_NOT_REQUIRED',
+  inventory_item_id:row.inventory?.inventory_item_id?String(row.inventory.inventory_item_id):null,
+  required_inventory_ml:Number(row.inventory?.needed_ml??0).toFixed(3),approved_new_decision:row.approved_new_decision??null,
+  reason:row.reason,confidence:Number(row.confidence).toFixed(3),
+ }
+}).sort((left,right)=>left.source_row-right.source_row)
+
+export const canonicalDaviSafeCandidates=(rows:DaviSafeApplyCandidate[])=>rows.slice().sort((left,right)=>left.source_row-right.source_row).map(row=>fingerprintFields.map(field=>field==='change_keys'?row.change_keys.join(','):String(row[field]??'')).join('\x1f')).join('\x1e')
+export const fingerprintDaviSafeCandidates=(rows:DaviSafeApplyCandidate[])=>sha256Hex(canonicalDaviSafeCandidates(rows))
+
+export async function applySafeDaviDiagnostic(report:DaviDiagnosticReport):Promise<DaviSafeApplyResult>{
+ if(!supabase)throw new Error('Conecte o Supabase para aplicar as alterações.')
+ const rows=daviSafeApplyCandidates(report)
+ if(!rows.length)throw new Error('Nenhuma alteração segura para aplicar.')
+ const{organizationId}=await authenticatedOrganization()
+ if(organizationId!==report.organization_id)throw new Error('O diagnóstico pertence a outra organização. Execute a análise novamente.')
+ const fingerprint=await fingerprintDaviSafeCandidates(rows)
+ const{data,error}=await supabase.rpc('apply_davi_safe_diagnostic_batch',{
+  p_organization_id:organizationId,p_file_name:report.file_name,p_source_hash:report.source_sha256,p_fingerprint:fingerprint,p_rows:rows,
+ })
+ if(error)throw new Error(error.message)
+ return{...(data as Omit<DaviSafeApplyResult,'fingerprint'>),fingerprint}
+}
