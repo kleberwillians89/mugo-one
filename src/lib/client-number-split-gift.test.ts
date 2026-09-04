@@ -83,7 +83,7 @@ describe('split_completed_at independente e auditável',()=>{
   expect(records).toContain('volume_ml,split_completed_at,amount')
   expect(davi.indexOf("key:'perfume'")).toBeLessThan(davi.indexOf("key:'split_completed_at'"))
   expect(davi.indexOf("key:'split_completed_at'")).toBeLessThan(davi.indexOf("key:'amount'"))
-  expect(davi).toContain("'DATA DO SPLIT':date(row.split_completed_at)")
+  expect(davi).toContain("'DATA DO SPLIT':shortDate(row.split_completed_at)")
  })
  it('importador aceita 13 e 14 colunas sem deslocar VALOR',()=>{
   expect(drafts).toContain('hasSplit=values.length===12||values.length===14')

@@ -15,6 +15,7 @@
     "analyze:incremental": "node scripts/analyze-incremental-workbook.mjs",
     "analyze:davi-diagnostics": "node scripts/analyze-davi-import-diagnostics.mjs",
     "test:davi-diagnostics": "vitest run scripts/davi-import-diagnostics.test.mjs",
+    "test:current-crm-diagnostics": "vitest run scripts/current-crm-diagnostics.test.mjs",
     "snapshot:remote": "node scripts/snapshot-remote.mjs private_data",
     "test:operational": "node scripts/test-operational-foundation.mjs",
     "apply:incremental": "node scripts/apply-incremental-workbook.mjs",

@@ -4,6 +4,7 @@ import { Plus, Save, Trash2 } from 'lucide-react'
 import { EntityCombobox, EntityOption, Modal, useToast } from './ui'
 import { createCanonicalPerfume, createSale, searchClients, searchPerfumes } from '../lib/records'
 import { normalizeClient } from '../lib/importer'
+import { shortDate } from '../lib/format'
 import { useHasPermission } from '../lib/PermissionsContext'
 import { DaviQuickClientModal } from './DaviQuickClientModal'
 import './DaviExcelNewRows.css'
@@ -21,7 +22,7 @@ type QuickClient={name:string;rowKeys:string[];returnRowId?:string}|null
 type SaveOutcome={status:'created'|'existing'|'failed';saleId?:string}
 
 const EDITABLE_COLUMNS:EditableColumn[]=['client','date','deadline','type','ml','perfume','splitCompletedAt','amount','payment','method','paidAt','notes']
-const today=()=>new Date().toLocaleDateString('pt-BR')
+const today=()=>shortDate(new Date())
 const fresh=():Draft=>({key:crypto.randomUUID(),client:null,clientText:'',clientCandidates:[],date:today(),deadline:'',type:'SPLIT',ml:'',perfume:null,perfumeText:'',perfumeCandidates:[],splitCompletedAt:'',amount:'',payment:'pending',method:'PIX',paidAt:'',notes:'',saving:false,error:''})
 const isoDate=(value:string)=>{const match=value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(match){const[,day,month,year]=match,iso=`${year}-${month}-${day}`,date=new Date(`${iso}T12:00:00`);return date.getFullYear()===Number(year)&&date.getMonth()+1===Number(month)&&date.getDate()===Number(day)?iso:null}if(/^\d{4}-\d{2}-\d{2}$/.test(value)){const date=new Date(`${value}T12:00:00`);return Number.isNaN(date.valueOf())?null:value}return null}
 const decimal=(value:string)=>{const clean=value.replace(/R\$|\s/g,'').replace(/\./g,'').replace(',','.');const number=Number(clean);return Number.isFinite(number)?number:null}

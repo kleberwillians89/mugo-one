@@ -23,10 +23,37 @@ export const slugify = (value: string) =>
 export const plural = (count: number, singular: string, pluralForm: string) => count === 1 ? singular : pluralForm
 export const countedLabel = (count: number, singular: string, pluralForm: string) => `${integer(count)} ${plural(count, singular, pluralForm)}`
 
-export const shortDate = (value: string | Date) =>
-  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)
-    ? `${value.slice(8,10)}/${value.slice(5,7)}/${value.slice(0,4)}`
-    : new Intl.DateTimeFormat('pt-BR', { timeZone:'America/Sao_Paulo' }).format(new Date(value))
+const brazilianTimeZone = 'America/Sao_Paulo'
+const isoCalendarDate = (value: string) => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T|\s)/)
+  if (!match) return null
+  const [,year,month,day]=match,date=new Date(Date.UTC(Number(year),Number(month)-1,Number(day)))
+  return date.getUTCFullYear()===Number(year)&&date.getUTCMonth()+1===Number(month)&&date.getUTCDate()===Number(day)
+    ? `${day}/${month}/${year}`
+    : null
+}
+const validDate = (value: string | Date | null | undefined) => {
+  if (value == null || value === '') return null
+  const parsed=value instanceof Date?value:new Date(value)
+  return Number.isNaN(parsed.valueOf())?null:parsed
+}
+
+/** Formatação exclusivamente visual. Datas civis ISO preservam o dia da origem. */
+export const shortDate = (value: string | Date | null | undefined) => {
+  if(typeof value==='string'){
+    const calendar=isoCalendarDate(value)
+    if(calendar)return calendar
+  }
+  const parsed=validDate(value)
+  return parsed?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',timeZone:brazilianTimeZone}).format(parsed):'—'
+}
+
+/** Data e hora de exibição do CRM em pt-BR; nunca altera o valor persistido. */
+export const dateTime = (value: string | Date | null | undefined) => {
+  if(typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value))return shortDate(value)
+  const parsed=validDate(value)
+  return parsed?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:brazilianTimeZone}).format(parsed).replace(',', ''):'—'
+}
 
 export const monthLabel = (month: string) => {
   const [year, m] = month.split('-').map(Number)

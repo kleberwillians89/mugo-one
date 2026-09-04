@@ -403,3 +403,203 @@ export function analyzeDaviImport({staging, snapshot, options = {}}) {
     rows,
   }
 }
+
+const stableHash = (value) => {
+  let hash = 2166136261
+  for (const character of String(value)) { hash ^= character.charCodeAt(0); hash = Math.imul(hash, 16777619) }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+const perfumeIdentity = (value, stripBottle = false) => {
+  let result = normalize(value).replace(/[‐‑‒–—―-]+/g, ' ').replace(/[^a-z0-9\s&+]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (stripBottle) result = result.replace(/\s*frasco\s*\d+\s*$/i, '').trim()
+  return result
+}
+const finding = (code, severity, category, identity, fields) => ({
+  id: `${code}:${stableHash(identity)}`, code, severity, category, ...fields,
+})
+
+/** Audita exclusivamente o estado persistido do CRM. Nenhuma linha de planilha é sintetizada. */
+export function analyzeCurrentCrm(snapshot, options = {}) {
+  const tables = snapshot.tables ?? snapshot
+  const allSales = tables.sales ?? [], allClients = tables.clients ?? [], allPerfumes = tables.perfumes ?? []
+  const orgCandidates = [...new Set([...allSales, ...(tables.inventory_items ?? []), ...(tables.inventory_allocations ?? [])].map(row => row.organization_id).filter(Boolean))]
+  const organizationId = options.organizationId ?? snapshot.organization_id ?? (orgCandidates.length === 1 ? orgCandidates[0] : null)
+  if (!organizationId) throw new Error('organization_id obrigatório para diagnóstico tenant-scoped.')
+  const inOrg = (row) => row.organization_id === organizationId
+  const clients = allClients.filter(inOrg), perfumes = allPerfumes.filter(inOrg), sales = allSales.filter(inOrg)
+  const items = (tables.inventory_items ?? []).filter(inOrg), allocations = (tables.inventory_allocations ?? []).filter(inOrg)
+  const shipments = (tables.shipments ?? []).filter(inOrg), shipmentItems = (tables.shipment_items ?? []).filter(inOrg)
+  const preparationBatches = (tables.preparation_batches ?? []).filter(inOrg)
+  const preparationBatchIds = new Set(preparationBatches.map(row => row.id))
+  const preparationItems = (tables.preparation_batch_items ?? []).filter(row => preparationBatchIds.has(row.batch_id))
+  const clientMap = byId(clients), perfumeMap = byId(perfumes), saleMap = byId(sales), itemMap = byId(items), allocationMap = byId(allocations)
+  const shipmentMap = byId(shipments), preparationBatchMap = byId(preparationBatches)
+  const findings = [], activeAllocations = allocations.filter(row => ACTIVE_ALLOCATION_STATUSES.has(row.status))
+  const activeBySale = new Map(), activeByItem = new Map()
+  for (const allocation of activeAllocations) { add(activeBySale, allocation.sale_id, allocation); add(activeByItem, allocation.inventory_item_id, allocation) }
+  const activeShipmentByAllocation = new Map(shipmentItems.filter(row => row.removed_at == null).map(row => [row.allocation_id, shipmentMap.get(row.shipment_id)]))
+  const confirmedPreparation = new Set(preparationItems.filter(row => preparationBatchMap.get(row.batch_id)?.status === 'confirmed').map(row => row.allocation_id))
+  const addFinding = (entry) => findings.push(entry)
+
+  const activeSales = sales.filter(sale => sale.deleted_at == null && sale.payment_status !== 'cancelled')
+  const commercialGroups = new Map()
+  for (const sale of activeSales) {
+    const key = indexKey(sale.client_id, sale.perfume_id, sourceDate(sale.sale_date), normalize(sale.sale_type), numeric(sale.volume_ml), numeric(sale.amount))
+    if (sale.client_id && sale.perfume_id && sale.sale_date && sale.sale_type && numeric(sale.volume_ml) != null && numeric(sale.amount) != null) add(commercialGroups, key, sale)
+  }
+  for (const [key, group] of commercialGroups) if (group.length > 1) addFinding(finding('POSSIBLE_DUPLICATE','REVIEW','duplicates',key,{
+    title:'Possíveis vendas duplicadas',reason:'Mesmo cliente, perfume, data, tipo, ml e valor. A repetição pode ser legítima e exige revisão.',
+    expected:'Uma identidade comercial por ocorrência comprovada',actual:{occurrences:group.length},sale_id:null,
+    related_entities:{sale_ids:group.map(row=>row.id),client_id:group[0].client_id,perfume_id:group[0].perfume_id},
+  }))
+
+  const catalogByStrict = new Map(), rawTargets = new Map(), aliasPairs = new Map()
+  for (const perfume of perfumes) add(catalogByStrict, perfumeIdentity(perfume.full_name_raw, true), perfume)
+  for (const sale of activeSales) {
+    const rawName = sale.perfume_name_raw ?? sale.raw_data?.PERFUME
+    const canonical = perfumeMap.get(sale.perfume_id)
+    if (!rawName || !canonical) continue
+    const rawStrict = perfumeIdentity(rawName), canonicalStrict = perfumeIdentity(canonical.full_name_raw)
+    const rawLoose = perfumeIdentity(rawName, true), canonicalLoose = perfumeIdentity(canonical.full_name_raw, true)
+    add(rawTargets, rawStrict, sale.perfume_id)
+    if (rawStrict === canonicalStrict) continue
+    const catalogMatches = [...new Map((catalogByStrict.get(rawLoose) ?? []).map(row=>[row.id,row])).values()]
+    const conflictingCatalog = catalogMatches.filter(row => row.id !== sale.perfume_id)
+    if (conflictingCatalog.length === 1 && rawLoose !== canonicalLoose) {
+      addFinding(finding('PERFUME_CONFLICT','WARNING','perfumes',`${sale.id}|${conflictingCatalog[0].id}`,{
+        sale_id:sale.id,title:'Venda ligada a perfume diferente da origem',reason:'O nome original corresponde inequivocamente a outro perfume do catálogo.',
+        expected:{perfume_id:conflictingCatalog[0].id,perfume:conflictingCatalog[0].full_name_raw},actual:{perfume_id:sale.perfume_id,perfume:canonical.full_name_raw,raw_perfume:rawName},
+        related_entities:{perfume_ids:[sale.perfume_id,conflictingCatalog[0].id]},
+      }))
+    } else if (rawLoose === canonicalLoose || similar(rawLoose, canonicalLoose)) {
+      const pairKey=indexKey(rawStrict,sale.perfume_id)
+      const current=aliasPairs.get(pairKey)??{raw:rawName,canonical:canonical.full_name_raw,perfume_id:sale.perfume_id,sale_ids:[]}
+      current.sale_ids.push(sale.id);aliasPairs.set(pairKey,current)
+    }
+  }
+  for (const [key, ids] of rawTargets) if (new Set(ids).size > 1) addFinding(finding('PERFUME_CONFLICT','WARNING','perfumes',key,{
+    sale_id:null,title:'Nome original aponta para mais de um perfume',reason:'A mesma descrição original está vinculada a perfumes canônicos diferentes.',
+    expected:'Um único perfume canônico por nome de origem aprovado',actual:{perfume_ids:[...new Set(ids)]},related_entities:{perfume_ids:[...new Set(ids)]},
+  }))
+  for (const [key, pair] of aliasPairs) addFinding(finding('POSSIBLE_ALIAS','INFO','perfumes',key,{
+    sale_id:null,title:'Possível alias de perfume',reason:'A diferença parece limitada a caixa, pontuação, acentuação ou identificação de frasco; nenhuma equivalência foi criada.',
+    expected:{canonical:pair.canonical,perfume_id:pair.perfume_id},actual:{source_name:pair.raw,occurrences:pair.sale_ids.length},
+    related_entities:{perfume_id:pair.perfume_id,sale_ids:pair.sale_ids.slice(0,50),total_sales:pair.sale_ids.length},
+  }))
+
+  const globalReferenceDate = items.map(item=>sourceDate(item.reference_date)).filter(Boolean).sort()[0] ?? null
+  const unallocatedDemand = new Map()
+  for (const sale of sales) {
+    const client = clientMap.get(sale.client_id), perfume = perfumeMap.get(sale.perfume_id)
+    if (!sale.client_id || !client || client.deleted_at != null) addFinding(finding('BROKEN_CLIENT_REFERENCE','CRITICAL','references',sale.id,{
+      sale_id:sale.id,title:'Referência de cliente inválida',reason:'A venda não aponta para um cliente ativo deste tenant.',expected:{organization_id:organizationId,active_client:true},actual:{client_id:sale.client_id??null},related_entities:{client_id:sale.client_id??null},
+    }))
+    if (!sale.perfume_id || !perfume) addFinding(finding('BROKEN_PERFUME_REFERENCE','CRITICAL','references',sale.id,{
+      sale_id:sale.id,title:'Referência de perfume inválida',reason:'A venda não aponta para um perfume deste tenant.',expected:{organization_id:organizationId,perfume_reference:true},actual:{perfume_id:sale.perfume_id??null},related_entities:{perfume_id:sale.perfume_id??null},
+    }))
+    const invalidCore = !sourceDate(sale.sale_date) || !['apc','split'].includes(normalize(sale.sale_type)) || numeric(sale.volume_ml) == null || Number(sale.volume_ml) <= 0 || numeric(sale.amount) == null || Number(sale.amount) < 0
+    if (invalidCore) addFinding(finding('INCOMPATIBLE_COMMERCIAL_DATA','WARNING','commercial',sale.id,{
+      sale_id:sale.id,title:'Dados comerciais incompatíveis',reason:'Data, tipo, ml ou valor não atendem ao contrato comercial atual.',expected:{sale_type:['APC','SPLIT'],volume_ml:'> 0',amount:'>= 0',sale_date:'valid'},actual:{sale_type:sale.sale_type,volume_ml:sale.volume_ml,amount:sale.amount,sale_date:sale.sale_date},related_entities:{client_id:sale.client_id,perfume_id:sale.perfume_id},
+    }))
+    const rawAmount = numeric(sale.raw_data?.VALOR ?? sale.raw_data?.[' VALOR'] ?? sale.original_amount)
+    const amount = numeric(sale.amount)
+    if (rawAmount != null && amount != null && Math.abs(rawAmount-amount) > 0.01) addFinding(finding('ORIGINAL_VALUE_MISMATCH','WARNING','commercial',sale.id,{
+      sale_id:sale.id,title:'Valor original diverge do valor atual',reason:'O valor numérico preservado na origem difere significativamente de sales.amount.',expected:{source_amount:rawAmount},actual:{sale_amount:amount,difference:round(amount-rawAmount)},related_entities:{client_id:sale.client_id,perfume_id:sale.perfume_id},
+    }))
+
+    const active = activeBySale.get(sale.id) ?? []
+    if (active.length > 1) addFinding(finding('MULTIPLE_ACTIVE_ALLOCATIONS','CRITICAL','inventory',sale.id,{
+      sale_id:sale.id,title:'Venda com múltiplas alocações ativas',reason:'Uma venda operacional deve possuir no máximo uma alocação ativa.',expected:{active_allocations:1},actual:{active_allocations:active.length},related_entities:{allocation_ids:active.map(row=>row.id)},
+    }))
+    const legitimatelyShipped = Boolean(sale.shipped_at) || active.some(allocation=>allocation.status==='shipped'||['posted','delivered'].includes(activeShipmentByAllocation.get(allocation.id)?.status))
+    if (sale.payment_status === 'paid' && sale.inventory_allocation_eligible && sale.deleted_at == null && !legitimatelyShipped && active.length === 0) {
+      const itemCandidates = items.filter(item=>item.status==='active'&&item.perfume_id===sale.perfume_id)
+      const saleDate=sourceDate(sale.sale_date)
+      const operationallyCurrent = saleDate && globalReferenceDate && saleDate >= globalReferenceDate
+      if (!operationallyCurrent) continue
+      if (itemCandidates.length === 0) addFinding(finding('PAID_ELIGIBLE_SALE_WITHOUT_INVENTORY_ITEM','CRITICAL','inventory',sale.id,{
+        sale_id:sale.id,title:'Venda paga e elegível sem item de estoque',reason:'A venda é posterior ao início do estoque operacional, exige alocação e não possui inventory_item ativo.',expected:{active_inventory_item:true,allocation:true},actual:{perfume_id:sale.perfume_id,allocation:false},related_entities:{perfume_id:sale.perfume_id},
+      }))
+      else if (itemCandidates.length === 1) {
+        const item=itemCandidates[0]
+        if (!item.reference_date || saleDate >= sourceDate(item.reference_date)) {
+          add(unallocatedDemand,item.id,sale)
+          addFinding(finding('PAID_SALE_WITHOUT_ALLOCATION','WARNING','inventory',sale.id,{
+            sale_id:sale.id,title:'Venda paga sem alocação',reason:'A venda deveria consumir estoque operacional, mas não possui alocação ativa.',expected:{inventory_item_id:item.id,allocated_ml:numeric(sale.volume_ml)},actual:{allocation:false},related_entities:{perfume_id:sale.perfume_id,inventory_item_id:item.id},
+          }))
+        }
+      } else addFinding(finding('MULTIPLE_ACTIVE_INVENTORY_ITEMS','CRITICAL','inventory',sale.id,{
+        sale_id:sale.id,title:'Mais de um item ativo aplicável',reason:'Não é seguro escolher automaticamente qual item deve atender a venda.',expected:{active_items:1},actual:{active_items:itemCandidates.length},related_entities:{inventory_item_ids:itemCandidates.map(row=>row.id),perfume_id:sale.perfume_id},
+      }))
+    }
+  }
+
+  for (const allocation of activeAllocations) {
+    const sale=saleMap.get(allocation.sale_id),item=itemMap.get(allocation.inventory_item_id),isLegacy=allocation.allocation_source==='legacy_manual_verified'
+    if (!sale || !item || !perfumeMap.get(allocation.perfume_id)) addFinding(finding('BROKEN_ALLOCATION_REFERENCE','CRITICAL','references',allocation.id,{
+      sale_id:allocation.sale_id??null,title:'Alocação com referência quebrada',reason:'Venda, item ou perfume relacionado à alocação não foi encontrado neste tenant.',expected:{sale:true,inventory_item:true,perfume:true},actual:{sale:Boolean(sale),inventory_item:Boolean(item),perfume:Boolean(perfumeMap.get(allocation.perfume_id))},related_entities:{allocation_id:allocation.id,sale_id:allocation.sale_id,inventory_item_id:allocation.inventory_item_id,perfume_id:allocation.perfume_id},
+    }))
+    if (!sale || !item) continue
+    if (allocation.organization_id!==sale.organization_id||item.organization_id!==sale.organization_id) addFinding(finding('ALLOCATION_TENANT_MISMATCH','CRITICAL','inventory',allocation.id,{
+      sale_id:sale.id,title:'Alocação ligada ao tenant incorreto',reason:'Venda, alocação e item não compartilham a mesma organização.',expected:{organization_id:sale.organization_id},actual:{allocation_organization_id:allocation.organization_id,item_organization_id:item.organization_id},related_entities:{allocation_id:allocation.id,inventory_item_id:item.id},
+    }))
+    if (allocation.perfume_id!==sale.perfume_id||item.perfume_id!==sale.perfume_id) addFinding(finding('ALLOCATION_PERFUME_MISMATCH','CRITICAL','inventory',allocation.id,{
+      sale_id:sale.id,title:'Alocação vinculada ao perfume errado',reason:'O perfume da venda, da alocação e do item físico não coincide.',expected:{perfume_id:sale.perfume_id},actual:{allocation_perfume_id:allocation.perfume_id,item_perfume_id:item.perfume_id},related_entities:{allocation_id:allocation.id,inventory_item_id:item.id},
+    }))
+    const expectedQuantity=allocation.status==='reserved'?numeric(sale.volume_ml):numeric(allocation.original_quantity_ml??sale.volume_ml)
+    if (expectedQuantity!=null&&numeric(allocation.quantity_ml)!==expectedQuantity&&!confirmedPreparation.has(allocation.id)&&!activeShipmentByAllocation.has(allocation.id)) addFinding(finding('ALLOCATION_QUANTITY_MISMATCH','WARNING','inventory',allocation.id,{
+      sale_id:sale.id,title:'Quantidade alocada diferente da venda',reason:'Não há preparação ou envio ativo que explique a diferença.',expected:{quantity_ml:expectedQuantity},actual:{quantity_ml:numeric(allocation.quantity_ml)},related_entities:{allocation_id:allocation.id,inventory_item_id:item.id},
+    }))
+    if (!isLegacy && sale.payment_status==='pending') addFinding(finding('ACTIVE_ALLOCATION_ON_PENDING_SALE','WARNING','inventory',allocation.id,{
+      sale_id:sale.id,title:'Alocação ativa em venda pendente',reason:'Alocação operacional ativa normalmente exige venda paga.',expected:{payment_status:'paid'},actual:{payment_status:sale.payment_status},related_entities:{allocation_id:allocation.id},
+    }))
+    if (!isLegacy && sale.inventory_allocation_eligible===false) addFinding(finding('ACTIVE_ALLOCATION_ON_INELIGIBLE_SALE','WARNING','inventory',allocation.id,{
+      sale_id:sale.id,title:'Alocação ativa em venda inelegível',reason:'A venda está marcada para não participar do estoque operacional.',expected:{inventory_allocation_eligible:true},actual:{inventory_allocation_eligible:false},related_entities:{allocation_id:allocation.id},
+    }))
+    const progressed=allocation.status==='shipped'||['posted','delivered'].includes(activeShipmentByAllocation.get(allocation.id)?.status)
+    if (!progressed&&(sale.deleted_at!=null||sale.payment_status==='cancelled')) addFinding(finding('ACTIVE_ALLOCATION_ON_CANCELLED_OR_DELETED_SALE','CRITICAL','inventory',allocation.id,{
+      sale_id:sale.id,title:'Operação ativa em venda cancelada ou excluída',reason:'A alocação ainda está ativa sem evidência de envio concluído.',expected:{sale_active:true,payment_status:'paid'},actual:{deleted_at:sale.deleted_at,payment_status:sale.payment_status,allocation_status:allocation.status},related_entities:{allocation_id:allocation.id,shipment_id:allocation.shipment_id},
+    }))
+  }
+
+  const inventoryByPerfume=[]
+  for (const item of items.filter(row=>row.status==='active')) {
+    const reserved=round((activeByItem.get(item.id)??[]).reduce((sum,row)=>sum+Number(row.quantity_ml??0),0))
+    const demand=round((unallocatedDemand.get(item.id)??[]).reduce((sum,row)=>sum+Number(row.volume_ml??0),0))
+    const available=numeric(item.available_ml)??0,projected=round(available-demand),deficit=round(Math.max(0,-projected))
+    inventoryByPerfume.push({inventory_item_id:item.id,perfume_id:item.perfume_id,perfume:perfumeMap.get(item.perfume_id)?.full_name_raw??item.perfume_id,available_ml:available,reserved_ml:reserved,unallocated_demand_ml:demand,projected_balance_ml:projected,deficit_ml:deficit})
+    if (deficit>0) addFinding(finding('AGGREGATED_INVENTORY_DEFICIT','CRITICAL','inventory',item.id,{
+      sale_id:null,title:'Déficit agregado de estoque',reason:'A soma das vendas operacionais não alocadas excede o saldo disponível deste item.',expected:{minimum_projected_balance_ml:0},actual:{available_ml:available,reserved_ml:reserved,unallocated_demand_ml:demand,projected_balance_ml:projected,deficit_ml:deficit},related_entities:{inventory_item_id:item.id,perfume_id:item.perfume_id,sale_ids:(unallocatedDemand.get(item.id)??[]).map(row=>row.id)},
+    }))
+    if (numeric(item.available_ml)!=null&&Number(item.available_ml)<0) addFinding(finding('NEGATIVE_AVAILABLE_INVENTORY','CRITICAL','inventory',item.id,{
+      sale_id:null,title:'Saldo disponível negativo',reason:'O próprio inventory_item demonstra available_ml abaixo de zero.',expected:{available_ml:'>= 0'},actual:{available_ml:numeric(item.available_ml)},related_entities:{inventory_item_id:item.id,perfume_id:item.perfume_id},
+    }))
+  }
+  for (const shipmentItem of shipmentItems.filter(row=>row.removed_at==null)) if (!shipmentMap.get(shipmentItem.shipment_id)||!allocationMap.get(shipmentItem.allocation_id)||!saleMap.get(shipmentItem.sale_id)) addFinding(finding('BROKEN_SHIPMENT_REFERENCE','CRITICAL','references',shipmentItem.id,{
+    sale_id:shipmentItem.sale_id??null,title:'Item de envio com referência quebrada',reason:'O item ativo de envio não aponta para envio, venda e alocação válidos.',expected:{shipment:true,sale:true,allocation:true},actual:{shipment:Boolean(shipmentMap.get(shipmentItem.shipment_id)),sale:Boolean(saleMap.get(shipmentItem.sale_id)),allocation:Boolean(allocationMap.get(shipmentItem.allocation_id))},related_entities:{shipment_item_id:shipmentItem.id,shipment_id:shipmentItem.shipment_id,allocation_id:shipmentItem.allocation_id},
+  }))
+  for (const prepItem of preparationItems) if (!allocationMap.get(prepItem.allocation_id)||!preparationBatchMap.get(prepItem.batch_id)) addFinding(finding('BROKEN_PREPARATION_REFERENCE','CRITICAL','references',prepItem.id,{
+    sale_id:allocationMap.get(prepItem.allocation_id)?.sale_id??null,title:'Preparação com referência quebrada',reason:'O item de preparação não aponta para lote e alocação válidos deste tenant.',expected:{batch:true,allocation:true},actual:{batch:Boolean(preparationBatchMap.get(prepItem.batch_id)),allocation:Boolean(allocationMap.get(prepItem.allocation_id))},related_entities:{preparation_item_id:prepItem.id,batch_id:prepItem.batch_id,allocation_id:prepItem.allocation_id},
+  }))
+
+  if (snapshot.consistency?.changed_during_read) addFinding(finding('SNAPSHOT_CHANGED_DURING_READ','WARNING','references',snapshot.consistency.signature??'changed',{
+    sale_id:null,title:'Base alterada durante a leitura',reason:'As marcas de atualização mudaram enquanto as páginas eram consultadas; execute novamente.',expected:{stable_snapshot:true},actual:snapshot.consistency,related_entities:{},
+  }))
+  const uniqueFindings=[...new Map(findings.map(entry=>[entry.id,entry])).values()]
+  const severity={CRITICAL:0,WARNING:0,REVIEW:0,INFO:0},category={duplicates:0,perfumes:0,inventory:0,references:0,commercial:0}
+  for(const entry of uniqueFindings){severity[entry.severity]+=1;category[entry.category]+=1}
+  const countCode=(code)=>uniqueFindings.filter(entry=>entry.code===code).length
+  return {
+    zero_write:true,mode:'current_crm',organization_id:organizationId,created_at:new Date().toISOString(),
+    analyzed:{sales:sales.length,clients:clients.length,perfumes:perfumes.length,inventory_items:items.length,inventory_allocations:allocations.length},
+    severity,category,
+    summary:{
+      possible_duplicates:countCode('POSSIBLE_DUPLICATE'),possible_aliases:countCode('POSSIBLE_ALIAS'),perfume_conflicts:countCode('PERFUME_CONFLICT'),
+      sales_without_item:countCode('PAID_ELIGIBLE_SALE_WITHOUT_INVENTORY_ITEM'),paid_without_allocation:countCode('PAID_SALE_WITHOUT_ALLOCATION'),
+      incompatible_allocations:uniqueFindings.filter(entry=>['MULTIPLE_ACTIVE_ALLOCATIONS','ALLOCATION_TENANT_MISMATCH','ALLOCATION_PERFUME_MISMATCH','ALLOCATION_QUANTITY_MISMATCH','ACTIVE_ALLOCATION_ON_PENDING_SALE','ACTIVE_ALLOCATION_ON_INELIGIBLE_SALE','ACTIVE_ALLOCATION_ON_CANCELLED_OR_DELETED_SALE','MULTIPLE_ACTIVE_INVENTORY_ITEMS'].includes(entry.code)).length,
+      perfumes_with_projected_deficit:countCode('AGGREGATED_INVENTORY_DEFICIT'),reference_inconsistencies:category.references,
+      value_conflicts:countCode('ORIGINAL_VALUE_MISMATCH'),commercial_incompatibilities:countCode('INCOMPATIBLE_COMMERCIAL_DATA'),
+    },
+    consistency:snapshot.consistency??{changed_during_read:false},inventory_by_perfume:inventoryByPerfume,findings:uniqueFindings,
+  }
+}
