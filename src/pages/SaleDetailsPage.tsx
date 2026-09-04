@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { brl, shortDate } from '../lib/format'
 import { operationalLabel, statusLabel } from '../lib/presentation'
+import { deliveryLabel } from '../lib/delivery'
 import {
   CommercialSale, confirmLegacyProductCustody, confirmSaleShippingAvailability, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
 } from '../lib/records'
@@ -116,7 +117,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
     <Divider label="Logística"/>
     <DefinitionGroup title="Envio" items={[
       {label:'Envio',value:shipment?.id||'Ainda não preparado'},
-      {label:'Status',value:shipment?.status?operationalLabel(shipment.status):sale.shipping_operational_status?operationalLabel(sale.shipping_operational_status):'—'},
+      {label:'Status',value:shipment?.status?operationalLabel(shipment.status):deliveryLabel(sale)},
       {label:'Transportadora',value:shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'},
       {label:'Rastreio',value:shipment?.tracking_code||'—'},
       {label:'Prazo histórico',value:sale.shipping_deadline_date?shortDate(sale.shipping_deadline_date):sale.shipping_deadline_raw||'—'},
