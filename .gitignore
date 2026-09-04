@@ -13,6 +13,7 @@ vite.config.d.ts
 .env*
 !.env.example
 private_data/
+_reference/ruah-import/
 *.xlsx
 *.xls
 *.dump

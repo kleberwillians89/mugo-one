@@ -3,7 +3,7 @@ import { AlertTriangle, Boxes, Filter, ShoppingBag } from 'lucide-react'
 import { brl, clientNumber, monthYearLabel, shortDate, integer } from '../lib/format'
 import { ClientModal } from '../components/RecordModals'
 import { operationalLabel, statusLabel } from '../lib/presentation'
-import { ClientPortalStatus, createDraftShipment, fetchClient360, fetchClientPortalStatus, inviteCustomerAccount, setClientGift } from '../lib/records'
+import { ClientPortalStatus, createDraftShipment, fetchClient360, fetchClientPortalStatus, inviteCustomerAccount, sendManychatMessage, setClientGift } from '../lib/records'
 import { useHasPermission } from '../lib/PermissionsContext'
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Drawer, EmptyState, Modal, PrimaryButton, SecondaryButton, SectionHeader, Stepper } from '../components/ui'
@@ -30,10 +30,12 @@ function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;default
   const [status,setStatus]=useState<ClientPortalStatus|null>(null)
   const [email,setEmail]=useState(defaultEmail),[sending,setSending]=useState(false),[feedback,setFeedback]=useState(''),[inviteOpen,setInviteOpen]=useState(false),[inviteSuccess,setInviteSuccess]=useState(false),[inviteError,setInviteError]=useState('')
   const [emailChannel,setEmailChannel]=useState(true),[whatsappChannel,setWhatsappChannel]=useState(Boolean(phone))
+  const [accessSending,setAccessSending]=useState(false),[accessSent,setAccessSent]=useState(false),[accessError,setAccessError]=useState('')
   const reload=()=>fetchClientPortalStatus(clientId).then(setStatus).catch(()=>{})
   useEffect(()=>{reload()},[clientId])
   const maskEmail=(value:string)=>{const[local,domain]=value.split('@');return local&&domain?`${local[0]}***@${domain}`:'e-mail informado'}
   const invite=async()=>{if((emailChannel&&!email.includes('@'))||(!emailChannel&&!whatsappChannel))return;setSending(true);setFeedback('');setInviteError('');try{const result=await inviteCustomerAccount(clientId,email,{email:emailChannel,whatsapp:whatsappChannel});const emailFailed=emailChannel&&result.channels.email.status!=='sent',whatsappFailed=whatsappChannel&&result.channels.whatsapp.status!=='sent';if(emailFailed||whatsappFailed){setInviteError(emailFailed?'Não foi possível enviar o convite por e-mail. Tente novamente.':'Não foi possível enviar o convite pelo WhatsApp. Tente novamente.');return}setInviteSuccess(true);await reload()}catch(reason){setInviteError(reason instanceof Error?reason.message:'Não foi possível enviar o convite. Tente novamente.')}finally{setSending(false)}}
+  const sendAccess=async()=>{if(accessSending||accessSent)return;setAccessSending(true);setAccessError('');try{await sendManychatMessage(clientId,'access');setAccessSent(true)}catch(reason){setAccessError(reason instanceof Error?reason.message:'Não foi possível enviar o acesso por WhatsApp.')}finally{setAccessSending(false)}}
   const active=status?.account_status==='active'
   return <section className="dossier-columns"><DefinitionGroup title="Portal Minha RUAH" items={[
     {label:'Conta',value:active?'ATIVA':status?.account_status==='pending_verification'?'CONVITE ENVIADO':'NÃO ATIVADA'},
@@ -44,6 +46,8 @@ function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;default
     {label:'Tickets abertos',value:integer(status?.open_tickets??0)},
   ]}/>
   <div>
+    <SecondaryButton loading={accessSending} disabled={accessSending||accessSent} onClick={()=>void sendAccess()}>{accessSent?'WHATSAPP ENVIADO':accessSending?'ENVIANDO...':'ENVIAR ACESSO WHATSAPP'}</SecondaryButton>
+    {accessError&&<Alert tone="danger" title="Não foi possível enviar o acesso.">{accessError}</Alert>}
     {!active&&<SecondaryButton onClick={()=>setInviteOpen(true)}>{status?.account_status==='pending_verification'?'Reenviar convite':'Convidar para Minha RUAH'}</SecondaryButton>}
     {feedback&&<small>{feedback}</small>}
     <Modal open={inviteOpen} onClose={()=>{setInviteOpen(false);setInviteSuccess(false);setInviteError('')}} eyebrow="MINHA RUAH" title={inviteSuccess?'Convite enviado.':'Enviar convite'}>

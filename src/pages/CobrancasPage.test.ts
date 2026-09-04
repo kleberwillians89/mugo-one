@@ -45,16 +45,27 @@ describe('CobrancasPage — resumo no topo (item 3)',()=>{
   })
 })
 
-describe('CobrancasPage — mensagem de cobrança (item 5)',()=>{
-  it('mensagem é montada só com as vendas do grupo (já filtradas como pendentes pelo RPC)',()=>{
-    expect(page).toContain('const buildMessage=(group:ClientGroup)=>{')
-    expect(page).toContain('group.sales.map(s=>')
-    expect(page).toContain('group.total')
+describe('CobrancasPage — mensagem de cobrança (item 5, template "Bi biiiiiiii")',()=>{
+  it('mensagem usa group.total (dinâmico, formatado em BRL via brl()) — nenhum valor hardcoded',()=>{
+    expect(page).toContain('const buildMessage=(group:ClientGroup)=>')
+    expect(page).toContain('💰 Total: ${brl(group.total)}')
+    expect(page).not.toMatch(/R\$\s*\d/)
   })
-  it('segue o modelo: saudação, lista perfume — valor, total em aberto, aviso de comprovante',()=>{
-    expect(page).toContain('Tudo bem?')
-    expect(page).toContain('Total em aberto:')
-    expect(page).toContain('pode nos enviar o comprovante por aqui')
+  it('não lista mais os itens individuais (perfume — valor) — o novo template só traz o total',()=>{
+    const buildMessageFn=page.slice(page.indexOf('const buildMessage'),page.indexOf('function CopyMessageModal'))
+    expect(buildMessageFn).not.toContain('group.sales.map')
+    expect(buildMessageFn).not.toContain('perfume_name')
+  })
+  it('segue exatamente o texto aprovado: saudação "Bi biiiiiiii", reserva do pedido, total, PIX/CNPJ, opção de cartão, pedido de comprovante, encerramento',()=>{
+    expect(page).toContain('Bi biiiiiiii 🚗💨✨')
+    expect(page).toContain('O carrinho da cobrança da Ruah passando por aqui!')
+    expect(page).toContain('Seu pedido está reservado e só falta o sinal verde para seguirmos com a separação. 🤍')
+    expect(page).toContain('Confere pra mim se está tudo certinho?')
+    expect(page).toContain('🔑 PIX (CNPJ) — GI Cosméticos LTDA')
+    expect(page).toContain('67.819.967/0001-70')
+    expect(page).toContain('💳 Prefere cartão? Me fala em quantas vezes quer parcelar que preparo o link.')
+    expect(page).toContain('Depois do pagamento, me envia o comprovante por aqui para eu agilizar a separação. 📦✨')
+    expect(page).toContain('Obrigada por escolher a Ruah Parfums! 🤍')
   })
   it('mensagem é revisável antes de copiar (textarea editável, não texto fixo)',()=>{
     expect(page).toContain('[text,setText]=useState(()=>buildMessage(group))')
@@ -196,6 +207,6 @@ describe('CobrancasPage — invariantes de estoque/logística (item "Invariantes
   })
   it('baixar imagem não chama nenhuma RPC de escrita — só as chamadas await já esperadas continuam presentes (log de cópia, geração local de PNG, registro de pagamento)',()=>{
     const rpcCalls=[...page.matchAll(/await (\w+)\(/g)].map((match)=>match[1])
-    expect(new Set(rpcCalls)).toEqual(new Set(['logCollectionMessageCopied','downloadNodeAsPng','registerCollectionPayment']))
+    expect(new Set(rpcCalls)).toEqual(new Set(['logCollectionMessageCopied','downloadNodeAsPng','registerCollectionPayment','sendManychatMessage']))
   })
 })

@@ -1,9 +1,9 @@
 import{useEffect,useMemo,useRef,useState}from'react'
-import{ClipboardCopy,CircleDollarSign,Download,ExternalLink}from'lucide-react'
+import{ClipboardCopy,CircleDollarSign,Download,ExternalLink,MessageCircle}from'lucide-react'
 import{brl,clientNumber,shortDate,slugify}from'../lib/format'
 import{downloadNodeAsPng}from'../lib/download-image'
 import{useHasPermission}from'../lib/PermissionsContext'
-import{CollectionSaleRow,fetchCollectionsPending,fetchDaviExcelDistinct,logCollectionMessageCopied,registerCollectionPayment}from'../lib/records'
+import{CollectionSaleRow,fetchCollectionsPending,fetchDaviExcelDistinct,logCollectionMessageCopied,registerCollectionPayment,sendManychatMessage}from'../lib/records'
 import{EmptyState,FormField,Modal,PageHeader,PrimaryButton,SecondaryButton,useToast}from'../components/ui'
 import{COLLECTION_IMAGE_PIXEL_RATIO,CollectionSummaryImageCard}from'../components/CollectionSummaryImageCard'
 import'./CobrancasPage.css'
@@ -11,7 +11,6 @@ import'./CobrancasPage.css'
 type ClientGroup={client_id:string;client_number:number|null;client_name:string;sales:CollectionSaleRow[];total:number;last_message_copied_at:string|null;message_copied_count:number}
 type CollectionFilter='all'|'never_copied'|'copied'
 
-const firstName=(name:string)=>name.trim().split(/\s+/)[0]||name
 const openClient=(clientId:string)=>{history.pushState({},'',`/clientes/${clientId}`);dispatchEvent(new PopStateEvent('popstate'))}
 const messageCopiedAt=(value:string)=>new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(value))
 
@@ -25,10 +24,8 @@ function groupByClient(rows:CollectionSaleRow[]):ClientGroup[]{
  return[...map.values()].sort((a,b)=>b.total-a.total)
 }
 
-const buildMessage=(group:ClientGroup)=>{
- const lines=group.sales.map(s=>`${s.perfume_name??'Perfume'} — ${brl(s.amount)}`).join('\n')
- return`Oi, ${firstName(group.client_name)}! Tudo bem?\n\nPassando para organizar os valores em aberto dos seus perfumes com a RUAH:\n\n${lines}\n\nTotal em aberto: ${brl(group.total)}\n\nAssim que realizar o pagamento, pode nos enviar o comprovante por aqui. 🤍`
-}
+const buildMessage=(group:ClientGroup)=>
+ `Bi biiiiiiii 🚗💨✨\nO carrinho da cobrança da Ruah passando por aqui!\n\nSeu pedido está reservado e só falta o sinal verde para seguirmos com a separação. 🤍\nConfere pra mim se está tudo certinho?\n\n💰 Total: ${brl(group.total)}\n\n🔑 PIX (CNPJ) — GI Cosméticos LTDA\n67.819.967/0001-70\n\n💳 Prefere cartão? Me fala em quantas vezes quer parcelar que preparo o link.\n\nDepois do pagamento, me envia o comprovante por aqui para eu agilizar a separação. 📦✨\n\nObrigada por escolher a Ruah Parfums! 🤍`
 
 function CopyMessageModal({group,onClose,onCopied}:{group:ClientGroup;onClose:()=>void;onCopied:()=>void}){
  const toast=useToast(),[text,setText]=useState(()=>buildMessage(group)),[copying,setCopying]=useState(false)
@@ -121,6 +118,7 @@ function RegisterPaymentModal({group,onClose,onPaid}:{group:ClientGroup;onClose:
 }
 
 export function CobrancasPage(){
+ const toast=useToast()
  const canRegisterPayment=useHasPermission('sales.edit')
  const[rows,setRows]=useState<CollectionSaleRow[]>([])
  const[loading,setLoading]=useState(true)
@@ -130,6 +128,8 @@ export function CobrancasPage(){
  const[copyGroup,setCopyGroup]=useState<ClientGroup|null>(null)
  const[downloadGroup,setDownloadGroup]=useState<ClientGroup|null>(null)
  const[paymentGroup,setPaymentGroup]=useState<ClientGroup|null>(null)
+ const[whatsappSending,setWhatsappSending]=useState<string|null>(null)
+ const[whatsappSent,setWhatsappSent]=useState<Set<string>>(()=>new Set())
 
  const load=(term:string)=>fetchCollectionsPending(term).then(setRows).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar as cobranças.')).finally(()=>setLoading(false))
  useEffect(()=>{const timer=setTimeout(()=>{setLoading(true);void load(search)},250);return()=>clearTimeout(timer)},[search])
@@ -143,6 +143,13 @@ export function CobrancasPage(){
  const totals={open:rows.reduce((sum,row)=>sum+row.amount,0),clients:allGroups.length,sales:rows.length}
 
  const reload=()=>void load(search)
+ const sendWhatsapp=async(group:ClientGroup)=>{
+  if(whatsappSending||whatsappSent.has(group.client_id))return
+  setWhatsappSending(group.client_id)
+  try{await sendManychatMessage(group.client_id,'collection');setWhatsappSent(current=>new Set(current).add(group.client_id));toast.push('WHATSAPP ENVIADO',{tone:'success'})}
+  catch(reason){toast.push(reason instanceof Error?reason.message:'Não foi possível enviar o WhatsApp.',{tone:'error'})}
+  finally{setWhatsappSending(null)}
+ }
 
  return<div className="page collections-page">
   {copyGroup&&<CopyMessageModal group={copyGroup} onClose={()=>setCopyGroup(null)} onCopied={reload}/>}
@@ -176,7 +183,8 @@ export function CobrancasPage(){
       {group.sales.map(s=><li key={s.id}><span>{shortDate(s.sale_date)}</span><span>{s.perfume_name??'Perfume'}</span><span>{s.sale_type??'—'}</span><span>{s.volume_ml??'—'}ML</span><strong>{brl(s.amount)}</strong><span className="collections-card-status">PENDENTE</span></li>)}
      </ul>
      <footer>
-      <SecondaryButton icon={<ClipboardCopy size={14}/>} onClick={()=>setCopyGroup(group)}>COPIAR COBRANÇA</SecondaryButton>
+     <SecondaryButton icon={<ClipboardCopy size={14}/>} onClick={()=>setCopyGroup(group)}>COPIAR COBRANÇA</SecondaryButton>
+      <SecondaryButton icon={<MessageCircle size={14}/>} loading={whatsappSending===group.client_id} disabled={Boolean(whatsappSending)||whatsappSent.has(group.client_id)} onClick={()=>void sendWhatsapp(group)}>{whatsappSent.has(group.client_id)?'WHATSAPP ENVIADO':whatsappSending===group.client_id?'ENVIANDO...':'ENVIAR WHATSAPP'}</SecondaryButton>
       {group.sales.length>0&&<SecondaryButton icon={<Download size={14}/>} loading={downloadGroup?.client_id===group.client_id} disabled={!!downloadGroup&&downloadGroup.client_id!==group.client_id} onClick={()=>setDownloadGroup(group)}>BAIXAR IMAGEM DO PEDIDO</SecondaryButton>}
       <button className="collections-open-client" onClick={()=>openClient(group.client_id)}><ExternalLink size={14}/>ABRIR CLIENTE</button>
       {canRegisterPayment&&<PrimaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</PrimaryButton>}

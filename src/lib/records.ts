@@ -160,6 +160,13 @@ export async function inviteCustomerAccount(clientId:string,email:string,channel
   if(error){const response=(error as {context?:Response}).context;let message='Não foi possível enviar o acesso.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
   return data?.data as CustomerInviteResult
 }
+export type ManychatMessageType='collection'|'access'
+export async function sendManychatMessage(clientId:string,messageType:ManychatMessageType){
+  await currentOrganization()
+  const{data,error}=await supabase!.functions.invoke('manychat-send',{body:{client_id:clientId,message_type:messageType}})
+  if(error){const response=(error as{context?:Response}).context;let message='Não foi possível enviar o WhatsApp.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
+  return data?.data as{status:'sent';message_type:ManychatMessageType}
+}
 export type CustomerIdentityReview={id:string;request_id:string;full_name:string;email:string;phone:string;reason:string;candidate_client_ids:string[];created_at:string}
 export async function fetchCustomerIdentityReviews(){await currentOrganization();const{data,error}=await supabase!.rpc('customer_identity_reviews_list');if(error)throw new Error(error.message);return(data??[])as CustomerIdentityReview[]}
 export async function decideCustomerIdentityReview(reviewId:string,action:'link'|'create'|'reject',clientId?:string){await currentOrganization();const{error}=await supabase!.rpc('customer_identity_review_decide',{p_review_id:reviewId,p_action:action,p_client_id:clientId??null});if(error)throw new Error(error.message)}

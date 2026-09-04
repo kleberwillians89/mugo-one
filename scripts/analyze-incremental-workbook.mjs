@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import Papa from 'papaparse'
 import readXlsxFile from 'read-excel-file/node'
 import {
   approvedClientAlias, approvedNewSaleDecision, approvedPerfumeAlias, commercialPerfumeBase, hasExplicitSourceValue, inventoryBaseline,
@@ -11,8 +12,23 @@ import {
 const input=process.argv[2],snapshotPath=process.argv[3]
 if(!input)throw new Error('Uso: npm run analyze:incremental -- arquivo.xlsx [snapshot-supabase.json]')
 const comparable=(value)=>normalize(value)||null
-const number=(value)=>typeof value==='number'&&Number.isFinite(value)?Math.round(value*1000)/1000:null
-const date=(value)=>value instanceof Date&&!Number.isNaN(value.valueOf())?value.toISOString().slice(0,10):String(value??'').match(/^\d{4}-\d{2}-\d{2}/)?.[0]??null
+const number=(value)=>{
+  if(typeof value==='number'&&Number.isFinite(value))return Math.round(value*1000)/1000
+  const raw=String(value??'').trim().replace(/^R\$\s*/i,'').replace(/\s/g,'')
+  if(!raw||!/^-?[\d.,]+$/.test(raw))return null
+  const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw
+  const parsed=Number(normalized)
+  return Number.isFinite(parsed)?Math.round(parsed*1000)/1000:null
+}
+const date=(value)=>{
+  if(value instanceof Date&&!Number.isNaN(value.valueOf()))return value.toISOString().slice(0,10)
+  const raw=String(value??'').trim(),iso=raw.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+  if(iso)return iso
+  const mdy=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if(!mdy)return null
+  const candidate=new Date(Date.UTC(Number(mdy[3]),Number(mdy[1])-1,Number(mdy[2])))
+  return candidate.getUTCFullYear()===Number(mdy[3])&&candidate.getUTCMonth()===Number(mdy[1])-1&&candidate.getUTCDate()===Number(mdy[2])?candidate.toISOString().slice(0,10):null
+}
 const status=(value)=>{const x=normalize(value);if(['pago','paga','quitado','paid'].includes(x))return'paid';if(x.includes('cancel')||x.includes('estorn'))return'cancelled';if(x.includes('aguard')||x.includes('pendente')||x.includes('nao pago')||x==='pending')return'pending';return'unknown'}
 const hash=(value)=>createHash('sha256').update(value).digest('hex')
 const key=(values)=>values.map((value)=>String(value??'')).join('|')
@@ -72,7 +88,13 @@ for(const row of existing){
 }
 const indexedCandidates=(index,row,omit,used)=>unique(variants(row,omit).flatMap((value)=>index.get(value)??[])).filter((candidate)=>!used.has(candidate.id))
 
-const workbook=await readXlsxFile(input,{getSheets:true}),sheet=workbook.find((item)=>item.sheet==='PERFUMES')??workbook[0]
+const loadSheets=async(file)=>{
+  if(path.extname(file).toLowerCase()!=='.csv')return readXlsxFile(file,{getSheets:true})
+  const parsed=Papa.parse(fs.readFileSync(file,'utf8'),{skipEmptyLines:false})
+  if(parsed.errors.length)throw new Error(`CSV inválido na linha ${parsed.errors[0].row??'desconhecida'}: ${parsed.errors[0].message}`)
+  return[{sheet:'CSV',data:parsed.data}]
+}
+const workbook=await loadSheets(input),sheet=workbook.find((item)=>item.sheet==='PERFUMES')??workbook[0]
 const headers=(sheet.data[0]??[]).map((value)=>String(value??'').trim())
 const hasSplitColumn=headers.some((header)=>normalize(header)==='data do split')
 const populated=sheet.data.slice(1).map((values,index)=>({source_row:index+2,raw:Object.fromEntries(headers.map((header,column)=>[header,values[column]??null]))})).filter(({raw})=>headers.some((header)=>raw[header]!==null&&String(raw[header]).trim()))

@@ -12,7 +12,7 @@ const base=`https://${projectRef}.supabase.co/rest/v1`
 const headers={apikey:key,authorization:`Bearer ${key}`}
 const request=async(url)=>{const response=await fetch(url,{headers});if(!response.ok)throw new Error(`Snapshot falhou: HTTP ${response.status}`);return response.json()}
 const all=async(table)=>{const rows=[];for(let offset=0;;offset+=1000){const page=await request(`${base}/${table}?select=*&offset=${offset}&limit=1000`);rows.push(...page);if(page.length<1000)break}return rows}
-const tables=['clients','sales','perfumes','inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','shipments','preparation_batches','shipment_items','shipment_events','incremental_import_staging','import_batches','import_rows','audit_logs']
+const tables=['clients','sales','perfumes','inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','shipments','preparation_batches','preparation_batch_items','shipment_items','shipment_events','incremental_import_staging','import_batches','import_rows','audit_logs']
 const snapshot={created_at:new Date().toISOString(),project_ref:projectRef,tables:{}}
 for(const table of tables)snapshot.tables[table]=await all(table)
 const sales=snapshot.tables.sales

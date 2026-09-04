@@ -48,3 +48,7 @@ verify_jwt = false
 verify_jwt = false
 [functions.customer-resolve-login]
 verify_jwt = false
+[functions.manychat-send]
+verify_jwt = true
+[functions.whatsapp-customer-balance]
+verify_jwt = false
