@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import Papa from 'papaparse'
 
 const text = (value) => String(value ?? '').replace(/\u0000/g, '').trim()
@@ -115,7 +116,7 @@ export function reconcileOfficialClients(officialRows, crmRows) {
   return { total_official: official.length, counts, rows, proposed_update_count: rows.filter(row => row.crm_client_id && Object.keys(row.proposed_changes).length > 0 && !['CONFLICT', 'INVALID_SOURCE_DATA', 'AMBIGUOUS'].includes(row.classification)).length, client_id_reassignments: 0, sales_changed: 0 }
 }
 
-if (process.argv[1]?.endsWith('official-client-reconciliation.mjs')) {
+if (path.basename(process.argv[1] ?? '') === 'official-client-reconciliation.mjs') {
   const file = process.argv[2] ?? '_reference/ruah-import/LISTA CLIENTES RUAH OFICIAL(DADOS CLIENTES).csv'
   const snapshotFile = process.argv[3] ?? 'private_data/supabase-snapshot-2026-09-04T19-20-38-262Z.json'
   const snapshot = JSON.parse(fs.readFileSync(snapshotFile, 'utf8'))
