@@ -65,9 +65,10 @@ describe('input na coluna Status histórico',()=>{
     expect(deliveries).toContain("legacyStatusFilter==='all'||row.legacy_shipping_status===legacyStatusFilter")
     expect(deliveries).toContain('countLegacyShippingStatuses(rows)')
   })
-  it('remove a coluna/input concorrente de confirmação manual',()=>{
+  it('mantém o status histórico separado da confirmação manual solicitada',()=>{
     expect(deliveries).not.toContain("label:'Confirmação'")
-    expect(clients).not.toContain('<th>Confirmação manual</th>')
+    expect(clients).toContain('<th>Confirmação manual</th>')
+    expect(clients).toContain('<LegacyShippingConfirmationSelect')
     expect(sale).not.toContain("label:'Confirmação manual'")
   })
 })

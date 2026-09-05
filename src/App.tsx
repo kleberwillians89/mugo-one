@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react'
-import { defaultPeriod, PeriodValue } from './lib/period'
+import { advanceBootPeriod, defaultPeriod, initialBootPeriodState, PeriodValue } from './lib/period'
 import { Page, routes, pageFromPath, pagePermission } from './routing'
 import { usePermissions } from './lib/PermissionsContext'
 import { Sidebar } from './components/Sidebar'
@@ -35,12 +35,29 @@ import { CustomerIdentityReviewsPage } from './pages/CustomerIdentityReviewsPage
 export function App() {
   const [page, setPage] = useState<Page>(pageFromPath())
   const [routePath,setRoutePath]=useState(location.pathname)
-  const [period,setPeriod]=useState<PeriodValue>(defaultPeriod())
+  const [bootPeriod,setBootPeriod]=useState(()=>initialBootPeriodState(defaultPeriod()))
   const [menuOpen, setMenuOpen] = useState(false)
-  const { loading: permissionsLoading, can } = usePermissions()
+  const { loading: permissionsLoading, can, operationalSalesStartDate } = usePermissions()
   useEffect(()=>{const change=()=>{setPage(pageFromPath());setRoutePath(location.pathname)};addEventListener('popstate',change);return()=>removeEventListener('popstate',change)},[])
+  // Ajuste durante a renderização (não em useEffect) é o padrão recomendado
+  // pelo próprio React para "sincronizar estado local quando um valor
+  // externo chega" — https://react.dev/learn/you-might-not-need-an-effect.
+  // advanceBootPeriod (testado em period.test.ts) garante que "ready" só
+  // vira true com o período já resolvido — ver o gate em `content` abaixo.
+  const advancedBootPeriod=advanceBootPeriod(bootPeriod,permissionsLoading,operationalSalesStartDate)
+  if(advancedBootPeriod!==bootPeriod)setBootPeriod(advancedBootPeriod)
+  const period=bootPeriod.period,setPeriod=(next:PeriodValue)=>setBootPeriod(current=>({...current,period:next}))
   const navigate=(next:Page)=>{history.pushState({},'',routes[next]);setRoutePath(location.pathname);setPage(next)}
   const content = useMemo<ReactNode>(() => {
+    // Enquanto bootPeriod não está "ready", NENHUMA página monta — nem
+    // Dashboard/Vendas/Entregas, que buscam dados dependentes de período.
+    // Sem este gate, elas montariam com o período provisório (todo o
+    // histórico), disparariam a busca errada e buscariam de novo assim que
+    // o período fosse corrigido — dois fetches, um deles inútil e
+    // potencialmente pesado (milhares de linhas). advanceBootPeriod só marca
+    // ready=true já com o período definitivo resolvido (ver period.ts) — a
+    // primeira montagem de qualquer página já acontece com o valor certo.
+    if (!bootPeriod.ready) return <div className="page"><div className="empty card"><h3>Carregando…</h3></div></div>
     // Rota digitada direto sem permissão: "ACESSO RESTRITO", nunca 404
     // (briefing "ROTAS E MENU"). Configurações tem duas abas com
     // permissões distintas (Frete=settings.view, Equipe=team.view), então
@@ -73,6 +90,6 @@ export function App() {
     if (page === 'Radar') return routePath === '/radar/fornecedores' ? <RadarSuppliersPage/> : <RadarPage initialQuery={new URLSearchParams(location.search).get('q')??undefined} initialPerfumeId={new URLSearchParams(location.search).get('perfume')??undefined}/>
     if (page === 'Interessados') return <WaitlistPage/>
     return <GenericPage page={page}/>
-  }, [page,period,routePath,permissionsLoading,can])
+  }, [page,period,routePath,permissionsLoading,can,bootPeriod.ready])
   return <div className="app-shell"><Sidebar page={page} setPage={navigate} open={menuOpen} close={()=>setMenuOpen(false)}/><main><Header menu={()=>setMenuOpen(true)}/>{content}<footer className="internal-mugo-signature"><img src="/mugo-logo.png" alt="Mugô"/><span>RUAH Intelligence — desenvolvido pela Mugô</span></footer></main></div>
 }

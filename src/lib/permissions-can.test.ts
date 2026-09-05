@@ -80,8 +80,8 @@ describe('6 — rota direta com access_total abre (App.tsx nunca mostra ACESSO R
 describe('7 — loading nunca vira "negado" permanente, e nunca fica travado em loading para sempre', () => {
   const ctx = readFileSync(new URL('./PermissionsContext.tsx', import.meta.url), 'utf8')
   it('loading=false é setado tanto no sucesso quanto na falha — nunca fica true para sempre', () => {
-    expect(ctx).toContain('setState({ loading: false, error: \'\', permissions, flags, organizationId })')
-    expect(ctx).toMatch(/setState\(\{ loading: false, error:[^,]+, permissions: new Set\(\), flags: null, organizationId: null \}\)/)
+    expect(ctx).toContain('setState({ loading: false, error: \'\', permissions, flags, organizationId, operationalSalesStartDate })')
+    expect(ctx).toMatch(/setState\(\{ loading: false, error:[^,]+, permissions: new Set\(\), flags: null, organizationId: null, operationalSalesStartDate: null \}\)/)
   })
   it('erro de busca vira um estado PRÓPRIO (error), nunca colapsado dentro de "permissions vazio" sem distinção', () => {
     expect(ctx).toContain('error: string')

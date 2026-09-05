@@ -6,6 +6,7 @@ const records=readFileSync(new URL('./records.ts',import.meta.url),'utf8')
 const edgeFn=readFileSync(new URL('../../supabase/functions/summarize-ai-batch-import/index.ts',import.meta.url),'utf8')
 const clientPage=readFileSync(new URL('../pages/ClientDetailsPage.tsx',import.meta.url),'utf8')
 const salePage=readFileSync(new URL('../pages/SaleDetailsPage.tsx',import.meta.url),'utf8')
+const shipmentSelector=readFileSync(new URL('../components/ShipmentProductSelector.tsx',import.meta.url),'utf8')
 
 describe('resumo nunca envia chaves técnicas cruas para a IA',()=>{
   it('summarizeAiBatchImport recebe frases prontas, não o objeto de aggregates cru',()=>{
@@ -46,9 +47,9 @@ describe('cliente 360: alerta de cadastro incompleto',()=>{
     expect(clientPage).toContain('const missingFields=missingShippingClientFields(client)')
   })
   it('bloqueia "Preparar envio" quando o cadastro está incompleto',()=>{
-    expect(clientPage).toContain('disabled={!selected.length||preparing||missingFields.length>0}')
-    expect(clientPage).toContain('if(!selected.length||missingFields.length)return')
-    expect(clientPage).toContain('NÃO É POSSÍVEL CRIAR O ENVIO AINDA')
+    expect(clientPage).toContain('disabled={missingFields.length>0}')
+    expect(shipmentSelector).toContain('disabled={!selected.length||saving||disabled}')
+    expect(shipmentSelector).toContain('if(!selected.length||saving)return')
   })
   it('criação da venda não é bloqueada por isso — só a etapa logística',()=>{
     expect(clientPage).not.toMatch(/missingFields\.length[\s\S]{0,80}(deleteClient|blockSale|preventSale)/)

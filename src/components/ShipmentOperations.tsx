@@ -1,12 +1,13 @@
 import {useEffect,useMemo,useState} from 'react'
 import {AlertTriangle,Copy,ExternalLink,RefreshCw,Truck,X} from 'lucide-react'
 import {brl,shortDate} from '../lib/format'
-import {assumeShipmentConference,authenticatedOrganization,cancelCustomerShipmentRequestAsStaff,createDraftShipment,checkoutSuperFreteLabel,createSuperFreteCart,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,scanShipmentItemBottle,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
+import {assumeShipmentConference,authenticatedOrganization,cancelCustomerShipmentRequestAsStaff,checkoutSuperFreteLabel,createSuperFreteCart,fetchClient360,fetchOperationalShipments,fetchReservedAllocations,fetchShipment360,fetchShippingSettings,OperationalShipment,quoteShipment,refreshShipmentRecipient,ReservedAllocation,saveShippingSettings,scanShipmentItemBottle,selectShipmentQuote,ShippingSettings,syncSuperFreteShipment,updateShipmentItemCheck,updateShipmentShippingData} from '../lib/records'
 import {canBuyLabel,canQuoteShipment,getShipmentNextAction,missingLabelFields,missingQuoteFields,Stage,shipmentStage,shipmentStatusLabels,stageLabels} from '../lib/superfrete'
 import {sortShipmentQueue,isUrgentShipment,shipmentIdFromScan} from '../lib/shipment-queue'
 import {friendlyIntegrationError,operationalLabel} from '../lib/presentation'
-import {usePermissions} from '../lib/PermissionsContext'
+import {usePermissions,useOperationalSalesStartDate} from '../lib/PermissionsContext'
 import {Shipment360View} from './Shipment360View'
+import {ShipmentProductSelector} from './ShipmentProductSelector'
 import {useKeyboardWedgeListener} from './bottles/useKeyboardWedgeListener'
 import {Divider, EmptyState, Modal, PageHeader} from './ui'
 import './ShipmentOperations.css'
@@ -72,25 +73,26 @@ export function OperationalShipments(){
 }
 
 export function NewShipmentModal({close,preselectedSaleId}:{close:()=>void;preselectedSaleId?:string}){
-  const [rows,setRows]=useState<ReservedAllocation[]>([]),[clientId,setClientId]=useState(''),[selected,setSelected]=useState<string[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState('')
-  useEffect(()=>{fetchReservedAllocations().then(data=>{setRows(data);const initial=data.find(row=>row.sale_id===preselectedSaleId);if(initial){setClientId(initial.client_id);setSelected([initial.id])}}).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar os produtos reservados.')).finally(()=>setLoading(false))},[preselectedSaleId])
+  const operationalStart=useOperationalSalesStartDate()
+  const [rows,setRows]=useState<ReservedAllocation[]>([]),[clientId,setClientId]=useState(''),[clientData,setClientData]=useState<Awaited<ReturnType<typeof fetchClient360>>|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('')
+  const [showHistorical,setShowHistorical]=useState(false)
+  // Fila de seleção respeita o corte operacional por padrão — filtrado no
+  // servidor (reserved_allocations_for_shipment), não baixando o histórico
+  // inteiro para escondê-lo em React. "Mostrar histórico anterior" busca de
+  // novo com o histórico completo (não é exclusão de dado, só de consulta).
+  useEffect(()=>{fetchReservedAllocations(showHistorical).then(async data=>{setRows(data);const initial=data.find(row=>row.sale_id===preselectedSaleId);if(initial){setClientId(initial.client_id);setClientData(await fetchClient360(initial.client_id))}}).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar os produtos.')).finally(()=>setLoading(false))},[preselectedSaleId,showHistorical])
+  const toggleHistorical=(checked:boolean)=>{setLoading(true);setShowHistorical(checked)}
   const clients=Array.from(new Map(rows.map(row=>[row.client_id,row.clients?.name||'Cliente sem nome'])))
-  const visible=rows.filter(row=>row.client_id===clientId)
-  const chooseClient=(value:string)=>{setClientId(value);setSelected([])}
-  const toggle=(id:string)=>setSelected(current=>current.includes(id)?current.filter(item=>item!==id):[...current,id])
-  const submit=async()=>{if(!clientId||!selected.length)return;setSaving(true);setError('');try{const id=await createDraftShipment(clientId,selected);history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'));close()}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível preparar o envio.')}finally{setSaving(false)}}
-  return <Modal open onClose={close} eyebrow="LOGÍSTICA OPERACIONAL" title="Novo envio" footer={<>
-      <button onClick={close}>Cancelar</button>
-      <button className="primary" disabled={saving||!selected.length} onClick={submit}>{saving?'Preparando…':'Preparar envio'}</button>
-    </>}>
+  const chooseClient=async(value:string)=>{setClientId(value);setClientData(null);setError('');if(!value)return;setLoading(true);try{setClientData(await fetchClient360(value))}catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível carregar as compras da cliente.')}finally{setLoading(false)}}
+  return <Modal open onClose={close} eyebrow="LOGÍSTICA OPERACIONAL" title="Novo envio" footer={<button onClick={close}>Cancelar</button>}>
     {loading?<div className="inline-empty">Carregando produtos reservados…</div>:<div className="record-form">
       <div className="new-shipment-steps">
         <span className={clientId?'done':'current'}>1. Cliente</span>
         <span className={clientId?'current':''}>2. Produtos</span>
       </div>
-      <label className="field"><span>Cliente</span><select value={clientId} onChange={event=>chooseClient(event.target.value)}><option value="">Selecione…</option>{clients.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
-      {clientId&&<div className="shipment-products"><h3>Produtos pagos aguardando envio</h3>{visible.map(row=><label key={row.id} className="selection-row"><input type="checkbox" checked={selected.includes(row.id)} onChange={()=>toggle(row.id)}/><span>{row.sales?.perfume_name_raw||'Produto'} · {row.sales?.sale_type||'—'}</span><strong>{Number(row.quantity_ml).toLocaleString('pt-BR')} ml · {brl(Number(row.sales?.amount||0))}</strong></label>)}{!visible.length&&<div className="inline-empty">Este cliente não possui allocations reservadas.</div>}</div>}
-      <div className="notice"><span>Somente allocations com status reservado aparecem aqui. Vendas históricas não verificadas não geram envio.</span></div>
+      {operationalStart&&<label className="field-inline-toggle"><input type="checkbox" checked={showHistorical} onChange={event=>toggleHistorical(event.target.checked)}/><span>Mostrar histórico anterior</span></label>}
+      <label className="field"><span>Cliente</span><select value={clientId} onChange={event=>void chooseClient(event.target.value)}><option value="">Selecione…</option>{clients.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
+      {clientId&&clientData&&<ShipmentProductSelector clientId={clientId} sales={clientData.history} waiting={clientData.waiting} onCreated={id=>{history.pushState({},'',`/entregas/${id}`);dispatchEvent(new PopStateEvent('popstate'));close()}}/>}
       {error&&<div className="form-error">{error}</div>}
     </div>}
   </Modal>

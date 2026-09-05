@@ -1,0 +1,21 @@
+import{readFileSync}from'node:fs'
+import{describe,expect,it}from'vitest'
+
+const manychat=readFileSync(new URL('../../supabase/migrations/202609030002_manychat_whatsapp_mvp.sql',import.meta.url),'utf8')
+const cutoff=readFileSync(new URL('../../supabase/migrations/202609050007_operational_sales_start_date.sql',import.meta.url),'utf8')
+const canonical=manychat.slice(manychat.indexOf('create function public.collections_pending_sales_canonical'),manychat.indexOf('drop function if exists public.collections_pending_sales'))
+const operational=cutoff.slice(cutoff.indexOf('create or replace function public.collections_pending_sales_operational'),cutoff.indexOf('create or replace function public.collections_pending_sales(p_search'))
+const collections=cutoff.slice(cutoff.indexOf('create or replace function public.collections_pending_sales(p_search'),cutoff.indexOf('create or replace function public.whatsapp_customer_balance_v1'))
+const balance=cutoff.slice(cutoff.indexOf('create or replace function public.whatsapp_customer_balance_v1'),cutoff.indexOf('-- ==========================================================================\n-- 4. NOVO FRETE'))
+
+type Sale={sale_date:string;payment_status:string;deleted_at:string|null;amount:number}
+const operationalRows=(sales:Sale[],floor:string|null)=>sales.filter(sale=>sale.deleted_at===null&&sale.payment_status==='pending'&&(!floor||sale.sale_date>=floor))
+
+describe('cutoff operacional compartilhado por Cobranças e ManyChat',()=>{
+  it('preserva a função canônica como histórico completo',()=>{expect(canonical).toContain("s.payment_status='pending'");expect(canonical).toContain('s.deleted_at is null');expect(canonical).not.toContain('operational_sales_floor');expect(cutoff).not.toContain('create or replace function public.collections_pending_sales_canonical')})
+  it('cria camada operacional única usando operational_sales_floor sem hard-code na RPC WhatsApp',()=>{expect(operational).toContain('collections_pending_sales_canonical(p_organization_id)');expect(operational).toContain('operational_sales_floor(p_organization_id)');expect(collections).toContain('collections_pending_sales_operational(organizations.organization_id)');expect(balance).toContain('collections_pending_sales_operational(p_organization_id)');expect(balance).not.toContain('2026-09-01')})
+  it('31/08 não entra; 01/09 e 02/09 pendentes entram; paga e excluída não entram',()=>{const sales:Sale[]=[{sale_date:'2026-08-31',payment_status:'pending',deleted_at:null,amount:1},{sale_date:'2026-09-01',payment_status:'pending',deleted_at:null,amount:2},{sale_date:'2026-09-02',payment_status:'pending',deleted_at:null,amount:3},{sale_date:'2026-09-02',payment_status:'paid',deleted_at:null,amount:4},{sale_date:'2026-09-02',payment_status:'pending',deleted_at:'2026-09-03',amount:5}];expect(operationalRows(sales,'2026-09-01')).toEqual([sales[1],sales[2]])})
+  it('organização sem cutoff preserva o comportamento histórico anterior',()=>{const sales:Sale[]=[{sale_date:'2026-08-31',payment_status:'pending',deleted_at:null,amount:1},{sale_date:'2026-09-01',payment_status:'pending',deleted_at:null,amount:2}];expect(operationalRows(sales,null)).toEqual(sales);expect(cutoff).toContain("date '1900-01-01'")})
+  it('tela e WhatsApp agregam a mesma lista operacional',()=>{const sales:Sale[]=[{sale_date:'2026-08-31',payment_status:'pending',deleted_at:null,amount:100},{sale_date:'2026-09-01',payment_status:'pending',deleted_at:null,amount:20},{sale_date:'2026-09-02',payment_status:'pending',deleted_at:null,amount:30}],rows=operationalRows(sales,'2026-09-01'),crm={orders:rows.length,total:rows.reduce((sum,row)=>sum+row.amount,0)},whatsapp={orders:rows.length,total:rows.reduce((sum,row)=>sum+row.amount,0)};expect(whatsapp).toEqual(crm)})
+  it('migration é somente leitura de sales e não toca estoque, pagamento ou shipment',()=>{const code=cutoff.split('\n').map(line=>line.replace(/--.*$/,'')).join('\n');expect(code).not.toMatch(/update public\.sales|delete from public\.sales|insert into public\.sales/i);expect(code).not.toMatch(/(?:insert into|update|delete from) public\.(inventory_items|inventory_allocations|inventory_movements|shipments|shipment_items)/i)})
+})

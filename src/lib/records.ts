@@ -12,6 +12,12 @@ export async function authenticatedOrganization() {
   return { user, organizationId: data.organization_id as string, role: data.role as string }
 }
 
+export async function fetchOperationalSalesStartDate(organizationId:string) {
+  const{data,error}=await supabase!.from('organizations').select('operational_sales_start_date').eq('id',organizationId).single()
+  if(error)throw new Error(error.message)
+  return(data?.operational_sales_start_date as string|null)??null
+}
+
 export async function currentOrganization() {
   const context = await authenticatedOrganization()
   if (context.role === 'viewer') throw new Error('Seu perfil não permite alterações.')
@@ -128,7 +134,7 @@ export async function fetchClient360(clientId:string) {
   await authenticatedOrganization()
   const [{data:profile,error:profileError},{data:history,error:historyError},{data:waiting,error:waitingError},{data:shipments,error:shipmentsError}]=await Promise.all([
     supabase!.rpc('client_360',{p_client_id:clientId}),
-    supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,legacy_shipping_status,legacy_shipping_status_updated_at,legacy_shipping_status_updated_by,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
+    supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,bottle_identifier,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,legacy_shipping_status,legacy_shipping_status_updated_at,legacy_shipping_status_updated_by,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,shipment_items(removed_at,shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
     supabase!.rpc('client_waiting_products_v2',{p_client_id:clientId}),
     supabase!.from('shipments').select('id,status,requested_at,carrier,service,shipping_price,tracking_code,posted_at,delivered_at,created_at,shipment_items(sale_id,quantity_ml,sales(perfume_name_raw))').eq('client_id',clientId).order('created_at',{ascending:false}),
   ])
@@ -332,11 +338,16 @@ export async function confirmLegacyProductCustody(saleId:string,storageLocation:
 export async function releaseLegacyProductCustody(allocationId:string){await currentOrganization();const {data,error}=await supabase!.rpc('release_legacy_product_custody',{p_allocation_id:allocationId});if(error)throw new Error(error.message);return data}
 
 export type ReservedAllocation={id:string;client_id:string;sale_id:string;quantity_ml:number;allocated_at:string;allocation_source:string;stock_managed:boolean;storage_location:string|null;clients:{name:string}|null;sales:{sale_date:string|null;amount:number;perfume_name_raw:string|null;sale_type:string|null}|null}
-export async function fetchReservedAllocations(){
-  const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('inventory_allocations').select('id,client_id,sale_id,quantity_ml,allocated_at,allocation_source,stock_managed,storage_location,clients(name),sales(sale_date,amount,perfume_name_raw,sale_type)').eq('organization_id',organizationId).eq('status','reserved').order('allocated_at',{ascending:true})
+// Filtra no servidor (operational_sales_floor) por padrão — só baixa o
+// histórico completo quando includeHistorical=true ("Mostrar histórico
+// anterior" no Novo Envio), evitando trazer centenas de allocations antigas
+// para escondê-las em React.
+export async function fetchReservedAllocations(includeHistorical=false){
+  await authenticatedOrganization()
+  const {data,error}=await supabase!.rpc('reserved_allocations_for_shipment',{p_include_historical:includeHistorical})
   if(error)throw new Error(error.message)
-  return (data??[]) as unknown as ReservedAllocation[]
+  return ((data??[]) as {id:string;client_id:string;client_name:string;sale_id:string;quantity_ml:number;allocated_at:string;allocation_source:string;stock_managed:boolean;storage_location:string|null;sale_date:string|null;amount:number;perfume_name_raw:string|null;sale_type:string|null}[])
+    .map(row=>({id:row.id,client_id:row.client_id,sale_id:row.sale_id,quantity_ml:row.quantity_ml,allocated_at:row.allocated_at,allocation_source:row.allocation_source,stock_managed:row.stock_managed,storage_location:row.storage_location,clients:{name:row.client_name},sales:{sale_date:row.sale_date,amount:row.amount,perfume_name_raw:row.perfume_name_raw,sale_type:row.sale_type}})) as ReservedAllocation[]
 }
 
 export async function fetchDeliveryRows(period?:PeriodValue) {

@@ -7,6 +7,7 @@ const dateMigration=readFileSync(new URL('../../supabase/migrations/202609050003
 const migration=`${foundationMigration}\n${dateMigration}`
 const deliveries=readFileSync(new URL('../pages/DeliveriesPage.tsx',import.meta.url),'utf8')
 const clientDetails=readFileSync(new URL('../pages/ClientDetailsPage.tsx',import.meta.url),'utf8')
+const confirmationSelect=readFileSync(new URL('../components/LegacyShippingConfirmationSelect.tsx',import.meta.url),'utf8')
 const records=readFileSync(new URL('./records.ts',import.meta.url),'utf8')
 const sql=migration.split('\n').map(line=>line.replace(/--.*$/,'')).join('\n')
 const rpc=migration.slice(migration.lastIndexOf('create or replace function public.set_legacy_shipping_confirmation'))
@@ -72,11 +73,16 @@ describe('confirmação manual de envio legado',()=>{
   })
 })
 
-describe('compatibilidade da confirmação manual anterior',()=>{
-  it('mantém backend e dados anteriores, mas remove o input redundante da tabela',()=>{
+describe('confirmação manual editável na tela da cliente',()=>{
+  it('mantém backend e expõe select individual com as três opções',()=>{
     expect(records).toContain('setLegacyShippingConfirmation')
+    expect(clientDetails).toContain('<th>Confirmação manual</th>')
+    expect(clientDetails).toContain('<LegacyShippingConfirmationSelect')
+    expect(confirmationSelect).toContain("useHasPermission('sales.edit')")
+    expect(confirmationSelect).toContain('disabled={!canEdit||saving}')
+    expect(confirmationSelect).toContain('<option key={key} value={key}>{legacyShippingLabels[key]}</option>')
+    expect(confirmationSelect).toContain('setValue(initial)')
+    expect(confirmationSelect).toContain("toast.push")
     expect(deliveries).not.toContain('legacy-delivery-input')
-    expect(deliveries).not.toContain('legacy-confirmation-select')
-    expect(clientDetails).not.toContain('<th>Confirmação manual</th>')
   })
 })

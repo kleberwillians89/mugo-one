@@ -1,5 +1,5 @@
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react'
-import { authenticatedOrganization } from './records'
+import { authenticatedOrganization, fetchOperationalSalesStartDate } from './records'
 import { MembershipFlags, computeCan, fetchMyMembershipFlags, fetchMyPermissions } from './permissions'
 
 type PermissionsState = {
@@ -8,9 +8,10 @@ type PermissionsState = {
   permissions: Set<string>
   flags: MembershipFlags | null
   organizationId: string | null
+  operationalSalesStartDate: string | null
 }
 
-const initialState: PermissionsState = { loading: true, error: '', permissions: new Set(), flags: null, organizationId: null }
+const initialState: PermissionsState = { loading: true, error: '', permissions: new Set(), flags: null, organizationId: null, operationalSalesStartDate: null }
 
 const PermissionsCtx = createContext<PermissionsState & { can: (code: string) => boolean; reload: () => void }>({
   ...initialState, can: () => false, reload: () => {},
@@ -37,12 +38,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
     authenticatedOrganization()
-      .then(({ organizationId }) => Promise.all([fetchMyPermissions(organizationId), fetchMyMembershipFlags(organizationId)])
-        .then(([permissions, flags]) => {
-          if (!cancelled) setState({ loading: false, error: '', permissions, flags, organizationId })
+      .then(({ organizationId }) => Promise.all([fetchMyPermissions(organizationId), fetchMyMembershipFlags(organizationId), fetchOperationalSalesStartDate(organizationId)])
+        .then(([permissions, flags, operationalSalesStartDate]) => {
+          if (!cancelled) setState({ loading: false, error: '', permissions, flags, organizationId, operationalSalesStartDate })
         }))
       .catch((reason) => {
-        if (!cancelled) setState({ loading: false, error: reason instanceof Error ? reason.message : 'Não foi possível carregar suas permissões.', permissions: new Set(), flags: null, organizationId: null })
+        if (!cancelled) setState({ loading: false, error: reason instanceof Error ? reason.message : 'Não foi possível carregar suas permissões.', permissions: new Set(), flags: null, organizationId: null, operationalSalesStartDate: null })
       })
     return () => { cancelled = true }
   }, [tick])
@@ -57,4 +58,9 @@ export function usePermissions() {
 /** access_total sempre vence, mesmo que o código específico não esteja no conjunto plano (ver computeCan). */
 export function useHasPermission(code: string) {
   return useContext(PermissionsCtx).can(code)
+}
+
+/** Data de início da operação atual desta organização (null = sem corte, vê tudo). */
+export function useOperationalSalesStartDate() {
+  return useContext(PermissionsCtx).operationalSalesStartDate
 }
