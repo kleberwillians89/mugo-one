@@ -28,9 +28,9 @@ describe('períodos comerciais em pt-BR', () => {
     it('resolve o início a partir da data operacional da organização, fim em hoje',()=>{
       expect(presetPeriod('operational',now,'2026-09-01')).toMatchObject({start:'2026-09-01',end:'2026-09-05',label:'Operação atual'})
     })
-    it('organização sem corte configurado (null/undefined) cai em todo o histórico — nunca esconde dados por engano',()=>{
-      expect(presetPeriod('operational',now,null)).toMatchObject({start:'1900-01-01',end:'2100-12-31'})
-      expect(presetPeriod('operational',now)).toMatchObject({start:'1900-01-01',end:'2100-12-31'})
+    it('organização sem corte configurado usa o piso central da RUAH e nunca expõe o histórico por falha de configuração',()=>{
+      expect(presetPeriod('operational',now,null)).toMatchObject({start:'2026-09-01',end:'2026-09-05'})
+      expect(presetPeriod('operational',now)).toMatchObject({start:'2026-09-01',end:'2026-09-05'})
     })
     it('"all" continua sendo todo o histórico, sem qualquer influência do corte operacional',()=>{
       expect(presetPeriod('all',now,'2026-09-01')).toMatchObject({start:'1900-01-01',end:'2100-12-31'})
@@ -51,10 +51,10 @@ describe('períodos comerciais em pt-BR', () => {
       expect(state.ready).toBe(true)
       expect(state.period.start).toBe('2026-09-01') // nunca 1900-01-01 no primeiro "ready"
     })
-    it('organização sem operational_sales_start_date configurado também fica ready — cai em todo o histórico, comportamento anterior preservado',()=>{
+    it('organização sem operational_sales_start_date configurado também fica ready com o fallback operacional seguro',()=>{
       const state=advanceBootPeriod(initialBootPeriodState(presetPeriod('all')),false,null,now)
       expect(state.ready).toBe(true)
-      expect(state.period.start).toBe('1900-01-01')
+      expect(state.period.start).toBe('2026-09-01')
     })
     it('sincroniza uma única vez: depois de pronto, uma escolha manual do usuário nunca é sobrescrita por um novo render',()=>{
       let state=advanceBootPeriod(initialBootPeriodState(presetPeriod('all')),false,'2026-09-01',now)

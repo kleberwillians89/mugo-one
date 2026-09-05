@@ -1,6 +1,7 @@
 import { normalizeClient } from './importer'
 import { supabase } from './supabase'
 import type { PeriodValue } from './period'
+import { OPERATIONAL_START_DATE, operationalPeriod, withOperationalDaviFilters } from './operational-sales'
 
 export async function authenticatedOrganization() {
   if (!supabase) throw new Error('Conecte o Supabase para continuar.')
@@ -15,7 +16,7 @@ export async function authenticatedOrganization() {
 export async function fetchOperationalSalesStartDate(organizationId:string) {
   const{data,error}=await supabase!.from('organizations').select('operational_sales_start_date').eq('id',organizationId).single()
   if(error)throw new Error(error.message)
-  return(data?.operational_sales_start_date as string|null)??null
+  return(data?.operational_sales_start_date as string|null)??OPERATIONAL_START_DATE
 }
 
 export async function currentOrganization() {
@@ -52,8 +53,9 @@ export type PeriodSummary = {
 
 export async function fetchPeriodSummary(period:PeriodValue) {
   const { organizationId }=await authenticatedOrganization()
+  const operational=operationalPeriod(period)
   const {data,error}=await supabase!.rpc('commercial_period_summary',{
-    org_id:organizationId,start_date:period.start,end_date:period.end,
+    org_id:organizationId,start_date:operational.start,end_date:operational.end,
   })
   if(error)throw new Error(error.message)
   return data as PeriodSummary
@@ -63,7 +65,7 @@ export type DashboardActivityItem={id:string;kind:'activity'|'attention';message
 export async function fetchDashboardActivity(){
   const {organizationId}=await authenticatedOrganization(),start=new Date();start.setHours(0,0,0,0)
   const [sales,events,clients,shipments,stock]=await Promise.all([
-    supabase!.from('sales').select('created_by,created_at').eq('organization_id',organizationId).gte('created_at',start.toISOString()).is('deleted_at',null),
+    supabase!.from('sales').select('created_by,created_at,sale_date').eq('organization_id',organizationId).gte('created_at',start.toISOString()).gte('sale_date',OPERATIONAL_START_DATE).is('deleted_at',null),
     supabase!.from('shipment_events').select('id,shipment_id,event_type,actor_id,created_at').eq('organization_id',organizationId).in('event_type',['conference_assumed','conference_completed']).order('created_at',{ascending:false}).limit(5),
     supabase!.from('clients').select('id,cpf,cnpj,phone,whatsapp_phone,postal_code,address_line,address_number,district,city,state').eq('organization_id',organizationId).is('deleted_at',null),
     supabase!.from('shipments').select('id,status,superfrete_order_id,print_available,conference_owner_user_id').eq('organization_id',organizationId),
@@ -207,7 +209,7 @@ export type DaviSortLevel={column:string;direction:'asc'|'desc'}
 export const DAVI_OPERATIONAL_SORT:DaviSortLevel[]=[{column:'sale_date',direction:'asc'},{column:'perfume',direction:'asc'},{column:'type',direction:'asc'},{column:'volume',direction:'desc'}]
 export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=100,sorts:DaviSortLevel[]=DAVI_OPERATIONAL_SORT){
   await authenticatedOrganization()
-  const{data,error}=await supabase!.rpc('davi_excel_list_multi',{p_filters:filters,p_page:page,p_page_size:pageSize,p_sorts:sorts})
+  const{data,error}=await supabase!.rpc('davi_excel_list_multi',{p_filters:withOperationalDaviFilters(filters),p_page:page,p_page_size:pageSize,p_sorts:sorts})
   if(error)throw new Error(error.message)
   const result=data as {rows:DaviExcelRow[];total:number}|null
   return result??{rows:[],total:0}
@@ -238,9 +240,13 @@ export async function softDeleteDaviSale(saleId:string,expectedUpdatedAt:string,
 }
 export async function fetchDaviExcelDistinct(column:string,filters:DaviExcelFilters,search='',offset=0,limit=200){
   await authenticatedOrganization()
-  const{data,error}=await supabase!.rpc('davi_excel_distinct',{p_column:column,p_filters:filters,p_search:search,p_offset:offset,p_limit:limit})
+  const operationalFilters=withOperationalDaviFilters(filters)
+  const{data,error}=await supabase!.rpc('davi_excel_distinct',{p_column:column,p_filters:operationalFilters,p_search:search,p_offset:column==='sale_date'?0:offset,p_limit:column==='sale_date'?250:limit})
   if(error)throw new Error(error.message)
-  return(data??{values:[],total:0,has_more:false})as{values:DaviDistinctValue[];total:number;has_more:boolean}
+  const result=(data??{values:[],total:0,has_more:false})as{values:DaviDistinctValue[];total:number;has_more:boolean}
+  if(column!=='sale_date')return result
+  const operationalValues=result.values.filter(item=>item.value!=='__BLANK__'&&item.value>=OPERATIONAL_START_DATE)
+  return{values:operationalValues.slice(offset,offset+limit),total:operationalValues.length,has_more:offset+limit<operationalValues.length}
 }
 export async function setClientGift(clientId:string,hasGift:boolean,giftNotes:string|null,expectedUpdatedAt?:string){
   await authenticatedOrganization()
@@ -296,10 +302,11 @@ export async function registerCollectionPayment(saleIds:string[],paidAt:string,p
 
 export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) {
   const { organizationId } = await authenticatedOrganization()
+  const period=operationalPeriod(filters.period??{start:OPERATIONAL_START_DATE,end:'2100-12-31',label:'Operação atual'})
   let query=supabase!.from('sales')
     .select('id,client_id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,notes,source,clients(name),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))', { count:'exact' })
     .eq('organization_id', organizationId).is('deleted_at', null)
-  if(filters.period)query=query.gte('sale_date',filters.period.start).lte('sale_date',filters.period.end)
+  query=query.gte('sale_date',period.start).lte('sale_date',period.end)
   if(filters.paymentStart)query=query.gte('paid_at',filters.paymentStart)
   if(filters.paymentEnd)query=query.lte('paid_at',filters.paymentEnd)
   if(filters.shippingStart)query=query.gte('shipped_at',filters.shippingStart)
@@ -352,11 +359,12 @@ export async function fetchReservedAllocations(includeHistorical=false){
 
 export async function fetchDeliveryRows(period?:PeriodValue) {
   const {organizationId}=await authenticatedOrganization()
+  const operational=operationalPeriod(period??{start:OPERATIONAL_START_DATE,end:'2100-12-31',label:'Operação atual'})
   const result:CommercialSale[]=[]
   for(let from=0;;from+=1000){
     let query=supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,legacy_shipping_status,legacy_shipping_status_updated_at,legacy_shipping_status_updated_by,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,notes,source,clients(name),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))')
       .eq('organization_id',organizationId).is('deleted_at',null).range(from,from+999)
-    if(period)query=query.gte('sale_date',period.start).lte('sale_date',period.end)
+    query=query.gte('sale_date',operational.start).lte('sale_date',operational.end)
     const {data,error}=await query
     if(error)throw new Error(error.message)
     result.push(...((data??[]) as unknown as CommercialSale[]))
@@ -395,7 +403,7 @@ export async function setLegacyShippingStatus(saleId:string,status:'confirmed'|'
 }
 
 export type LogisticsSummary={identified_shipments:number;shipped_in_period:number;historical_on_time:number;historical_late:number;average_days_to_ship:number|null;operational_backlog:number;shipments_preparing:number;awaiting_approval:number;labels_released:number;posted:number;delivered:number}
-export async function fetchLogisticsSummary(period:PeriodValue){const {organizationId}=await authenticatedOrganization();const {data,error}=await supabase!.rpc('logistics_operational_summary',{org_id:organizationId,start_date:period.start,end_date:period.end});if(error)throw new Error(error.message);return data as LogisticsSummary}
+export async function fetchLogisticsSummary(period:PeriodValue){const {organizationId}=await authenticatedOrganization(),operational=operationalPeriod(period);const {data,error}=await supabase!.rpc('logistics_operational_summary',{org_id:organizationId,start_date:operational.start,end_date:operational.end});if(error)throw new Error(error.message);return data as LogisticsSummary}
 
 export type ShipmentQuote={id:string;service_id:string;service_name:string;carrier:string|null;price:number;delivery_days:number|null;delivery_min:number|null;delivery_max:number|null;available:boolean;safe_error:string|null;package:Record<string,unknown>}
 export type OperationalShipment={
@@ -453,8 +461,9 @@ export async function saveShippingSettings(input:Partial<ShippingSettings>){cons
 
 export async function askIntelligence(question:string,period:PeriodValue) {
   const {organizationId}=await authenticatedOrganization()
+  const operational=operationalPeriod(period)
   const {data,error}=await supabase!.functions.invoke('ask-intelligence',{body:{
-    organization_id:organizationId,question,period_start:period.start,period_end:period.end,
+    organization_id:organizationId,question,period_start:operational.start,period_end:operational.end,
   }})
   if(error){
     const response=(error as {context?:Response}).context

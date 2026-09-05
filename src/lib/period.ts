@@ -1,4 +1,5 @@
 import { format, parseISO, subDays } from 'date-fns'
+import { OPERATIONAL_START_DATE, operationalStartDate } from './operational-sales'
 
 export type PeriodValue = { start:string; end:string; label:string }
 export type PeriodPreset = 'today'|'yesterday'|'7d'|'30d'|'month'|'previous_month'|'quarter'|'year'|'operational'|'all'|'custom'
@@ -6,8 +7,8 @@ const localIso = (date:Date) => format(date,'yyyy-MM-dd')
 
 // 'operational' resolve para organizations.operational_sales_start_date (ver
 // operational_sales_floor no banco) — quem chama passa essa data já
-// carregada (PermissionsContext). Organização sem corte configurado cai no
-// mesmo comportamento de sempre: operationalStart null/undefined vira 'all'.
+// carregada (PermissionsContext). O fallback central da RUAH impede que uma
+// falha/ausência transitória da configuração exponha o acervo histórico.
 export function presetPeriod(preset:PeriodPreset,now=new Date(),operationalStart?:string|null):PeriodValue {
   const end=new Date(now),start=new Date(now)
   start.setHours(12,0,0,0);end.setHours(12,0,0,0)
@@ -21,12 +22,11 @@ export function presetPeriod(preset:PeriodPreset,now=new Date(),operationalStart
   if(preset==='year')start.setMonth(0,1)
   if(preset==='all'){start.setFullYear(1900,0,1);end.setFullYear(2100,11,31)}
   if(preset==='operational'){
-    if(!operationalStart){start.setFullYear(1900,0,1);end.setFullYear(2100,11,31)}
-    else{const[year,month,day]=operationalStart.split('-').map(Number);start.setFullYear(year,month-1,day)}
+    const[year,month,day]=operationalStartDate(operationalStart).split('-').map(Number);start.setFullYear(year,month-1,day)
   }
   return {start:localIso(start),end:localIso(end),label:labels[preset]}
 }
-export const defaultPeriod=()=>presetPeriod('all')
+export const defaultPeriod=()=>presetPeriod('operational',new Date(),OPERATIONAL_START_DATE)
 
 // ===== Boot do período (App.tsx) =====
 // Estado-máquina puro e testável para uma única garantia: NENHUMA página que

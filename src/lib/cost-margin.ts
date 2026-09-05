@@ -1,6 +1,7 @@
 import { PeriodValue } from './period'
 import { authenticatedOrganization } from './records'
 import { supabase } from './supabase'
+import { operationalPeriod } from './operational-sales'
 
 export type PerfumeMarginRow = {
   perfume_id: string; perfume_name: string; units_sold: number; total_ml: number; revenue: number
@@ -10,7 +11,8 @@ export type PerfumeMarginRow = {
 
 export async function fetchPerfumeMarginSummary(period: PeriodValue) {
   const { organizationId } = await authenticatedOrganization()
-  const { data, error } = await supabase!.rpc('perfume_margin_summary', { org_id: organizationId, start_date: period.start, end_date: period.end })
+  const operational = operationalPeriod(period)
+  const { data, error } = await supabase!.rpc('perfume_margin_summary', { org_id: organizationId, start_date: operational.start, end_date: operational.end })
   if (error) throw new Error(error.message)
   return (data ?? []) as PerfumeMarginRow[]
 }

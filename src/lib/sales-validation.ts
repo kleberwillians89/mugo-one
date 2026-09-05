@@ -1,5 +1,6 @@
 import { authenticatedOrganization } from './records'
 import { supabase } from './supabase'
+import { operationalRows } from './operational-sales'
 
 export type BlockingReason = 'perfume_nao_identificado'|'volume_nao_informado'|'pagamento_nao_identificado'|'cadastro_cliente_incompleto'
 
@@ -29,7 +30,7 @@ export async function fetchSalesValidationQueue() {
   const { organizationId } = await authenticatedOrganization()
   const { data, error } = await supabase!.rpc('sales_validation_queue', { org_id: organizationId })
   if (error) throw new Error(error.message)
-  return (data ?? []) as BlockedSale[]
+  return operationalRows((data ?? []) as BlockedSale[])
 }
 
 export function goToSalesBlocked() {

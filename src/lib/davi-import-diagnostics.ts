@@ -1,6 +1,7 @@
 import {ImportPreview,readWorkbook} from './importer'
 import {authenticatedOrganization} from './records'
 import {supabase} from './supabase'
+import {OPERATIONAL_START_DATE} from './operational-sales'
 // @ts-expect-error O motor é ESM puro compartilhado com os scripts Node.
 import {analyzeCurrentCrm,analyzeDaviImport,safeDaviDiagnosticRows,stageDaviParsedRows} from '../../scripts/davi-import-diagnostics-lib.mjs'
 
@@ -31,11 +32,13 @@ function describeSupabaseError(table:string,error:{code?:string;message?:string;
   return {table,code:error.code,message:error.message??'Erro desconhecido',details:error.details,hint:error.hint}
 }
 
-async function allRows(table:string,columns:string,organizationId:string){
+async function allRows(table:string,columns:string,organizationId:string,minimumSaleDate?:string){
   const rows:Record<string,unknown>[]=[]
   let expectedCount:number|null=null
   for(let from=0;;from+=1000){
-    const{data,count,error}=await supabase!.from(table).select(columns,{count:'exact'}).eq('organization_id',organizationId).order('id').range(from,from+999)
+    let query=supabase!.from(table).select(columns,{count:'exact'}).eq('organization_id',organizationId)
+    if(minimumSaleDate)query=query.gte('sale_date',minimumSaleDate)
+    const{data,count,error}=await query.order('id').range(from,from+999)
     if(error){
       const detail=describeSupabaseError(table,error)
       console.error(`[davi-import-diagnostics] Erro Supabase ao ler ${table}: code=${detail.code} message=${detail.message} details=${detail.details} hint=${detail.hint}`)
@@ -73,13 +76,13 @@ async function childRows(table:string,columns:string,foreignKey:string,ids:strin
 }
 
 const latest=(rows:Record<string,unknown>[])=>rows.map(row=>String(row.updated_at??'')).sort().at(-1)??''
-async function endMarker(table:string,organizationId:string){const{data,count,error}=await supabase!.from(table).select('id,updated_at',{count:'exact'}).eq('organization_id',organizationId).order('updated_at',{ascending:false}).limit(1);if(error)throw new Error(`Não foi possível confirmar a consistência de ${table}.`);return{count:count??0,latest:String((data?.[0]as{updated_at?:string}|undefined)?.updated_at??'')}}
+async function endMarker(table:string,organizationId:string,minimumSaleDate?:string){let query=supabase!.from(table).select('id,updated_at',{count:'exact'}).eq('organization_id',organizationId);if(minimumSaleDate)query=query.gte('sale_date',minimumSaleDate);const{data,count,error}=await query.order('updated_at',{ascending:false}).limit(1);if(error)throw new Error(`Não foi possível confirmar a consistência de ${table}.`);return{count:count??0,latest:String((data?.[0]as{updated_at?:string}|undefined)?.updated_at??'')}}
 
 async function fetchDiagnosticSnapshot(organizationId:string){
  const[clients,perfumes,sales,inventoryItems,inventoryAllocations,shipments,shipmentItems,preparationBatchesRead]=await Promise.all([
   allRows('clients','id,organization_id,name,deleted_at',organizationId),
   allRows('perfumes','id,organization_id,full_name_raw,normalized_name,base_name',organizationId),
-  allRows('sales','id,organization_id,client_id,perfume_id,sale_date,sale_type,volume_ml,amount,payment_status,payment_method,paid_at,shipped_at,shipping_operational_status,client_name_raw,original_client,perfume_name_raw,original_amount,raw_data,inventory_allocation_eligible,operational_created_at,updated_at,deleted_at',organizationId),
+  allRows('sales','id,organization_id,client_id,perfume_id,sale_date,sale_type,volume_ml,amount,payment_status,payment_method,paid_at,shipped_at,shipping_operational_status,client_name_raw,original_client,perfume_name_raw,original_amount,raw_data,inventory_allocation_eligible,operational_created_at,updated_at,deleted_at',organizationId,OPERATIONAL_START_DATE),
   allRows('inventory_items','id,organization_id,perfume_id,reference_date,available_ml,physical_ml,status,updated_at',organizationId),
   allRows('inventory_allocations','id,organization_id,inventory_item_id,sale_id,perfume_id,quantity_ml,original_quantity_ml,status,allocation_source,stock_managed,shipment_id,updated_at',organizationId),
   allRows('shipments','id,organization_id,status,updated_at',organizationId),
@@ -93,7 +96,7 @@ async function fetchDiagnosticSnapshot(organizationId:string){
  const dataWarnings:DataWarning[]=preparationBatchesRead.warning?[preparationBatchesRead.warning]:[]
  const incompleteTables=preparationBatchesRead.warning?['preparation_batches']:[]
  const preparationItems=await childRows('preparation_batch_items','id,batch_id,allocation_id,quantity_ml','batch_id',preparationBatches.map(row=>String(row.id)))
- const[afterSales,afterItems,afterAllocations]=await Promise.all([endMarker('sales',organizationId),endMarker('inventory_items',organizationId),endMarker('inventory_allocations',organizationId)])
+ const[afterSales,afterItems,afterAllocations]=await Promise.all([endMarker('sales',organizationId,OPERATIONAL_START_DATE),endMarker('inventory_items',organizationId),endMarker('inventory_allocations',organizationId)])
  const before={sales:{count:sales.length,latest:latest(sales)},inventory_items:{count:inventoryItems.length,latest:latest(inventoryItems)},inventory_allocations:{count:inventoryAllocations.length,latest:latest(inventoryAllocations)}}
  const after={sales:afterSales,inventory_items:afterItems,inventory_allocations:afterAllocations}
  const changed=Object.keys(before).some(key=>before[key as keyof typeof before].count!==after[key as keyof typeof after].count||before[key as keyof typeof before].latest!==after[key as keyof typeof after].latest)

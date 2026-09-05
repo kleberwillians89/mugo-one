@@ -60,7 +60,7 @@ export function useHasPermission(code: string) {
   return useContext(PermissionsCtx).can(code)
 }
 
-/** Data de início da operação atual desta organização (null = sem corte, vê tudo). */
+/** Data de início configurada; o domínio aplica o fallback seguro central quando vier null. */
 export function useOperationalSalesStartDate() {
   return useContext(PermissionsCtx).operationalSalesStartDate
 }
