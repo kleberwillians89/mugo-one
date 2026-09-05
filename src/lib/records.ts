@@ -858,10 +858,16 @@ export async function setSplitStatus(saleId:string,status:SplitStatus,expectedUp
   if(error)throw new Error(splitStatusErrorMessage(error.message))
   return data as{id:string;split_status:SplitStatus;split_completed_at:string|null;updated_at:string;unchanged:boolean}
 }
-export type SplitStatusBulkResult={updated:string[];updated_count:number;failed:{sale_id:string;reason:string}[];failed_count:number}
-export async function setSplitStatusBulk(saleIds:string[],status:SplitStatus){
+export type SplitStatusBulkResult={updated:string[];updated_count:number;completed_at:string}
+export async function setSplitStatusBulk(saleIds:string[]){
   await authenticatedOrganization()
-  const{data,error}=await supabase!.rpc('set_sale_split_status_bulk',{p_sale_ids:saleIds,p_status:status})
+  const{data,error}=await supabase!.rpc('set_sale_split_status_bulk',{p_sale_ids:saleIds,p_status:'split'})
+  if(error)throw new Error(splitStatusErrorMessage(error.message))
+  return data as SplitStatusBulkResult
+}
+export async function completeSplitStatusForFilter(filters:SplitStatusFilters={}){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('complete_sale_splits_for_filter',{p_filters:filters})
   if(error)throw new Error(splitStatusErrorMessage(error.message))
   return data as SplitStatusBulkResult
 }

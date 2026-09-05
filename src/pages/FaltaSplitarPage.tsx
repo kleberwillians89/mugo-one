@@ -1,6 +1,6 @@
 import{useCallback,useEffect,useMemo,useState}from'react'
 import{ChevronDown,ChevronRight,Printer,Scissors,Search}from'lucide-react'
-import{fetchSplitStatusCards,fetchSplitStatusItems,fetchSplitStatusPerfumeSummary,setSplitStatus,setSplitStatusBulk,SplitStatusCards,SplitStatusFilter,SplitStatusFilters,SplitStatusItem,SplitStatusPerfumeGroup}from'../lib/records'
+import{completeSplitStatusForFilter,fetchSplitStatusCards,fetchSplitStatusItems,fetchSplitStatusPerfumeSummary,setSplitStatus,setSplitStatusBulk,SplitStatusCards,SplitStatusFilter,SplitStatusFilters,SplitStatusItem,SplitStatusPerfumeGroup}from'../lib/records'
 import{useHasPermission}from'../lib/PermissionsContext'
 import{useToast}from'../components/ui'
 import'./FaltaSplitarPage.css'
@@ -21,7 +21,6 @@ export function FaltaSplitarPage(){
   const[loadingItem,setLoadingItem]=useState<string|null>(null)
   const[selected,setSelected]=useState<Set<string>>(new Set())
   const[bulkRunning,setBulkRunning]=useState(false)
-  const[failedIds,setFailedIds]=useState<Record<string,string>>({})
 
   const effectiveFilters=useMemo<SplitStatusFilters>(()=>({...filters,search:search.trim()||undefined}),[filters,search])
 
@@ -70,19 +69,13 @@ export function FaltaSplitarPage(){
     })
   }
 
-  const runBulk=async(status:'not_split'|'split')=>{
+  const runSelectedBulk=async()=>{
     if(!selected.size)return
     setBulkRunning(true)
-    setFailedIds({})
     try{
-      const result=await setSplitStatusBulk([...selected],status)
-      if(result.failed_count>0){
-        push(`${result.updated_count} atualizados, ${result.failed_count} falhou.`,{tone:result.updated_count>0?'info':'error',duration:8000})
-        setFailedIds(Object.fromEntries(result.failed.map(item=>[item.sale_id,item.reason])))
-      }else{
-        push(`${result.updated_count} atualizado${result.updated_count===1?'':'s'} com sucesso.`,{tone:'success'})
-      }
-      setSelected(new Set(result.failed.map(item=>item.sale_id)))
+      const result=await setSplitStatusBulk([...selected])
+      push(`${result.updated_count} vendas marcadas como splitadas.`,{tone:'success'})
+      setSelected(new Set())
       loadSummary()
       if(expanded)loadItems(expanded)
     }catch(error){
@@ -90,6 +83,19 @@ export function FaltaSplitarPage(){
     }finally{
       setBulkRunning(false)
     }
+  }
+
+  const eligibleCount=groups?.reduce((total,group)=>total+group.items_count,0)??0
+  const completeCurrentFilter=async()=>{
+    if(bulkRunning||quickFilter!=='not_split'||eligibleCount===0)return
+    setBulkRunning(true)
+    try{
+      const result=await completeSplitStatusForFilter(effectiveFilters)
+      push(`${result.updated_count} vendas marcadas como splitadas.`,{tone:'success'})
+      setSelected(new Set());setItemsByPerfume({});setExpanded(null);loadSummary()
+    }catch(error){
+      push(error instanceof Error?error.message:'Falha ao marcar os splits do filtro.',{tone:'error'})
+    }finally{setBulkRunning(false)}
   }
 
   const openPrint=()=>{
@@ -119,10 +125,14 @@ export function FaltaSplitarPage(){
       </div>
     </section>
 
+    {canEdit&&quickFilter==='not_split'&&eligibleCount>0&&<section className="falta-splitar-complete-all">
+      <label><input aria-label="Marcar todos os splits elegíveis do filtro como splitados" type="checkbox" checked={false} disabled={bulkRunning} onChange={()=>void completeCurrentFilter()}/><span>{bulkRunning?'MARCANDO SPLITS…':`MARCAR TODOS OS ${eligibleCount} SPLITS DESTE FILTRO COMO SPLITADOS`}</span></label>
+      <small>A ação inclui todos os resultados do filtro, não apenas os itens abertos ou visíveis.</small>
+    </section>}
+
     {selected.size>0&&<section className="falta-splitar-bulk-bar">
       <span>{selected.size} selecionado{selected.size===1?'':'s'}</span>
-      {canEdit&&<button disabled={bulkRunning} onClick={()=>runBulk('split')}>MARCAR COMO SPLITADO</button>}
-      {canEdit&&<button disabled={bulkRunning} onClick={()=>runBulk('not_split')}>MARCAR COMO NÃO SPLITADO</button>}
+      {canEdit&&<button disabled={bulkRunning} onClick={()=>runSelectedBulk()}>MARCAR COMO SPLITADO</button>}
       <button onClick={openPrint}><Printer size={14}/> IMPRIMIR SPLITS DO DIA</button>
       <button className="falta-splitar-bulk-clear" onClick={()=>setSelected(new Set())}>Limpar seleção</button>
     </section>}
@@ -145,7 +155,7 @@ export function FaltaSplitarPage(){
             {items&&<table><thead><tr>
               <th><input type="checkbox" checked={items.length>0&&items.every(item=>selected.has(item.id))} onChange={()=>toggleSelectAllVisible(items)}/></th>
               <th>Cliente</th><th>Data da compra</th><th>Frasco</th><th>ML</th><th>Status</th>
-            </tr></thead><tbody>{items.map(item=><tr key={item.id} className={failedIds[item.id]?'falta-splitar-row-failed':''}>
+            </tr></thead><tbody>{items.map(item=><tr key={item.id}>
               <td><input type="checkbox" checked={selected.has(item.id)} onChange={()=>toggleSelected(item.id)}/></td>
               <td>{item.client_name}</td>
               <td>{shortDatePt(item.sale_date)}</td>
@@ -156,7 +166,6 @@ export function FaltaSplitarPage(){
                   <option value="not_split">NÃO SPLITADO</option>
                   <option value="split">SPLITADO</option>
                 </select>
-                {failedIds[item.id]&&<small className="falta-splitar-row-error">{failedIds[item.id]}</small>}
               </td>
             </tr>)}</tbody></table>}
           </div>}
