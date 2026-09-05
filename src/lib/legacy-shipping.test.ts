@@ -72,24 +72,11 @@ describe('confirmação manual de envio legado',()=>{
   })
 })
 
-describe('interface de conferência manual',()=>{
-  it('tem filtros, contadores e um único input compacto com os três estados',()=>{
-    for(const label of ['CONFERÊNCIA MANUAL','A CONFIRMAR','ENVIADO','NÃO ENVIADO'])expect(deliveries).toContain(label)
-    expect(deliveries).toContain('countLegacyShipping(rows)')
-    expect(deliveries).toContain("confirmationFilter==='all'||legacyShippingState")
-    expect(deliveries).toContain('legacy-delivery-input')
-    expect(deliveries).toContain('placeholder="DD/MM/AAAA ou X"')
+describe('compatibilidade da confirmação manual anterior',()=>{
+  it('mantém backend e dados anteriores, mas remove o input redundante da tabela',()=>{
+    expect(records).toContain('setLegacyShippingConfirmation')
+    expect(deliveries).not.toContain('legacy-delivery-input')
     expect(deliveries).not.toContain('legacy-confirmation-select')
-  })
-  it('salva sem F5, mostra SALVANDO e exige confirmação para não enviado',()=>{
-    expect(deliveries).toContain('SALVANDO...')
-    expect(deliveries).toContain("if(parsed.confirmation==='not_sent'){setNotSentSale(row);return}")
-    expect(deliveries).toContain('Esta ação não cancela a venda nem altera estoque ou pagamento.')
-    expect(deliveries).toContain('setRows(current=>current.map')
-    expect(deliveries).toContain("toast.push(confirmation==='sent'?'Envio confirmado.'")
-  })
-  it('exibe erro operacional amigável e mantém a tela da cliente semanticamente separada',()=>{
-    expect(records).toContain('Esta venda possui um envio operacional confirmado e não pode ser marcada como “Não enviado”.')
-    expect(clientDetails).toContain('<th>Status histórico</th><th>Confirmação manual</th>')
+    expect(clientDetails).not.toContain('<th>Confirmação manual</th>')
   })
 })

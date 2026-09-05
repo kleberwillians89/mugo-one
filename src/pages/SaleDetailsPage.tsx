@@ -3,9 +3,9 @@ import { AlertTriangle } from 'lucide-react'
 import { brl, shortDate } from '../lib/format'
 import { operationalLabel, statusLabel } from '../lib/presentation'
 import { deliveryLabel } from '../lib/delivery'
-import { legacyShippingLabels, legacyShippingState } from '../lib/legacy-shipping'
+import { LegacyShippingStatusInput } from '../components/LegacyShippingStatusInput'
 import {
-  CommercialSale, confirmLegacyProductCustody, confirmSaleShippingAvailability, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
+  CommercialSale, type LegacyShippingStatusResult, confirmLegacyProductCustody, confirmSaleShippingAvailability, createDraftShipment, fetchSale360, releaseLegacyProductCustody,
 } from '../lib/records'
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton } from '../components/ui'
@@ -25,6 +25,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
   const confirmCustody=async()=>{if(!confirmed)return;setSaving(true);setOperationError('');try{await confirmLegacyProductCustody(sale.id,location,verificationNote);setConfirming(false);setConfirmed(false);await reload()}catch{setOperationError('Não foi possível confirmar a custódia. Nenhuma alteração foi realizada. Tente novamente.')}finally{setSaving(false)}}
   const release=async()=>{if(!allocation)return;setSaving(true);try{await releaseLegacyProductCustody(allocation.id);await reload()}catch(reason){setOperationError(reason instanceof Error?reason.message:'Não foi possível remover a confirmação.')}finally{setSaving(false)}}
   const confirmAvailability=async()=>{setSaving(true);setOperationError('');try{await confirmSaleShippingAvailability(sale.id);await reload()}catch(reason){setOperationError(reason instanceof Error?reason.message:'Não foi possível confirmar a disponibilidade.')}finally{setSaving(false)}}
+  const applyLegacyStatus=(result:LegacyShippingStatusResult)=>setSale(current=>current?{...current,legacy_shipping_status:result.status,legacy_shipping_status_updated_at:result.status_updated_at,legacy_shipping_status_updated_by:result.status_updated_by,updated_at:result.updated_at}:current)
   const canConfirm=!allocation&&!shipment&&!sale.shipped_at&&Boolean(sale.client_id&&sale.perfume_id&&sale.volume_ml&&sale.volume_ml>0)
   const clientName=sale.clients?.name??sale.original_client??'Venda'
 
@@ -118,8 +119,8 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
     <Divider label="Logística"/>
     <DefinitionGroup title="Envio" items={[
       {label:'Envio',value:shipment?.id||'Ainda não preparado'},
-      {label:'Status',value:shipment?.status?operationalLabel(shipment.status):deliveryLabel(sale)},
-      {label:'Confirmação manual',value:`${legacyShippingLabels[legacyShippingState(sale.legacy_shipping_confirmation)]}${sale.legacy_shipping_date?` · ${shortDate(sale.legacy_shipping_date)}`:''}`},
+      {label:'Status operacional',value:shipment?.status?operationalLabel(shipment.status):deliveryLabel(sale)},
+      {label:'Status histórico',value:<LegacyShippingStatusInput key={`${sale.id}:${sale.updated_at}`} saleId={sale.id} status={sale.legacy_shipping_status} updatedAt={sale.updated_at} onSaved={applyLegacyStatus}/>},
       {label:'Transportadora',value:shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'},
       {label:'Rastreio',value:shipment?.tracking_code||'—'},
       {label:'Prazo histórico',value:sale.shipping_deadline_date?shortDate(sale.shipping_deadline_date):sale.shipping_deadline_raw||'—'},

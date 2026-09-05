@@ -128,7 +128,7 @@ export async function fetchClient360(clientId:string) {
   await authenticatedOrganization()
   const [{data:profile,error:profileError},{data:history,error:historyError},{data:waiting,error:waitingError},{data:shipments,error:shipmentsError}]=await Promise.all([
     supabase!.rpc('client_360',{p_client_id:clientId}),
-    supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
+    supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,perfume_name_raw,sale_type,volume_ml,notes,source,shipped_at,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,legacy_shipping_status,legacy_shipping_status_updated_at,legacy_shipping_status_updated_by,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))').eq('client_id',clientId).is('deleted_at',null).order('sale_date',{ascending:false}),
     supabase!.rpc('client_waiting_products_v2',{p_client_id:clientId}),
     supabase!.from('shipments').select('id,status,requested_at,carrier,service,shipping_price,tracking_code,posted_at,delivered_at,created_at,shipment_items(sale_id,quantity_ml,sales(perfume_name_raw))').eq('client_id',clientId).order('created_at',{ascending:false}),
   ])
@@ -178,6 +178,7 @@ export type CommercialSale = {
   volume_ml:number|null; shipping_deadline_raw:string|null;shipping_deadline_date:string|null;shipping_availability_text?:string|null;shipping_availability_kind?:string|null;shipping_available_date?:string|null;shipping_lead_business_days?:number|null;shipping_availability_confirmed_at?:string|null
   shipping_operational_status:string|null; shipped_at:string|null; notes:string|null;source:string
   legacy_shipping_confirmation?:'pending'|'sent'|'not_sent'|null;legacy_shipping_date?:string|null;legacy_shipping_confirmed_at?:string|null;legacy_shipping_confirmed_by?:string|null
+  legacy_shipping_status?:'confirmed'|'to_send'|'out_of_stock'|null;legacy_shipping_status_updated_at?:string|null;legacy_shipping_status_updated_by?:string|null
   credit_reference_amount?:number|null;inventory_allocation_eligible?:boolean
   clients:{name:string;phone?:string|null;whatsapp_phone?:string|null;email?:string|null;cpf?:string|null;cnpj?:string|null;postal_code?:string|null;address_line?:string|null;address_number?:string|null;complement?:string|null;district?:string|null;city?:string|null;state?:string|null}|null
   inventory_allocations?:{id:string;status:string;quantity_ml:number;shipment_id:string|null;allocation_source:string;stock_managed:boolean;verified_at:string|null;verified_by:string|null;verification_note:string|null;storage_location:string|null;inventory_items:{id:string;physical_ml:number;available_ml:number}|null}[]
@@ -317,7 +318,7 @@ export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) 
 
 export async function fetchSale360(saleId:string){
   const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.from('sales').select('id,updated_at,client_id,perfume_id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_availability_text,shipping_availability_kind,shipping_available_date,shipping_lead_business_days,shipping_availability_confirmed_at,shipping_operational_status,shipped_at,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,notes,source,credit_reference_amount,inventory_allocation_eligible,clients(name,phone,whatsapp_phone,email,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state)').eq('organization_id',organizationId).eq('id',saleId).is('deleted_at',null).single()
+  const {data,error}=await supabase!.from('sales').select('id,updated_at,client_id,perfume_id,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_availability_text,shipping_availability_kind,shipping_available_date,shipping_lead_business_days,shipping_availability_confirmed_at,shipping_operational_status,shipped_at,legacy_shipping_status,legacy_shipping_status_updated_at,legacy_shipping_status_updated_by,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,notes,source,credit_reference_amount,inventory_allocation_eligible,clients(name,phone,whatsapp_phone,email,cpf,cnpj,postal_code,address_line,address_number,complement,district,city,state)').eq('organization_id',organizationId).eq('id',saleId).is('deleted_at',null).single()
   if(error)throw new Error(error.message)
   const [allocations,shipments]=await Promise.allSettled([
     supabase!.from('inventory_allocations').select('id,status,quantity_ml,shipment_id,allocation_source,stock_managed,verified_at,verified_by,verification_note,storage_location,inventory_items(id,physical_ml,available_ml)').eq('sale_id',saleId),
@@ -342,7 +343,7 @@ export async function fetchDeliveryRows(period?:PeriodValue) {
   const {organizationId}=await authenticatedOrganization()
   const result:CommercialSale[]=[]
   for(let from=0;;from+=1000){
-    let query=supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,notes,source,clients(name),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))')
+    let query=supabase!.from('sales').select('id,updated_at,sale_date,amount,payment_status,payment_method,paid_at,original_client,perfume_name_raw,bottle_identifier,sale_type,volume_ml,shipping_deadline_raw,shipping_deadline_date,shipping_operational_status,shipped_at,legacy_shipping_status,legacy_shipping_status_updated_at,legacy_shipping_status_updated_by,legacy_shipping_confirmation,legacy_shipping_date,legacy_shipping_confirmed_at,legacy_shipping_confirmed_by,notes,source,clients(name),shipment_items(shipment_id,shipments(id,status,carrier,service,tracking_code,posted_at,delivered_at))')
       .eq('organization_id',organizationId).is('deleted_at',null).range(from,from+999)
     if(period)query=query.gte('sale_date',period.start).lte('sale_date',period.end)
     const {data,error}=await query
@@ -372,6 +373,14 @@ export async function setLegacyShippingConfirmation(saleId:string,confirmation:'
     throw new Error(message)
   }
   return data as{sale_id:string;confirmation:'pending'|'sent'|'not_sent';shipping_date:string|null;confirmed_at:string|null;confirmed_by:string|null;updated_at:string;changed:boolean}
+}
+
+export type LegacyShippingStatusResult={sale_id:string;status:'confirmed'|'to_send'|'out_of_stock'|null;status_updated_at:string|null;status_updated_by:string|null;updated_at:string;changed:boolean}
+export async function setLegacyShippingStatus(saleId:string,status:'confirmed'|'to_send'|'out_of_stock'|null,expectedUpdatedAt:string){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('set_legacy_shipping_status',{p_sale_id:saleId,p_status:status,p_expected_updated_at:expectedUpdatedAt})
+  if(error){const message=String(error.message);if(message.includes('stale_sale'))throw new Error('Esta venda foi atualizada por outra pessoa. Recarregue antes de salvar.');if(message.includes('forbidden'))throw new Error('Você não tem permissão para alterar o status histórico.');if(message.includes('sale_not_found'))throw new Error('Venda não encontrada nesta organização.');throw new Error(message)}
+  return data as LegacyShippingStatusResult
 }
 
 export type LogisticsSummary={identified_shipments:number;shipped_in_period:number;historical_on_time:number;historical_late:number;average_days_to_ship:number|null;operational_backlog:number;shipments_preparing:number;awaiting_approval:number;labels_released:number;posted:number;delivered:number}
