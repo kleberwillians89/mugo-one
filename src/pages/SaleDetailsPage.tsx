@@ -119,7 +119,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
     <DefinitionGroup title="Envio" items={[
       {label:'Envio',value:shipment?.id||'Ainda não preparado'},
       {label:'Status',value:shipment?.status?operationalLabel(shipment.status):deliveryLabel(sale)},
-      {label:'Confirmação manual',value:legacyShippingLabels[legacyShippingState(sale.legacy_shipping_confirmation)]},
+      {label:'Confirmação manual',value:`${legacyShippingLabels[legacyShippingState(sale.legacy_shipping_confirmation)]}${sale.legacy_shipping_date?` · ${shortDate(sale.legacy_shipping_date)}`:''}`},
       {label:'Transportadora',value:shipment?.carrier?`${shipment.carrier} · ${shipment.service||''}`:'—'},
       {label:'Rastreio',value:shipment?.tracking_code||'—'},
       {label:'Prazo histórico',value:sale.shipping_deadline_date?shortDate(sale.shipping_deadline_date):sale.shipping_deadline_raw||'—'},

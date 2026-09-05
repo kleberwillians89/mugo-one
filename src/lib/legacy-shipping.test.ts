@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { countLegacyShipping, legacyShippingLabels, legacyShippingState } from './legacy-shipping'
+import { countLegacyShipping, formatLegacyShippingInput, legacyShippingLabels, legacyShippingState, parseLegacyShippingInput } from './legacy-shipping'
 
-const migration=readFileSync(new URL('../../supabase/migrations/202609050002_legacy_shipping_confirmation.sql',import.meta.url),'utf8')
+const foundationMigration=readFileSync(new URL('../../supabase/migrations/202609050002_legacy_shipping_confirmation.sql',import.meta.url),'utf8')
+const dateMigration=readFileSync(new URL('../../supabase/migrations/202609050003_legacy_shipping_date_input.sql',import.meta.url),'utf8')
+const migration=`${foundationMigration}\n${dateMigration}`
 const deliveries=readFileSync(new URL('../pages/DeliveriesPage.tsx',import.meta.url),'utf8')
 const clientDetails=readFileSync(new URL('../pages/ClientDetailsPage.tsx',import.meta.url),'utf8')
 const records=readFileSync(new URL('./records.ts',import.meta.url),'utf8')
 const sql=migration.split('\n').map(line=>line.replace(/--.*$/,'')).join('\n')
-const rpc=migration.slice(migration.indexOf('create or replace function public.set_legacy_shipping_confirmation'))
+const rpc=migration.slice(migration.lastIndexOf('create or replace function public.set_legacy_shipping_confirmation'))
 
 describe('confirmação manual de envio legado',()=>{
   it('mapeia NULL e pending para A CONFIRMAR e conta os três estados',()=>{
@@ -17,10 +19,22 @@ describe('confirmação manual de envio legado',()=>{
     expect(countLegacyShipping([{legacy_shipping_confirmation:null},{legacy_shipping_confirmation:'pending'},{legacy_shipping_confirmation:'sent'},{legacy_shipping_confirmation:'not_sent'}])).toEqual({pending:2,sent:1,not_sent:1})
   })
 
+  it('interpreta vazio, X e data brasileira estrita',()=>{
+    expect(parseLegacyShippingInput('  ')).toEqual({confirmation:'pending',shippingDate:null})
+    expect(parseLegacyShippingInput(' x ')).toEqual({confirmation:'not_sent',shippingDate:null})
+    expect(parseLegacyShippingInput('14/08/2026')).toEqual({confirmation:'sent',shippingDate:'2026-08-14'})
+    for(const invalid of ['enviado','XX','2026-08-14','31/02/2026','1/8/2026'])expect(()=>parseLegacyShippingInput(invalid)).toThrow('DD/MM/AAAA ou X')
+    expect(formatLegacyShippingInput('sent','2026-08-14')).toBe('14/08/2026')
+    expect(formatLegacyShippingInput('not_sent',null)).toBe('X')
+    expect(formatLegacyShippingInput(null,null)).toBe('')
+  })
+
   it('cria campos aditivos sem backfill e mantém pending como NULL',()=>{
     for(const field of ['legacy_shipping_confirmation','legacy_shipping_confirmed_at','legacy_shipping_confirmed_by'])expect(migration).toContain(`add column if not exists ${field}`)
-    expect(sql).not.toMatch(/update public\.sales[\s\S]*legacy_shipping_confirmation\s*=\s*'pending'/i)
+    expect(sql).not.toMatch(/update public\.sales\s+set\s+legacy_shipping_confirmation\s*=\s*'pending'/i)
     expect(rpc).toContain("case when normalized_confirmation = 'pending' then null")
+    expect(dateMigration).toContain('add column if not exists legacy_shipping_date date')
+    expect(dateMigration).toContain(') not valid;')
   })
 
   it('protege autenticação, tenant, permissão, venda excluída e concorrência',()=>{
@@ -39,11 +53,13 @@ describe('confirmação manual de envio legado',()=>{
     expect(rpc).toContain("normalized_confirmation = 'not_sent'")
     for(const evidence of ['sale_row.shipped_at is not null',"sh.status in ('posted', 'delivered')",'sh.posted_at is not null','sh.delivered_at is not null',"nullif(btrim(sh.tracking_code), '') is not null"])expect(rpc).toContain(evidence)
     expect(rpc).toContain("raise exception 'operational_shipment_confirmed'")
+    expect(rpc).toContain("normalized_confirmation = 'sent' and p_shipping_date is null")
+    expect(rpc).toContain("normalized_confirmation in ('pending', 'not_sent') and p_shipping_date is not null")
   })
 
   it('altera só os três campos manuais e updated_at',()=>{
     const update=rpc.slice(rpc.indexOf('update public.sales set'),rpc.indexOf('returning jsonb_build_object'))
-    for(const field of ['legacy_shipping_confirmation =','legacy_shipping_confirmed_at =','legacy_shipping_confirmed_by =','updated_at ='])expect(update).toContain(field)
+    for(const field of ['legacy_shipping_confirmation =','legacy_shipping_date =','legacy_shipping_confirmed_at =','legacy_shipping_confirmed_by =','updated_at ='])expect(update).toContain(field)
     for(const forbidden of ['payment_status','paid_at','payment_method','amount','deleted_at','shipped_at','tracking_code','perfume_id','client_id'])expect(update).not.toContain(`${forbidden} =`)
     expect(sql).not.toMatch(/(?:insert into|update|delete from) public\.(inventory_items|inventory_allocations|inventory_movements|shipments|shipment_items|preparation_batches|preparation_batch_items)/i)
   })
@@ -57,15 +73,17 @@ describe('confirmação manual de envio legado',()=>{
 })
 
 describe('interface de conferência manual',()=>{
-  it('tem filtros, contadores e o select compacto com os três estados',()=>{
+  it('tem filtros, contadores e um único input compacto com os três estados',()=>{
     for(const label of ['CONFERÊNCIA MANUAL','A CONFIRMAR','ENVIADO','NÃO ENVIADO'])expect(deliveries).toContain(label)
     expect(deliveries).toContain('countLegacyShipping(rows)')
     expect(deliveries).toContain("confirmationFilter==='all'||legacyShippingState")
-    expect(deliveries).toContain('legacy-confirmation-select')
+    expect(deliveries).toContain('legacy-delivery-input')
+    expect(deliveries).toContain('placeholder="DD/MM/AAAA ou X"')
+    expect(deliveries).not.toContain('legacy-confirmation-select')
   })
   it('salva sem F5, mostra SALVANDO e exige confirmação para não enviado',()=>{
     expect(deliveries).toContain('SALVANDO...')
-    expect(deliveries).toContain("if(value==='not_sent'){setNotSentSale(row);return}")
+    expect(deliveries).toContain("if(parsed.confirmation==='not_sent'){setNotSentSale(row);return}")
     expect(deliveries).toContain('Esta ação não cancela a venda nem altera estoque ou pagamento.')
     expect(deliveries).toContain('setRows(current=>current.map')
     expect(deliveries).toContain("toast.push(confirmation==='sent'?'Envio confirmado.'")
