@@ -11,6 +11,7 @@ import { InventoryCountPage } from './pages/InventoryCountPage'
 import { PrintLabelPage } from './pages/PrintLabelPage'
 import {PerfumePrintLabelPage} from './pages/PerfumePrintLabelPage'
 import { ShipmentPrintPage } from './pages/ShipmentPrintPage'
+import { SplitsDoDiaPrintPage } from './pages/SplitsDoDiaPrintPage'
 import { CustomerPortalRoot } from './portal/CustomerPortalRoot'
 import { ToastProvider } from './components/ui'
 
@@ -111,6 +112,7 @@ export function AuthRoot() {
   // físico"): rota própria, sem AppShell — ver PrintLabelPage.tsx.
   if(path==='/print/perfume')return <PerfumePrintLabelPage/>
   if(path==='/print/shipment')return <ShipmentPrintPage/>
+  if(path==='/print/splits-do-dia')return <SplitsDoDiaPrintPage/>
   const printMatch=path.match(/^\/print\/(bottle|split)$/)
   if(printMatch)return <PrintLabelPage kind={printMatch[1] as 'bottle'|'split'}/>
   if(path==='/estoque/leitor')return <InventoryStationPage/>

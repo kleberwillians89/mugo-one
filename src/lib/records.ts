@@ -804,3 +804,53 @@ export async function updateInventoryMinimum(itemId:string,minimumMl:number){
   const{error}=await supabase!.rpc('inventory_update_minimum',{p_item_id:itemId,p_minimum_ml:minimumMl})
   if(error)throw new Error(error.message)
 }
+
+// ===== Falta Splitar =====
+export type SplitStatus='not_split'|'split'
+export type SplitStatusFilter='not_split'|'split'|'split_today'|'all'
+export type SplitStatusFilters={search?:string;client?:string;perfume?:string;brand?:string;purchase_date?:string;bottle?:string}
+export type SplitStatusCards={not_split:number;split_today:number;clients_pending:number;perfumes_pending:number;ml_pending:number}
+export type SplitStatusPerfumeGroup={perfume_id:string|null;perfume_name:string;brand_house:string|null;clients_count:number;items_count:number;ml_total:number}
+export type SplitStatusItem={id:string;client_id:string;client_name:string;client_number:number|null;perfume_id:string|null;perfume_name:string|null;brand_house:string|null;bottle_identifier:string|null;volume_ml:number|null;sale_date:string;split_status:SplitStatus;split_completed_at:string|null;split_completed_by:string|null;updated_at:string}
+const splitStatusErrorMessage=(message:string)=>{
+  if(message.includes('stale_sale'))return'Este item foi atualizado por outra pessoa. Recarregue antes de tentar de novo.'
+  if(message.includes('permission_denied'))return'Você não tem permissão para alterar o status de split.'
+  if(message.includes('sale_not_found'))return'Venda não encontrada.'
+  if(message.includes('sale_not_eligible_for_split'))return'Esta venda não é do tipo SPLIT.'
+  return message
+}
+export async function fetchSplitStatusCards(){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('sale_split_status_cards')
+  if(error)throw new Error(error.message)
+  return data as SplitStatusCards
+}
+export async function fetchSplitStatusPerfumeSummary(status:SplitStatusFilter,filters:SplitStatusFilters={}){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('sale_split_status_perfume_summary',{p_status:status,p_filters:filters})
+  if(error)throw new Error(error.message)
+  return(data??[])as SplitStatusPerfumeGroup[]
+}
+export async function fetchSplitStatusItems(options:{perfumeId?:string|null;status?:SplitStatusFilter;filters?:SplitStatusFilters;saleIds?:string[];page?:number;pageSize?:number}={}){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('sale_split_status_list',{
+    p_perfume_id:options.perfumeId??null,p_status:options.status??'not_split',p_filters:options.filters??{},
+    p_sale_ids:options.saleIds??null,p_page:options.page??0,p_page_size:options.pageSize??200,
+  })
+  if(error)throw new Error(error.message)
+  const result=data as{rows:SplitStatusItem[];total:number}|null
+  return result??{rows:[],total:0}
+}
+export async function setSplitStatus(saleId:string,status:SplitStatus,expectedUpdatedAt:string){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('set_sale_split_status',{p_sale_id:saleId,p_status:status,p_expected_updated_at:expectedUpdatedAt})
+  if(error)throw new Error(splitStatusErrorMessage(error.message))
+  return data as{id:string;split_status:SplitStatus;split_completed_at:string|null;updated_at:string;unchanged:boolean}
+}
+export type SplitStatusBulkResult={updated:string[];updated_count:number;failed:{sale_id:string;reason:string}[];failed_count:number}
+export async function setSplitStatusBulk(saleIds:string[],status:SplitStatus){
+  await authenticatedOrganization()
+  const{data,error}=await supabase!.rpc('set_sale_split_status_bulk',{p_sale_ids:saleIds,p_status:status})
+  if(error)throw new Error(splitStatusErrorMessage(error.message))
+  return data as SplitStatusBulkResult
+}

@@ -1,0 +1,309 @@
+.splits-document-page {
+  min-height: 100dvh;
+  padding: 32px;
+  background: #e9e4da;
+  color: #171612;
+}
+
+.splits-document-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: min(210mm, 100%);
+  margin: 0 auto 16px;
+}
+
+.splits-document-actions button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #28251f;
+  background: #fff;
+  color: #171612;
+  font: 700 10px Arial;
+  letter-spacing: .08em;
+}
+
+.splits-document-actions button:last-child {
+  background: #171612;
+  color: #fff;
+}
+
+.splits-document-actions svg {
+  width: 15px;
+}
+
+.splits-document {
+  box-sizing: border-box;
+  width: min(210mm, 100%);
+  margin: auto;
+  padding: 15mm;
+  background: #fff;
+  box-shadow: 0 18px 60px #2b251b22;
+  font-family: Arial, sans-serif;
+  font-size: 10pt;
+  line-height: normal;
+}
+
+/* position/height resetados explicitamente pelo mesmo motivo do
+   ShipmentPrintPage: o seletor global de tag <header> do app shell aplica
+   sticky/height a QUALQUER <header>, e no Chromium isso corrompe a
+   paginação de impressão. Este documento nunca roda dentro do app shell,
+   mas o reset fica aqui como rede de segurança (ver ShipmentPrintPage.css). */
+.splits-document-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10mm;
+  padding-bottom: 7mm;
+  margin-bottom: 8mm;
+  border-bottom: 1px solid #1d1b17;
+  position: static;
+  top: auto;
+  height: auto;
+}
+
+.splits-document-brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.splits-document-brand strong {
+  font: 500 27pt Georgia;
+  letter-spacing: .16em;
+}
+
+.splits-document-brand span {
+  font-size: 7pt;
+  letter-spacing: .42em;
+}
+
+.splits-document-header > div:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1mm;
+}
+
+.splits-document-header > div:last-child > span:first-child {
+  font: 700 7pt Arial;
+  letter-spacing: .18em;
+  color: #625d55;
+}
+
+.splits-document-header h1 {
+  margin: 0;
+  font: 400 16pt Georgia;
+  letter-spacing: .04em;
+}
+
+.splits-document-date {
+  font-size: 8.5pt;
+  color: #625d55;
+}
+
+.splits-document-summary {
+  margin-bottom: 8mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.splits-document-summary dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6mm;
+  margin: 0;
+}
+
+.splits-document-summary dt {
+  font: 700 7pt Arial;
+  letter-spacing: .1em;
+  color: #625d55;
+}
+
+.splits-document-summary dd {
+  margin: 1mm 0 0;
+  font: 700 13pt Georgia;
+}
+
+.splits-document-group {
+  margin-bottom: 6mm;
+  padding-bottom: 4mm;
+  border-bottom: 1px solid #ddd8cf;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.splits-document-group h2 {
+  margin: 0 0 3mm;
+  font: 700 10pt Arial;
+  letter-spacing: .04em;
+}
+
+.splits-document-group h2 span {
+  font-weight: 400;
+  color: #625d55;
+}
+
+.splits-document-group ul {
+  display: grid;
+  gap: 2.5mm;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.splits-document-group li {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  font-size: 9pt;
+}
+
+.splits-document-group li > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.splits-document-group li span {
+  font-size: 8pt;
+  color: #625d55;
+}
+
+.splits-check-box {
+  display: inline-block;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 4mm;
+  height: 4mm;
+  border: 1px solid #171612;
+}
+
+.splits-group-total {
+  display: flex;
+  justify-content: flex-end;
+  gap: 3mm;
+  margin-top: 2mm;
+  font-size: 8.5pt;
+}
+
+.splits-group-total span {
+  color: #625d55;
+  letter-spacing: .04em;
+}
+
+.splits-document-footer {
+  display: grid;
+  gap: 8mm;
+  margin-top: 10mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.splits-document-signature,
+.splits-document-finished {
+  display: flex;
+  align-items: center;
+  gap: 4mm;
+  font-size: 8.5pt;
+  color: #625d55;
+}
+
+.splits-date-fields {
+  display: flex;
+  align-items: center;
+  gap: 1.5mm;
+}
+
+.splits-line {
+  flex: 1;
+  border-bottom: 1px solid #1d1b17;
+  min-height: 5mm;
+}
+
+.splits-line.short {
+  flex: none;
+  width: 9mm;
+}
+
+.splits-document-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 3mm;
+  font-size: 8.5pt;
+  color: #625d55;
+}
+
+.splits-document footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10mm;
+  margin-top: 8mm;
+  padding-top: 3mm;
+  border-top: 1px solid #1d1b17;
+  color: #625d55;
+  font-size: 7pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.splits-document footer span {
+  color: #171612;
+  font-family: Georgia;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.splits-document-state {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .splits-document-page {
+    padding: 12px;
+  }
+
+  .splits-document {
+    padding: 24px;
+  }
+
+  .splits-document-summary dl {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media print {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .splits-document-page {
+    width: auto;
+    max-width: none;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .splits-document-actions {
+    display: none !important;
+  }
+
+  .splits-document {
+    width: auto;
+    max-width: none;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}
