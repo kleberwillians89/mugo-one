@@ -17,13 +17,14 @@ const confirmMultiFn=migration.slice(migration.indexOf('create or replace functi
 // os cenários do briefing com dados de verdade — não só grep de string.
 type Sale={client_name:string;client_id:string|null;client_match_status:'found'|'new'|'review';possible_duplicate:boolean;volume_ml:number}
 type Group={perfume_id:string|null;display_name:string;normalized_perfume_name:string}
-type Preview={source_format:'whatsapp'|'tsv';perfume_id:string|null;groups?:Group[];sales:Sale[];duplicate_batch:unknown;shipping_availability_text:string|null;shipping_availability_human_confirmed:boolean}
+type Preview={source_format:'whatsapp'|'tsv';perfume_id:string|null;groups?:Group[];sales:Sale[];duplicate_batch:unknown;shipping_availability_text:string|null;shipping_availability_human_confirmed:boolean;pricing_consistent?:boolean}
 function blockers(preview:Preview|null):{text:string}[]{
   if(!preview)return[]
   const list:{text:string}[]=[]
   if(preview.source_format==='tsv'){
     for(const group of preview.groups??[])if(!group.perfume_id)list.push({text:`Perfume "${group.display_name}" precisa de resolução no catálogo`})
   }else if(!preview.perfume_id)list.push({text:'Resolva o perfume no catálogo da RUAH'})
+  if(preview.pricing_consistent===false)list.push({text:'Os valores publicados não conferem com a cotação, a recravação e o adicional do APC'})
   preview.sales.forEach(sale=>{if(sale.volume_ml<=0)list.push({text:`Volume inválido para ${sale.client_name}`})})
   preview.sales.forEach(sale=>{if(sale.client_match_status==='review'||(!sale.client_id&&sale.client_match_status!=='new'))list.push({text:`Confirme quem é ${sale.client_name}`})})
   preview.sales.forEach(sale=>{if(sale.possible_duplicate)list.push({text:`Possível venda repetida para ${sale.client_name}`})})
@@ -66,7 +67,8 @@ describe('10 cenários adicionais do briefing — matemática real, não só gre
     expect(confirmSingleFn).not.toContain('operational_code')
   })
   it('7) "(FRASCO 2)" não exige inventory_bottle — é só bottle_number numérico extraído do texto',()=>{
-    expect(domain).toContain('const bottle=raw.match(/\\(\\s*Frasco\\s+(\\d+)\\s*\\)/i)')
+    expect(domain).toContain('const bottleNumbers=[...raw.matchAll(')
+    expect(domain).toContain("if(distinctBottleNumbers.length>1)throw new Error('multiple_bottle_numbers')")
     expect(domain).not.toContain('inventory_bottles')
   })
   it('8) ausência de estoque não altera ready state — blockers() nunca lê inventory_item_id/inventory/physical_ml/available_ml',()=>{
@@ -83,6 +85,9 @@ describe('10 cenários adicionais do briefing — matemática real, não só gre
   it('11) cliente pendente continua pendência real',()=>{
     expect(blockers(tobaccoCarnaval({sales:[sale({client_match_status:'review'})]}))).toEqual([{text:'Confirme quem é Cliente'}])
     expect(blockers(tobaccoCarnaval({sales:[sale({client_id:null,client_match_status:'found'})]}))).toEqual([{text:'Confirme quem é Cliente'}])
+  })
+  it('12) divergência de preço impede a confirmação pelo fluxo normal do CRM',()=>{
+    expect(blockers(tobaccoCarnaval({pricing_consistent:false}))).toEqual([{text:'Os valores publicados não conferem com a cotação, a recravação e o adicional do APC'}])
   })
 })
 

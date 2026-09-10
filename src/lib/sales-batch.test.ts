@@ -32,7 +32,7 @@ describe('parser determinístico da lista do Davi',()=>{
   const parsed=parseDaviSalesBatch(example)
   it('extrai metadados comerciais',()=>expect(parsed).toMatchObject({perfume:'Fève Nectar — Place de la Rêverie',bottle_number:1,original_volume_ml:50,quote_per_ml:46.9,recrimping_fee:9,apc_volume_ml:25,apc_extra:50,deadline_day_month:'04/09',business_days:15,announced_balance_ml:3}))
   it('extrai as sete vendas e nomes sem confundir tabela de preços',()=>expect(parsed.sales.map(x=>x.client_name)).toEqual(['Tatiana Carvalho','Luciana Alves','Mariana ZTB','Melani Nunes','Claudia Fernanda','Fernanda VT','Endrigo Rodrigues']))
-  it('confere 47 ml, saldo 3 ml e R$ 2.308,30',()=>expect(parsed.totals).toEqual({sales:7,volume_ml:47,amount:2308.3,calculated_balance_ml:3,volume_consistent:true}))
+  it('confere 47 ml, saldo 3 ml e R$ 2.308,30',()=>expect(parsed.totals).toEqual({sales:7,volume_ml:47,amount:2308.3,calculated_balance_ml:3,total_operation_ml:50,volume_consistent:true}))
   it('não transforma saldo anunciado em estoque inicial',()=>expect(parsed.original_volume_ml).toBe(50))
 })
 
@@ -43,6 +43,48 @@ describe('formatos reais de WhatsApp',()=>{
   it('remove markdown, bullets, NBSP e caracteres invisíveis sem alterar o nome',()=>{const parsed=parseDaviSalesBatch(`${header}🚨 *03\u00a0ml:\u200b José da Silva* 🚨\n_05ml: Ana Paula D'Ávila_`);expect(parsed.sales.map(x=>x.client_name)).toEqual(['José da Silva',"Ana Paula D'Ávila"])})
   it('não converte tabela de preço em venda',()=>{const parsed=parseDaviSalesBatch(`${header}03ml: R$ 149,70\nAPC: R$ 1.222,50`);expect(parsed.sales).toHaveLength(0);expect(countSaleCandidateLines(`${header}03ml: R$ 149,70\nAPC: R$ 1.222,50`)).toBe(0)})
   it('conta candidatas sem registrar conteúdo sensível',()=>expect(countSaleCandidateLines('🔗 https://exemplo.com\n*03ml: Duda Lazzarini*\nAPC : Fernanda VT')).toBe(2))
+})
+
+describe('LA CAUTIVA — formato operacional com frasco sem parênteses',()=>{
+  const laCautiva=`LA CAUTIVA — FUEGUIA 1833
+Frasco 1.
+
+▪️ Cotação: R$ 35,90/ml (+ R$ 9,00 recravação)
+▪️ APC: 50ml + R$ 50,00 (frasco original de 100ml)
+📦 Liberação para envio: a partir de 14/09 (prazo estimado: 05 dias úteis)
+💳 Parcelamento em até 6x sem juros.
+
+🚨 FRASCO FECHADO. 🚨
+03ml — R$ 116,70
+05ml — R$ 188,50
+08ml — R$ 296,20
+10ml — R$ 368,00
+12ml — R$ 439,80
+15ml — R$ 547,50
+APC — R$ 1.845,00
+
+50ml: Vi Coimbra
+03ml: Erica Freitas
+03ml: Aline Rangel
+08ml: Tatiana Carvalho
+03ml: Luciana Alves
+03ml: Jenni
+05ml: Elaine Sampaio
+03ml: Fernanda Abreu
+03ml: Fernanda VT
+03ml: Cecilia Dutra
+03ml: Mariana ZTB
+03ml: Viviane Messias
+05ml: Larissa Simões
+03ml: Isadora Rodrigues
+02ml: Rilly Andretta`
+  it('reconhece frasco, capacidade, prazo e todas as vendas',()=>expect(parseDaviSalesBatch(laCautiva)).toMatchObject({perfume:'LA CAUTIVA — FUEGUIA 1833',bottle_number:1,original_volume_ml:100,business_days:5,pricing_consistent:true,pricing_issues:[],totals:{sales:15,volume_ml:100,amount:3766,calculated_balance_ml:0,volume_consistent:true}}))
+  it('classifica 50ml como APC e soma exatamente os R$ 50 adicionais',()=>expect(parseDaviSalesBatch(laCautiva).sales[0]).toMatchObject({client_name:'Vi Coimbra',sale_type:'APC',volume_ml:50,amount:1845}))
+  it('calcula tamanho sem preço publicado com cotação mais recravação',()=>expect(parseDaviSalesBatch(laCautiva).sales.at(-1)).toMatchObject({client_name:'Rilly Andretta',sale_type:'SPLIT',volume_ml:2,amount:80.8}))
+  it.each([1,2,14])('reconhece Frasco %s sem misturar a identidade do perfume',bottle=>expect(parseDaviSalesBatch(laCautiva.replace('Frasco 1.',`Frasco ${bottle}.`)).bottle_number).toBe(bottle))
+  it('recusa dois números de frasco diferentes na mesma mensagem',()=>expect(()=>parseDaviSalesBatch(`${laCautiva}\nFrasco 2.`)).toThrow('multiple_bottle_numbers'))
+  it('aponta divergência no APC quando os R$ 50 não foram somados',()=>{const parsed=parseDaviSalesBatch(laCautiva.replace('APC — R$ 1.845,00','APC — R$ 1.795,00'));expect(parsed.pricing_consistent).toBe(false);expect(parsed.pricing_issues).toContainEqual({sale_type:'APC',volume_ml:50,announced_amount:1795,expected_amount:1845})})
+  it('aponta divergência em qualquer tamanho de SPLIT',()=>{const parsed=parseDaviSalesBatch(laCautiva.replace('03ml — R$ 116,70','03ml — R$ 107,70'));expect(parsed.pricing_consistent).toBe(false);expect(parsed.pricing_issues).toContainEqual({sale_type:'SPLIT',volume_ml:3,announced_amount:107.7,expected_amount:116.7})})
 })
 
 describe('texto tabular copiado de planilha',()=>{

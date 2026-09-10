@@ -4,6 +4,7 @@ export type AiImportSummary={
   sales_created:number;clients_created:number;clients_existing:number
   perfumes_processed:number;perfumes_matched:number;inventory_items_bootstrapped:number
   total_ml_sold:number;total_amount_sold:number;commercial_remaining_ml:number;commercial_remaining_amount:number
+  inventory_remaining_ml?:number
   shipping_incomplete:number;paid_source_count:number;awaiting_source_count:number;unstated_payment_count:number;idempotent:boolean
 }
 
@@ -17,7 +18,7 @@ export function buildAiImportSummarySentences(summary:AiImportSummary):string[]{
   sentences.push(`${countedLabel(summary.sales_created,'venda foi registrada','vendas foram registradas')}, totalizando ${brl(summary.total_amount_sold)} e ${countedLabel(summary.total_ml_sold,'ml vendido','ml vendidos')}.`)
 
   if(summary.commercial_remaining_ml>0)
-    sentences.push(`A lista também continha ${countedLabel(summary.commercial_remaining_ml,'ml','ml')} ainda disponíveis para venda (${brl(summary.commercial_remaining_amount)}), que não entraram como venda.`)
+    sentences.push(`A lista também continha ${countedLabel(summary.commercial_remaining_ml,'ml','ml')} ainda disponíveis para venda (${brl(summary.commercial_remaining_amount)}), que não entraram como venda${summary.inventory_remaining_ml===summary.commercial_remaining_ml?' e foram registrados no estoque canônico':''}.`)
 
   if(summary.clients_created>0&&summary.clients_existing>0)
     sentences.push(`${countedLabel(summary.clients_created,'novo cliente foi criado','novos clientes foram criados')} e ${countedLabel(summary.clients_existing,'cliente já existia','clientes já existiam')} no CRM.`)
