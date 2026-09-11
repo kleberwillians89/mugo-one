@@ -195,12 +195,12 @@ export type CommercialSale = {
 
 export type SaleFilters = {
   period?:PeriodValue; paymentStart?:string;paymentEnd?:string;shippingStart?:string;shippingEnd?:string
-  search?:string;client?:string;perfume?:string;type?:string;status?:string;method?:string
+  search?:string;client?:string;perfume?:string;bottle?:string;type?:string;status?:string;method?:string
   origin?:string;volumeMl?:number;minValue?:number;maxValue?:number;delivery?:string;sort?:string
 }
 
-export type DaviExcelRow={id:string;client_id:string;client_number:number|null;client_name:string;has_gift:boolean;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;split_completed_at:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string;attachment_count:number}
-export type DaviExcelSaleEdit={id:string;client_id:string;perfume_id:string;sale_date:string;shipping_deadline_date:string|null;shipping_deadline_raw:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;split_completed_at:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;updated_at:string;clients:{name:string}|null;perfumes:{full_name_raw:string;brand_house:string|null}|null;inventory_allocations:{id:string}|null;shipment_items:{shipment_id:string;shipments:{status:string}|null}[]|null}
+export type DaviExcelRow={id:string;client_id:string;client_number:number|null;client_name:string;has_gift:boolean;sale_date:string;shipping_deadline_display:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;perfume_name:string|null;bottle_identifier:string|null;split_completed_at:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;operational_status:string;attachment_count:number}
+export type DaviExcelSaleEdit={id:string;client_id:string;perfume_id:string;sale_date:string;shipping_deadline_date:string|null;shipping_deadline_raw:string|null;shipped_at:string|null;sale_type:string|null;volume_ml:number|null;bottle_identifier:string|null;split_completed_at:string|null;amount:number;payment_status:string;payment_method:string|null;paid_at:string|null;credit_reference_amount:number|null;notes:string|null;updated_at:string;clients:{name:string}|null;perfumes:{full_name_raw:string;brand_house:string|null}|null;inventory_allocations:{id:string}|null;shipment_items:{shipment_id:string;shipments:{status:string}|null}[]|null}
 export type DaviFilterKind='text'|'date'|'number'
 export type DaviColumnFilter={values?:string[];condition?:{operator:string;value?:string;value2?:string}}
 export type DaviExcelFilters={search?:string;attachment?:'all'|'with'|'without';split?:'all'|'completed'|'pending';gift?:'all'|'with'|'without';columns?:Record<string,DaviColumnFilter>}
@@ -216,13 +216,13 @@ export async function fetchDaviExcel(filters:DaviExcelFilters,page=0,pageSize=10
 }
 export async function fetchDaviExcelSaleEdit(saleId:string){
   const{organizationId}=await authenticatedOrganization()
-  const{data,error}=await supabase!.from('sales').select('id,client_id,perfume_id,sale_date,shipping_deadline_date,shipping_deadline_raw,shipped_at,sale_type,volume_ml,split_completed_at,amount,payment_status,payment_method,paid_at,credit_reference_amount,notes,updated_at,clients(name),perfumes(full_name_raw,brand_house),inventory_allocations(id),shipment_items(shipment_id,shipments(status))').eq('organization_id',organizationId).eq('id',saleId).single()
+  const{data,error}=await supabase!.from('sales').select('id,client_id,perfume_id,sale_date,shipping_deadline_date,shipping_deadline_raw,shipped_at,sale_type,volume_ml,bottle_identifier,split_completed_at,amount,payment_status,payment_method,paid_at,credit_reference_amount,notes,updated_at,clients(name),perfumes(full_name_raw,brand_house),inventory_allocations(id),shipment_items(shipment_id,shipments(status))').eq('organization_id',organizationId).eq('id',saleId).single()
   if(error)throw new Error(error.message)
   return data as unknown as DaviExcelSaleEdit
 }
 export async function updateDaviExcelSale(saleId:string,patch:Record<string,unknown>,expectedUpdatedAt:string,confirmOperational=false){
   await authenticatedOrganization()
-  const{data,error}=await supabase!.rpc('davi_excel_update_sale',{p_sale_id:saleId,p_patch:patch,p_expected_updated_at:expectedUpdatedAt,p_confirm_operational:confirmOperational})
+  const{data,error}=await supabase!.rpc('davi_excel_update_sale_with_bottle',{p_sale_id:saleId,p_patch:patch,p_expected_updated_at:expectedUpdatedAt,p_confirm_operational:confirmOperational})
   if(error)throw new Error(error.message)
   return data as{ id:string;updated_at:string;changed_fields:string[];shipment_snapshot_preserved:boolean }
 }
@@ -313,6 +313,7 @@ export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) 
   if(filters.shippingEnd)query=query.lte('shipped_at',filters.shippingEnd)
   if(filters.client)query=query.ilike('client_name_raw',`%${filters.client}%`)
   if(filters.perfume)query=query.ilike('perfume_name_raw',`%${filters.perfume}%`)
+  if(filters.bottle)query=query.ilike('bottle_identifier',`%${filters.bottle}%`)
   if(filters.type)query=query.eq('sale_type',filters.type)
   if(filters.volumeMl!==undefined)query=query.eq('volume_ml',filters.volumeMl)
   if(filters.status)query=query.eq('payment_status',filters.status)
@@ -320,7 +321,7 @@ export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) 
   if(filters.origin)query=query.eq('source',filters.origin)
   if(filters.minValue!==undefined)query=query.gte('amount',filters.minValue)
   if(filters.maxValue!==undefined)query=query.lte('amount',filters.maxValue)
-  if(filters.search)query=query.or(`client_name_raw.ilike.%${filters.search}%,perfume_name_raw.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`)
+  if(filters.search)query=query.or(`client_name_raw.ilike.%${filters.search}%,perfume_name_raw.ilike.%${filters.search}%,bottle_identifier.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`)
   const sort=filters.sort??'sale_date_desc'
   const [column,direction]=sort.replace(/_(asc|desc)$/,'|$1').split('|')
   query=query.order(column,{ascending:direction==='asc',nullsFirst:false}).range(page*pageSize,page*pageSize+pageSize-1)
@@ -577,7 +578,7 @@ export async function updateClient(clientId:string,input:ClientInput) {
 export type SaleInput = {
   clientId:string;date:string;amount:number;status:string;method:string;notes?:string
   shippingDeadlineRaw?:string;shippingDeadlineDate?:string;shippedAt?:string;saleType:'APC'|'SPLIT'
-  volumeMl:number;perfumeId:string;splitCompletedAt?:string;paidAt?:string;creditReferenceAmount?:number|null
+  volumeMl:number;perfumeId:string;bottleNumber?:number|null;splitCompletedAt?:string;paidAt?:string;creditReferenceAmount?:number|null
   source?:'manual'|'davi_excel';idempotencyKey?:string
 }
 export type SaleCreateResult={id:string;alreadyExisted:boolean}
@@ -588,7 +589,7 @@ export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
     const {data:existing,error:existingError}=await supabase!.from('sales').select('id').eq('organization_id',organizationId).eq('source','davi_excel').eq('import_signature',input.idempotencyKey).maybeSingle()
     if(existingError)throw new Error(existingError.message)
     if(existing)return{id:String(existing.id),alreadyExisted:true}
-    const {data,error}=await supabase!.rpc('davi_excel_create_sale',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
+    const {data,error}=await supabase!.rpc('davi_excel_create_sale_with_bottle',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,bottle_identifier:input.bottleNumber?`FRASCO ${input.bottleNumber}`:null,split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
     if(error)throw new Error(error.message)
     return{id:String(data),alreadyExisted:false}
   }
@@ -600,7 +601,7 @@ export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
     amount: input.amount, payment_status: input.status, payment_method: input.method,
     notes: input.notes || null, source: 'manual', data_quality_status: 'verified', created_by: user.id,
     perfume_name_raw:perfume.full_name_raw,perfume_base_name:perfume.base_name,
-    sale_type:input.saleType,volume_ml:input.volumeMl,volume_ml_raw:String(input.volumeMl),
+    sale_type:input.saleType,volume_ml:input.volumeMl,volume_ml_raw:String(input.volumeMl),bottle_identifier:input.bottleNumber?`FRASCO ${input.bottleNumber}`:null,
     split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,
     shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,
     shipping_operational_status:input.shippingDeadlineDate?null:input.shippingDeadlineRaw||null,
@@ -662,7 +663,7 @@ export async function bootstrapAiBatchInventory(input:{fingerprint:string;rawPer
 export async function confirmAiSalesBatchMulti(preview:AiSalesBatchPreview){
   // O wrapper executa internamente: supabase!.rpc('confirm_ai_sales_batch_multi'
   const {organizationId}=await currentOrganization()
-  const groups=(preview.groups??[]).map(group=>({perfume:group.perfume,display_name:group.display_name,perfume_id:group.perfume_id,inventory_item_id:group.inventory_item_id,availability_ml:group.availability_ml??0,availability_amount:group.availability_amount??0,sales:group.sales}))
+  const groups=(preview.groups??[]).map(group=>({perfume:group.perfume,display_name:group.display_name,bottle_number:group.bottle_number,perfume_id:group.perfume_id,inventory_item_id:group.inventory_item_id,availability_ml:group.availability_ml??0,availability_amount:group.availability_amount??0,sales:group.sales}))
   const availability={text:preview.shipping_availability_text,kind:preview.shipping_availability_kind,date:preview.shipping_available_date,lead_business_days:preview.shipping_lead_business_days,review_required:preview.shipping_availability_review_required}
   const {data,error}=await supabase!.rpc('confirm_ai_sales_batch_multi_with_availability',{p_organization_id:organizationId,p_fingerprint:preview.fingerprint,p_source_text:preview.raw_text,p_sale_date:preview.sale_date,p_shipping_deadline_date:preview.shipping_deadline_date,p_deadline_raw:preview.deadline_raw,p_groups:groups,p_availability:availability})
   if(error)throw friendlyAiImportError(error.message)

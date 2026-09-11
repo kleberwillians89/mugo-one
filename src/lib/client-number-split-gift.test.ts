@@ -79,14 +79,16 @@ describe('split_completed_at independente e auditável',()=>{
   expect(davi).toContain('<option value="completed">SPLITADO</option>')
   expect(davi).toContain('<option value="pending">NÃO SPLITADO</option>')
  })
- it('recarrega, exibe e exporta a data entre PERFUME e VALOR',()=>{
-  expect(records).toContain('volume_ml,split_completed_at,amount')
+ it('recarrega, exibe e exporta a data após PERFUME e FRASCO e antes de VALOR',()=>{
+  expect(records).toContain('volume_ml,bottle_identifier,split_completed_at,amount')
   expect(davi.indexOf("key:'perfume'")).toBeLessThan(davi.indexOf("key:'split_completed_at'"))
+  expect(davi.indexOf("key:'bottle'")).toBeLessThan(davi.indexOf("key:'split_completed_at'"))
   expect(davi.indexOf("key:'split_completed_at'")).toBeLessThan(davi.indexOf("key:'amount'"))
   expect(davi).toContain("'DATA DO SPLIT':shortDate(row.split_completed_at)")
  })
- it('importador aceita 13 e 14 colunas sem deslocar VALOR',()=>{
-  expect(drafts).toContain('hasSplit=values.length===12||values.length===14')
+ it('importador aceita o novo frasco sem perder os formatos anteriores',()=>{
+  expect(drafts).toContain('hasBottle=values.length===13||values.length===15')
+  expect(drafts).toContain('hasSplit=[12,13,14,15].includes(values.length)')
  })
 })
 

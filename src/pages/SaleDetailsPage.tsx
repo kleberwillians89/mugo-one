@@ -57,7 +57,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
     <header className="ficha-head surface-dark">
       <span className="ficha-eyebrow">VENDA</span>
       <h1 className="ficha-client" data-surface-role="primary">{clientName}</h1>
-      <p className="ficha-product" data-surface-role="secondary">{sale.perfume_name_raw||'Perfume não informado'}{sale.volume_ml?` · ${sale.volume_ml} ml`:''}{sale.sale_type?` · ${sale.sale_type}`:''}</p>
+      <p className="ficha-product" data-surface-role="secondary">{sale.perfume_name_raw||'Perfume não informado'}{sale.bottle_identifier?` · ${sale.bottle_identifier}`:''}{sale.volume_ml?` · ${sale.volume_ml} ml`:''}{sale.sale_type?` · ${sale.sale_type}`:''}</p>
       <div className="ficha-price-row">
         <strong data-surface-role="metric">{brl(Number(sale.amount))}</strong>
         <span className={`badge ${sale.payment_status}`}>{statusLabel[sale.payment_status]||sale.payment_status}</span>
@@ -88,6 +88,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
     <section className="ficha-columns">
       <DefinitionGroup title="Produto" items={[
         {label:'Perfume',value:sale.perfume_name_raw||'—'},
+        {label:'Frasco',value:sale.bottle_identifier||'—'},
         {label:'Tipo / volume',value:`${sale.sale_type||'—'} · ${sale.volume_ml??'—'} ml`},
         {label:'Origem',value:sale.source==='spreadsheet'?'Importação':'Manual'},
         {label:'Observações',value:sale.notes||'—'},
