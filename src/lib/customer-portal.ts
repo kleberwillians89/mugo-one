@@ -122,11 +122,6 @@ export async function cancelShipmentRequest(requestId: string): Promise<void> {
   if (error) portalRpcError(error, 'Não foi possível cancelar esta solicitação agora.')
 }
 
-export async function confirmCustomerShipment(shipmentId: string): Promise<void> {
-  const { error } = await supabase!.rpc('customer_shipment_confirm', { p_shipment_id: shipmentId })
-  if (error) portalRpcError(error, 'Não foi possível aprovar este envio agora.')
-}
-
 export type PurchaseHistoryItem = { sale_id: string; sale_date: string | null; perfume_name: string | null; quantity_ml: number | null; amount: number }
 export async function fetchPurchaseHistory(): Promise<PurchaseHistoryItem[]> {
   const { data, error } = await supabase!.rpc('customer_purchase_history')

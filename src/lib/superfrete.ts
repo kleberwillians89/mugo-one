@@ -1,10 +1,10 @@
 export const shipmentStatusLabels:Record<string,string>={
-  draft:'Rascunho',requested:'Preparando envio',awaiting_customer_approval:'Aguardando aprovação do cliente',
-  customer_approved:'Aprovado pela cliente',label_pending:'Emitindo etiqueta',label_released:'Pronto para postar',
+  draft:'Rascunho',requested:'Preparando envio',awaiting_customer_approval:'Aguardando aprovação do time',
+  customer_approved:'Aprovado pelo time',label_pending:'Emitindo etiqueta',label_released:'Pronto para postar',
   posted:'Postado',delivered:'Entregue',cancelled:'Cancelado',
 }
 
-export type ShipmentNextAction='wait_customer'|'create_label'|'checkout'|'sync'|'print'|'track'|'none'
+export type ShipmentNextAction='approve_team'|'create_label'|'checkout'|'sync'|'print'|'track'|'none'
 export type ShipmentActionState={status:string;superfrete_order_id:string|null;superfrete_status:string|null;checkout_status:string|null;print_available:boolean;print_url:string|null;label_pdf_url:string|null;tracking_code:string|null;integration_error?:string|null}
 const cancelledStatuses=new Set(['canceled','cancelled','cancelado','cancelada'])
 const isCancelled=(status:string|null)=>cancelledStatuses.has(String(status||'').trim().toLowerCase())
@@ -14,7 +14,7 @@ export function getShipmentNextAction(shipment:ShipmentActionState):ShipmentNext
   if(isCancelled(shipment.superfrete_status))return 'none'
   if(shipment.status==='delivered')return 'none'
   if(shipment.status==='posted'||external==='posted'||external==='delivered')return shipment.tracking_code?'track':'sync'
-  if(shipment.status==='awaiting_customer_approval')return 'wait_customer'
+  if(shipment.status==='awaiting_customer_approval')return 'approve_team'
   if(shipment.checkout_status==='cart_created')return 'checkout'
   if(!shipment.superfrete_order_id)return 'create_label'
   if(['released','posted','delivered'].includes(external)&&shipment.print_available&&Boolean(shipment.print_url||shipment.label_pdf_url))return 'print'
@@ -29,7 +29,7 @@ export function shipmentHumanState(shipment:ShipmentActionState){
   if(action==='checkout')return 'Etiqueta aguardando pagamento'
   if(action==='print')return 'Etiqueta pronta para imprimir'
   if(action==='sync')return external==='pending'?'Etiqueta aguardando liberação':'Etiqueta sendo preparada'
-  return shipment.status==='customer_approved'?'Cliente aprovou o frete':shipment.status==='awaiting_customer_approval'?'Aguardando aprovação do cliente':'Preparando produtos'
+  return shipment.status==='customer_approved'?'Frete aprovado pelo time':shipment.status==='awaiting_customer_approval'?'Aguardando aprovação do time':'Preparando produtos'
 }
 
 export type LabelUiState={title:string;description:string;canSync:boolean;canPrint:boolean;canCopyTracking:boolean;primaryAction:ShipmentNextAction;printUnavailableReason:string|null;isCancelled:boolean}
@@ -38,7 +38,7 @@ export function getLabelUiState(shipment:ShipmentActionState):LabelUiState{
   const printableStatus=['released','posted','delivered'].includes(String(shipment.superfrete_status||'').toLowerCase())
   const canPrint=printableStatus&&shipment.print_available&&Boolean(shipment.print_url||shipment.label_pdf_url)
   if(isCancelled(shipment.superfrete_status))return {title:'ETIQUETA CANCELADA',description:'Esta etiqueta foi cancelada na SuperFrete. Nenhum arquivo de impressão está disponível.',canSync:false,canPrint:false,canCopyTracking:hasTracking,primaryAction:'none',printUnavailableReason:'Esta etiqueta foi cancelada na SuperFrete.',isCancelled:true}
-  if(primaryAction==='wait_customer')return {title:'AGUARDANDO APROVAÇÃO DA CLIENTE',description:'A etiqueta só pode ser criada depois que a cliente aprovar o envio.',canSync:false,canPrint:false,canCopyTracking:false,primaryAction,printUnavailableReason:'Aguarde a aprovação da cliente antes de criar a etiqueta.',isCancelled:false}
+  if(primaryAction==='approve_team')return {title:'AGUARDANDO APROVAÇÃO DO TIME',description:'O frete selecionado precisa ser aprovado pela equipe RUAH antes da etiqueta.',canSync:false,canPrint:false,canCopyTracking:false,primaryAction,printUnavailableReason:'Aguarde a aprovação interna antes de criar a etiqueta.',isCancelled:false}
   if(primaryAction==='checkout')return {title:'ETIQUETA AGUARDANDO PAGAMENTO',description:'O pedido foi criado na SuperFrete, mas a compra ainda não foi concluída.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction,printUnavailableReason:'A compra precisa ser confirmada antes da impressão.',isCancelled:false}
   if(canPrint)return {title:'ETIQUETA PRONTA',description:'A compra foi concluída e o arquivo oficial está disponível.',canSync:true,canPrint:true,canCopyTracking:hasTracking,primaryAction:'print',printUnavailableReason:null,isCancelled:false}
   if(hasOrder&&printableStatus){

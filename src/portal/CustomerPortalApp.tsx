@@ -3,7 +3,7 @@ import { Check, Home, HelpCircle, KeyRound, LoaderCircle, Package, Truck, UserRo
 import { supabase } from '../lib/supabase'
 import {
   AddressSnapshot, CustodyItem, PurchaseHistoryItem, DeliveryHistoryItem, ShipmentRequest, SupportTicket,
-  cancelShipmentRequest, confirmCustomerShipment, createShipmentRequest, createSupportTicket, fetchCustody,
+  cancelShipmentRequest, createShipmentRequest, createSupportTicket, fetchCustody,
   customerPortalErrorMessage, fetchDeliveryHistory, fetchMyRequests, fetchMyTickets, fetchProfile, fetchPurchaseHistory, maskCpf, ticketCategoryLabel,
 } from '../lib/customer-portal'
 import { groupCustomerCustody, summarizeCustomerCustody } from './customer-custody-summary'
@@ -17,8 +17,8 @@ const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
 const brl = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 const shortDate = (value: string | null) => value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(value)) : '—'
 const shipmentStatusLabel: Record<string, string> = {
-  draft: 'Em preparação', requested: 'Em preparação', awaiting_customer_approval: 'Aguardando sua aprovação',
-  customer_approved: 'Envio aprovado', label_pending: 'Emitindo etiqueta', label_released: 'Pronto para postar',
+  draft: 'Em preparação', requested: 'Em preparação', awaiting_customer_approval: 'Em aprovação pela RUAH',
+  customer_approved: 'Frete aprovado pela RUAH', label_pending: 'Emitindo etiqueta', label_released: 'Pronto para postar',
   posted: 'Postado — a caminho', delivered: 'Entregue', cancelled: 'Cancelado',
 }
 
@@ -83,7 +83,7 @@ function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipme
     <section className="portal-welcome"><span>BEM-VINDA À SUA ÁREA PRIVADA</span><h1>Olá{greeting?`, ${greeting}`:''}.</h1><p>Aqui está a sua história com a RUAH, com a clareza e o cuidado que ela merece.</p></section>
     <section className="portal-collection"><span>MEU ACERVO</span><strong>{groups.length} {groups.length===1?'perfume':'perfumes'} na RUAH</strong><p>{summary.physicalMl} ml sob os cuidados da RUAH</p><button onClick={onPerfumes}>Ver meus perfumes</button></section>
     <h2>Agora na RUAH</h2>
-    <div className="portal-summary"><div><strong>{summary.availableMl} ml</strong><span>Disponível para envio</span></div><div><strong>{summary.awaitingApprovalMl} ml</strong><span>Aguardando sua aprovação</span></div><div><strong>{summary.preparingMl} ml</strong><span>Em preparação</span></div><div><strong>{summary.inTransitMl} ml</strong><span>Em transporte</span></div></div>
+    <div className="portal-summary"><div><strong>{summary.availableMl} ml</strong><span>Disponível para envio</span></div><div><strong>{summary.awaitingApprovalMl} ml</strong><span>Em aprovação pela RUAH</span></div><div><strong>{summary.preparingMl} ml</strong><span>Em preparação</span></div><div><strong>{summary.inTransitMl} ml</strong><span>Em transporte</span></div></div>
     <div className="portal-home-links"><button onClick={onShipments}><strong>Meus envios</strong><span>Acompanhe cada etapa</span></button><button onClick={onHelp}><strong>Preciso de ajuda</strong><span>Fale diretamente com a RUAH</span></button></div>
     <ShippingSnapshotSummary groups={groups} requests={requests} onRequest={onRequest} onShipments={onShipments}/>
     <h2>Meus perfumes</h2>
@@ -92,8 +92,7 @@ function HomePage({ custody, requests, onRequest, greeting, onPerfumes, onShipme
       <strong>{g.perfume_name}</strong><span>{g.total_ml} ml na RUAH · {g.available_ml} ml disponíveis</span>
       {g.open_requested_ml>0&&<span>{g.open_requested_ml} ml em solicitação</span>}
       {g.pending_availability_ml>0&&<span>{g.pending_availability_ml} ml aguardando preparação pela RUAH{forecast?.shipping_available_date?` · previsão ${new Date(`${forecast.shipping_available_date}T12:00:00`).toLocaleDateString('pt-BR')}`:''}.</span>}
-      {activeRequest&&<span>AGUARDANDO SUA APROVAÇÃO</span>}
-      {activeRequest&&<button onClick={onShipments}>APROVAR ENVIO</button>}
+      {activeRequest&&<span>EM APROVAÇÃO PELA EQUIPE RUAH</span>}
     </div>})}
   </div>
 }
@@ -107,16 +106,15 @@ function ShipmentsPage({ requests, reload, onOpenHistory }: { requests: Shipment
     <button className="portal-link" onClick={onOpenHistory}>Ver histórico completo</button>
     {error&&<div className="portal-error">{error}</div>}
     {requests.length === 0 && <p className="portal-empty">Nenhuma solicitação ainda.</p>}
-    {[...requests].sort((a,b)=>Number(b.awaiting_approval)-Number(a.awaiting_approval)).map((r) => <div className="portal-card portal-request-card" key={r.request_id}>
-      {r.awaiting_approval&&<span className="portal-action-required">AÇÃO NECESSÁRIA</span>}
+    {[...requests].sort((a,b)=>String(b.requested_at).localeCompare(String(a.requested_at))).map((r) => <div className="portal-card portal-request-card" key={r.request_id}>
       <strong>{r.items?.map((i) => `${i.perfume} (${i.quantity_ml}ml)`).join(', ') || 'Solicitação'}</strong>
       <div className="portal-progress">
         {[['Solicitação recebida', true], ['Frete cotado', Boolean(r.converted_shipment_id)], ['Envio confirmado', Boolean(r.shipment_status && r.shipment_status !== 'awaiting_customer_approval' && r.shipment_status !== 'draft' && r.shipment_status !== 'requested')], ['Postado', r.shipment_status === 'posted' || r.shipment_status === 'delivered']]
           .map(([label, done]) => <span key={label as string} className={done ? 'done' : ''}>{done ? <Check size={12} /> : '○'} {label as string}</span>)}
       </div>
       {r.customer_request_id&&(r.status === 'requested' || (r.status === 'converted' && ['draft','requested','awaiting_customer_approval','customer_approved'].includes(r.shipment_status??''))) && <button disabled={busy === r.request_id} onClick={() => act(() => cancelShipmentRequest(r.customer_request_id!), r.request_id)}>{r.awaiting_approval?'NÃO QUERO ENVIAR AGORA':'Cancelar solicitação'}</button>}
-      {r.awaiting_approval && <div className="portal-quote"><div><strong>AGUARDANDO SUA APROVAÇÃO</strong><span>Frete<br/>{[r.carrier,r.service].filter(Boolean).join(' · ')} · {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span></div><button disabled={busy === r.request_id||!r.converted_shipment_id} onClick={() => r.converted_shipment_id&&act(() => confirmCustomerShipment(r.converted_shipment_id!), r.request_id)}>APROVAR ENVIO</button></div>}
-      {r.shipment_status === 'customer_approved' && <div className="portal-quote portal-quote-approved"><div><strong>✓ ENVIO APROVADO</strong><span>A equipe da RUAH seguirá com a preparação.</span></div></div>}
+      {r.awaiting_approval && <div className="portal-quote"><div><strong>EM APROVAÇÃO PELA RUAH</strong><span>Frete<br/>{[r.carrier,r.service].filter(Boolean).join(' · ')} · {r.shipping_price != null ? brl(r.shipping_price) : '—'}</span><small>Nenhuma ação é necessária. A equipe RUAH fará a aprovação.</small></div></div>}
+      {r.shipment_status === 'customer_approved' && <div className="portal-quote portal-quote-approved"><div><strong>✓ FRETE APROVADO PELA RUAH</strong><span>A equipe seguirá com a preparação.</span></div></div>}
       {r.tracking_code && <div className="portal-tracking"><span>Rastreio</span><strong>{r.tracking_code}</strong></div>}
     </div>)}
   </div>
@@ -200,7 +198,7 @@ export function CustomerPortalApp({ path, navigate, onSignOut }: { path: string;
           <h2>Meus perfumes</h2>
           <ShippingSnapshotSummary groups={groups} requests={requests} onRequest={()=>setRequesting(true)} onShipments={()=>setTab('envios')}/>
           {groups.length === 0 && <p className="portal-empty">Você ainda não tem perfumes guardados na RUAH.</p>}
-          {groups.map((g) => {const groupRequest=g.active_request,forecast=g.allocations.find(item=>item.shipping_requestable===false);return <div className="portal-card" key={g.perfume_id}><strong>{g.perfume_name}</strong><span>{g.total_ml} ml são seus</span><span>{g.available_ml} ml {activeRequest?'para o próximo envio':'disponíveis para envio'}</span>{g.pending_availability_ml>0&&<span>{g.pending_availability_ml} ml aguardando preparação{forecast?.shipping_available_date?` · previsão ${new Date(`${forecast.shipping_available_date}T12:00:00`).toLocaleDateString('pt-BR')}`:''}</span>}{g.open_requested_ml>0&&<span>Em solicitação: {g.open_requested_ml} ml</span>}{groupRequest?.shipment_status==='awaiting_customer_approval'&&<button onClick={()=>setTab('envios')}>APROVAR ENVIO</button>}</div>})}
+          {groups.map((g) => {const groupRequest=g.active_request,forecast=g.allocations.find(item=>item.shipping_requestable===false);return <div className="portal-card" key={g.perfume_id}><strong>{g.perfume_name}</strong><span>{g.total_ml} ml são seus</span><span>{g.available_ml} ml {activeRequest?'para o próximo envio':'disponíveis para envio'}</span>{g.pending_availability_ml>0&&<span>{g.pending_availability_ml} ml aguardando preparação{forecast?.shipping_available_date?` · previsão ${new Date(`${forecast.shipping_available_date}T12:00:00`).toLocaleDateString('pt-BR')}`:''}</span>}{g.open_requested_ml>0&&<span>Em solicitação: {g.open_requested_ml} ml</span>}{groupRequest?.shipment_status==='awaiting_customer_approval'&&<span>Em aprovação pela equipe RUAH</span>}</div>})}
         </div>}
         {tab === 'envios' && <ShipmentsPage requests={requests} reload={reload} onOpenHistory={() => navigate('/minha-ruah/historico')} />}
         {tab === 'ajuda' && <HelpPage tickets={tickets} reload={reload} />}

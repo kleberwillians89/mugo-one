@@ -4,7 +4,7 @@ import {summarizeCustomerCustody} from '../portal/customer-custody-summary'
 import type {CustodyItem,ShipmentRequest} from './customer-portal'
 
 const migration=readFileSync('supabase/migrations/202608230003_customer_account_login_activation.sql','utf8')
-const canonical=readFileSync('supabase/migrations/202608210004_customer_shipment_canonical.sql','utf8')
+const teamApproval=readFileSync('supabase/migrations/202609110001_team_shipping_approval.sql','utf8')
 const legacyVisibility=readFileSync('supabase/migrations/202608230007_customer_shipment_legacy_visibility.sql','utf8')
 const portal=readFileSync('src/portal/CustomerPortalApp.tsx','utf8')
 const root=readFileSync('src/portal/CustomerPortalRoot.tsx','utf8')
@@ -29,11 +29,12 @@ describe('regressão do shipment real no Minha RUAH',()=>{
     expect(list).not.toMatch(/^\s+join public\.inventory_allocations a on/m)
     expect(list).not.toContain('customer_shipment_requests r')
   })
-  it('exibe item, frete, valor e CTA canônico',()=>{
+  it('exibe item, frete e valor sem exigir ação da cliente',()=>{
     expect(portal).toContain('ENVIO EM ANDAMENTO')
-    expect(portal).toContain('AGUARDANDO SUA APROVAÇÃO')
+    expect(portal).toContain('EM APROVAÇÃO PELA RUAH')
     expect(portal).toContain('r.shipping_price != null ? brl(r.shipping_price)')
-    expect(portal).toContain('confirmCustomerShipment(r.converted_shipment_id!)')
+    expect(portal).toContain('Nenhuma ação é necessária')
+    expect(portal).not.toContain('confirmCustomerShipment')
   })
   it('ativa somente a conta ligada ao auth.uid e nunca recebe client_id do navegador',()=>{
     expect(migration).toContain('where auth_user_id=auth.uid()')
@@ -43,11 +44,11 @@ describe('regressão do shipment real no Minha RUAH',()=>{
     expect(migration).toContain("factor->>'method'='password'")
     expect(root).toContain('if(await activateCurrentCustomerAccount())')
   })
-  it('aprovação é isolada, idempotente e conserva a cotação',()=>{
-    const confirm=canonical.slice(canonical.indexOf('create or replace function public.customer_shipment_confirm'),canonical.indexOf('-- Compatibility wrapper'))
-    expect(confirm).toContain('where id = p_shipment_id and client_id = v_client_id for update')
-    expect(confirm).toContain("if v_shipment.status = 'customer_approved' then return v_shipment")
-    for(const field of ['selected_quote_id','shipping_price','carrier','service','service_id'])expect(confirm).toContain(field)
-    expect(confirm).not.toMatch(/physical_ml|post_shipment|insert into public\.shipments/)
+  it('aprovação do time é isolada, idempotente e conserva a cotação',()=>{
+    expect(teamApproval).toContain("public.has_org_permission(v_shipment.organization_id,'shipping.label')")
+    expect(teamApproval).toContain("if v_shipment.status='customer_approved' then return v_shipment")
+    for(const field of ['selected_quote_id','shipping_price','carrier','service','service_id'])expect(teamApproval).toContain(field)
+    expect(teamApproval).not.toMatch(/physical_ml|post_shipment|insert into public\.shipments/)
+    expect(teamApproval).toContain('revoke execute on function public.customer_shipment_confirm(uuid) from authenticated')
   })
 })

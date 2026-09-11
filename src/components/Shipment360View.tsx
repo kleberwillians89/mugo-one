@@ -47,8 +47,8 @@ function nextStep(shipment: OperationalShipment): { description: string; button:
     };
   if (shipment.status === "awaiting_customer_approval")
     return {
-      description: "O frete foi selecionado e aguarda a aprovação da cliente.",
-      button: "REVISAR FRETE",
+      description: "O frete foi selecionado e aguarda a aprovação da equipe RUAH.",
+      button: "APROVAR FRETE",
     };
   const labelAction = getLabelUiState(shipment).primaryAction;
   if (labelAction === "checkout")
