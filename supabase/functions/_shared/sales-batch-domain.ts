@@ -36,8 +36,8 @@ export function parseRemainingAvailableLine(value:string):number|null{
   const line=clean(value).replace(/[.!]+$/,'').trim()
   const amount='(\\d+(?:[.,]\\d+)?)'
   const patterns=[
-    new RegExp(`^${amount}\\s*mls?\\s*(?::|[-–—])\\s*dispon[ií]vel(?:\\s+para\\s+venda)?$`,'i'),
-    new RegExp(`^${amount}\\s*mls?\\s+dispon[ií]vel(?:\\s+para\\s+venda)?$`,'i'),
+    new RegExp(`^${amount}\\s*mls?\\s*(?::|[-–—])\\s*dispon[ií]ve(?:l|is)(?:\\s+para\\s+venda)?$`,'i'),
+    new RegExp(`^${amount}\\s*mls?\\s+dispon[ií]ve(?:l|is)(?:\\s+para\\s+venda)?$`,'i'),
     new RegExp(`^dispon[ií]vel\\s+para\\s+venda\\s*:\\s*${amount}\\s*mls?$`,'i'),
     new RegExp(`^restam\\s+${amount}\\s*mls?$`,'i'),
     new RegExp(`^saldo\\s*:\\s*${amount}\\s*mls?$`,'i'),
@@ -80,11 +80,18 @@ export function parseDaviSalesBatch(rawText:string):ParsedSalesBatch{
   if(quoteValue!==null){for(const [volumeKey,announcedAmount] of prices){const volume=Number(volumeKey),expectedAmount=Math.round((volume*quoteValue+recrimpingValue)*100)/100;if(Math.abs(announcedAmount-expectedAmount)>=.01)pricingIssues.push({sale_type:'SPLIT',volume_ml:volume,announced_amount:announcedAmount,expected_amount:expectedAmount})}if(apcPrice&&apcRule){const volume=number(apcRule[1]),announcedAmount=money(apcPrice[1]),expectedAmount=Math.round((volume*quoteValue+apcExtraValue)*100)/100;if(Math.abs(announcedAmount-expectedAmount)>=.01)pricingIssues.push({sale_type:'APC',volume_ml:volume,announced_amount:announcedAmount,expected_amount:expectedAmount})}}
   const remainingValues=lines.map(parseRemainingAvailableLine).filter((value):value is number=>value!==null)
   if(remainingValues.length>1)throw new Error('multiple_remaining_balances')
-  const remainingAvailable=remainingValues[0]??null
+  const statedRemaining=remainingValues[0]??null
   const unpricedBuyerVolumes=lines.flatMap(line=>{const match=line.match(/^(\d{1,2})\s*mls?\s*[:\-–—]\s*(?!R\$)(.+)$/i);return match&&parseRemainingAvailableLine(line)===null?[number(match[1])]:[]}).filter(volume=>!prices.has(String(volume)))
   const inferredApcVolume=!apcRule&&apcPrice&&unpricedBuyerVolumes.length===1?unpricedBuyerVolumes[0]:null
   const sales:ParsedBatchSale[]=[]
   for(const line of lines){if(parseRemainingAvailableLine(line)!==null)continue;const match=line.match(/^(APC|\d{1,2}\s*mls?)\s*[:\-–—]\s*(.+)$/i);if(!match||/^R\$/i.test(match[2])||/\d+\s*mls?\s*\+\s*R\$/i.test(match[2]))continue;const numericVolume=match[1].toUpperCase()==='APC'?null:number(match[1].replace(/mls?/i,'')),isConfiguredApc=Boolean(numericVolume&&((apcRule&&Math.abs(numericVolume-number(apcRule[1]))<.001)||(inferredApcVolume&&Math.abs(numericVolume-inferredApcVolume)<.001))),type=match[1].toUpperCase()==='APC'||isConfiguredApc?'APC':'SPLIT',volume=type==='APC'?number(apcRule?.[1]||String(numericVolume??0)):numericVolume??0;const client=clean(match[2]);if(!client||!volume)continue;const amount=type==='APC'?(apcPrice?money(apcPrice[1]):Math.round((volume*(quoteValue??0)+apcExtraValue)*100)/100):(prices.get(String(volume))??Math.round((volume*(quoteValue??0)+recrimpingValue)*100)/100);sales.push({client_name:client,sale_type:type,volume_ml:volume,amount,raw:line,phone:null,address:null})}
-  const totalMl=sales.reduce((sum,s)=>sum+s.volume_ml,0),totalAmount=Math.round(sales.reduce((sum,s)=>sum+s.amount,0)*100)/100,originalMl=original?number(original[1]):null,announced=balance?number(balance[1]):null,calculated=remainingAvailable??(originalMl==null?null:originalMl-totalMl),totalOperation=remainingAvailable==null?originalMl:totalMl+remainingAvailable,volumeConsistent=remainingAvailable!==null&&originalMl!==null?Math.abs(totalOperation!-originalMl)<.001:calculated!==null&&announced!==null?Math.abs(calculated-announced)<.001:true
-  return {source_format:'whatsapp',perfume:title.replace(/\s*[—-]?\s*\(.*$/,'').trim(),bottle_number:bottleNumber,original_volume_ml:originalMl,quote_per_ml:quoteValue,recrimping_fee:recrimp?money(recrimp[1]):null,apc_volume_ml:apcRule?number(apcRule[1]):null,apc_extra:apcRule?money(apcRule[2]):null,pricing_consistent:pricingIssues.length===0,pricing_issues:pricingIssues,deadline_raw:deadline?.[1]?.trim()??null,deadline_day_month:dayMonth,business_days:deadlineBusinessDays?Number(deadlineBusinessDays[1]):null,announced_balance_ml:remainingAvailable??announced,remaining_available_ml:remainingAvailable,sales,totals:{sales:sales.length,volume_ml:totalMl,amount:totalAmount,calculated_balance_ml:calculated,total_operation_ml:totalOperation,volume_consistent:volumeConsistent},raw_text:raw}
+  const totalMl=sales.reduce((sum,s)=>sum+s.volume_ml,0),totalAmount=Math.round(sales.reduce((sum,s)=>sum+s.amount,0)*100)/100,originalMl=original?number(original[1]):null,announced=balance?number(balance[1]):null
+  // Algumas publicações preservam a chamada inicial "50 ml disponíveis"
+  // mesmo depois que os compradores já ocuparam os 50 ml. Quando esse valor
+  // repete exatamente a capacidade do frasco, ele descreve a oferta inicial,
+  // não a sobra. O estoque recebe somente capacidade menos vendas.
+  const initialOfferRepeated=statedRemaining!==null&&originalMl!==null&&totalMl>0&&totalMl<=originalMl&&Math.abs(statedRemaining-originalMl)<.001
+  const remainingAvailable=initialOfferRepeated?Math.max(originalMl!-totalMl,0):statedRemaining
+  const calculated=remainingAvailable??(originalMl==null?null:originalMl-totalMl),totalOperation=remainingAvailable==null?originalMl:totalMl+remainingAvailable,volumeConsistent=remainingAvailable!==null&&originalMl!==null?Math.abs(totalOperation!-originalMl)<.001:calculated!==null&&announced!==null?Math.abs(calculated-announced)<.001:true
+  return {source_format:'whatsapp',perfume:title.replace(/\s*[—-]?\s*\(.*$/,'').trim(),bottle_number:bottleNumber,original_volume_ml:originalMl,quote_per_ml:quoteValue,recrimping_fee:recrimp?money(recrimp[1]):null,apc_volume_ml:apcRule?number(apcRule[1]):null,apc_extra:apcRule?money(apcRule[2]):null,pricing_consistent:pricingIssues.length===0,pricing_issues:pricingIssues,deadline_raw:deadline?.[1]?.trim()??null,deadline_day_month:dayMonth,business_days:deadlineBusinessDays?Number(deadlineBusinessDays[1]):null,announced_balance_ml:statedRemaining??announced,remaining_available_ml:remainingAvailable,sales,totals:{sales:sales.length,volume_ml:totalMl,amount:totalAmount,calculated_balance_ml:calculated,total_operation_ml:totalOperation,volume_consistent:volumeConsistent},raw_text:raw}
 }

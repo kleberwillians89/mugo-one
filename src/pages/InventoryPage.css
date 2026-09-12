@@ -1,40 +1,23 @@
-.stock-available {
-  font: var(--fw-semibold) var(--fs-md) var(--font-ui);
-  color: var(--ink);
-}
-
-.stock-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-/* rebrand-v2.css loads after this file and sets .stock-actions button to
-   40px; the extra .page ancestor bumps specificity so the 44px touch target
-   (briefing item 27) wins regardless of load order. */
-.page .stock-actions button { min-height: 44px; }
-
-@media (max-width: 640px) {
-  /* Inside the collapsed mobile table-card, the "Ações" cell is a row
-     (label left, value right) — three buttons squeezed into ~60% of the
-     card would violate "não empilhar 3 botões numa linha". Stack instead.
-     Table.css's default td::before carries flex:0 0 38% for the ROW layout;
-     left in place under flex-direction:column with the td's auto height,
-     that percentage basis makes the browser wrap the label into its own
-     column instead of stacking — every property that matters is reset
-     explicitly here rather than relying on partial inheritance. */
-  .ui-table td:has(.stock-actions) {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: var(--space-2);
-  }
-  .ui-table td:has(.stock-actions)::before { flex: 0 0 auto; text-align: left; }
-  .stock-actions { flex-direction: column; align-items: stretch; flex-wrap: nowrap; width: 100%; }
-  .stock-actions button { width: 100%; }
-}
+.inventory-catalog{display:grid;gap:18px;margin-top:24px}
+.inventory-catalog-head{display:grid;grid-template-columns:1fr minmax(220px,360px) auto;align-items:center;gap:12px;padding-bottom:15px;border-bottom:1px solid var(--line)}
+.inventory-catalog-head>div{display:grid;gap:4px}.inventory-catalog-head>div strong{font-size:15px;color:var(--ink)}.inventory-catalog-head>div span{font-size:11px;color:var(--muted)}
+.inventory-search{height:42px;display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--muted);transition:border-color .2s,box-shadow .2s}
+.inventory-search:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 14%,transparent)}.inventory-search input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:12px}
+.inventory-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.inventory-perfume-card{position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--paper);box-shadow:0 8px 26px rgba(46,38,24,.055);transition:transform .2s,border-color .2s,box-shadow .2s}
+.inventory-perfume-card:hover{transform:translateY(-2px);border-color:#d8c69d;box-shadow:0 14px 34px rgba(46,38,24,.09)}
+.inventory-perfume-card:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:#4f8a64}.inventory-perfume-card--warning:before{background:#c4932e}.inventory-perfume-card--danger:before{background:#b4524d}
+.inventory-perfume-card>header{position:static;height:auto;padding:18px 18px 0;border:0;background:transparent;display:flex;justify-content:space-between;align-items:center}.inventory-perfume-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#f3ead8;color:#9b7425}
+.inventory-perfume-name{display:grid;align-content:start;gap:6px;min-height:86px;padding:16px 18px 8px}.inventory-perfume-name span,.inventory-balance>span{font-size:9px;font-weight:800;letter-spacing:.12em;color:var(--muted)}.inventory-perfume-name h3{margin:0;font:600 17px/1.35 var(--font-ui);color:var(--ink);overflow-wrap:anywhere}
+.inventory-balance{display:grid;gap:5px;margin:0 18px;padding:14px 0;border-block:1px solid var(--line)}.inventory-balance strong{font:650 31px/1 var(--font-ui);color:var(--ink);font-variant-numeric:tabular-nums}.inventory-balance strong small{font-size:12px;letter-spacing:.08em;color:var(--gold-deep)}
+.inventory-facts{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;margin:0;padding:14px 18px;background:#faf8f3}.inventory-facts div{display:grid;gap:3px;padding:8px 10px}.inventory-facts dt{font-size:9px;color:var(--muted)}.inventory-facts dd{margin:0;font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.inventory-secondary-facts{display:flex;justify-content:space-between;gap:12px;padding:14px 18px;color:var(--muted);font-size:10px}.inventory-secondary-facts span{display:grid;gap:3px}.inventory-secondary-facts span:last-child{text-align:right}.inventory-secondary-facts strong{color:var(--ink);font-size:11px}
+.inventory-restock-alert{display:flex;align-items:center;gap:7px;margin:0 18px 12px;padding:9px 10px;border-radius:8px;background:#fbf1dc;color:#8d6618;font-size:10px;font-weight:700}
+.stock-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding:14px 18px 18px;border-top:1px solid var(--line)}.page .stock-actions button{min-height:38px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 10px;color:var(--ink-soft);font-size:10px;font-weight:700}.page .stock-actions button:hover{border-color:#cdb77f;color:#765816}.page .stock-actions button:disabled{opacity:.45;cursor:not-allowed}.page .stock-actions .stock-action-highlight{border-color:#dac489;background:#fbf5e6;color:#765816}
+.inventory-no-results{min-height:230px;display:grid;place-items:center;align-content:center;gap:7px;border:1px dashed var(--line);border-radius:16px;background:#faf8f3;color:var(--muted);text-align:center}.inventory-no-results svg{color:var(--gold)}.inventory-no-results strong{color:var(--ink)}.inventory-no-results span{font-size:11px}
+@media(max-width:1100px){.inventory-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.inventory-catalog-head{grid-template-columns:1fr auto}.inventory-search{grid-column:1/-1;grid-row:2}.inventory-card-grid{grid-template-columns:1fr}.inventory-perfume-name{min-height:0}.page .stock-actions button{min-height:44px;flex:1 1 calc(50% - 7px)}}
+@media(max-width:430px){.inventory-catalog-head{grid-template-columns:1fr}.inventory-catalog-head>.ui-button{width:100%}.inventory-search{grid-row:auto}.inventory-secondary-facts{align-items:flex-start;flex-direction:column}.inventory-secondary-facts span:last-child{text-align:left}.page .stock-actions button{flex-basis:100%}}
 
 /* Campo de ml com sufixo visual — o operador digita só o número (o campo
    já diz a unidade), evita repetir o bug de "100ml" preenchido no smoke do

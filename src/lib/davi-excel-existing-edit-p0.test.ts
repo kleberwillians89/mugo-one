@@ -18,5 +18,5 @@ describe('P0 edição segura de vendas existentes no Davi Excel',()=>{
 
 describe('lacunas reais de estoque',()=>{
  it('mínimo usa RPC própria, permissão e auditoria',()=>{expect(inventory).toContain('updateInventoryMinimum(balance.item_id,minimum)');expect(migration).toContain('inventory_update_minimum');expect(migration).toContain("'inventory.adjust'");expect(migration).toContain("'inventory_minimum_updated'")})
- it('shipping não é apresentado como preparação',()=>{expect(inventory).toContain("key:'shipping_ml',label:'Em envio'");expect(inventory).not.toContain("key:'shipping_ml',label:'Em preparação'")})
+ it('shipping não é apresentado como preparação',()=>{expect(inventory).toContain('<dt>Em envio</dt>');expect(inventory).toContain('<dt>Em preparo</dt>')})
 })

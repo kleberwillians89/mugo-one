@@ -87,6 +87,36 @@ APC — R$ 1.845,00
   it('aponta divergência em qualquer tamanho de SPLIT',()=>{const parsed=parseDaviSalesBatch(laCautiva.replace('03ml — R$ 116,70','03ml — R$ 107,70'));expect(parsed.pricing_consistent).toBe(false);expect(parsed.pricing_issues).toContainEqual({sale_type:'SPLIT',volume_ml:3,announced_amount:107.7,expected_amount:116.7})})
 })
 
+describe('MESSY SEXY — chamada inicial de disponibilidade',()=>{
+  const messySexy=`MESSY SEXY JUST ROLLED OUT OF BED — WHAT WE DO IS SECRET
+Frasco 1.
+
+▪️ Cotação: R$ 41,90/ml (+ R$ 9,00 recravação)
+▪️ APC: 25ml + R$ 50,00 (frasco original de 50ml)
+📦 Liberação para envio: a partir de 25/09 (prazo estimado: 15 dias úteis)
+💳 Parcelamento em até 6x sem juros.
+
+🚨 50mls disponíveis. 🚨
+03ml — R$ 134,70
+05ml — R$ 218,50
+08ml — R$ 344,20
+10ml — R$ 428,00
+12ml — R$ 511,80
+15ml — R$ 637,50
+APC — R$ 1.097,50
+
+APC: FERNANDA VT
+10ML: VI COIMBRA
+03ML: CIDA MAMÃO
+03ML: MARIANA BELOTO
+03ML: ANA LUIZA NEVES
+03ML: VIVIANE MESSIAS
+03ML: LARISSA SIMÕES`
+  const parsed=parseDaviSalesBatch(messySexy)
+  it('reconhece perfume, marca, frasco, valores e as sete vendas',()=>{expect(parsed).toMatchObject({perfume:'MESSY SEXY JUST ROLLED OUT OF BED — WHAT WE DO IS SECRET',bottle_number:1,original_volume_ml:50,quote_per_ml:41.9,pricing_consistent:true,totals:{sales:7,volume_ml:50,amount:2199}});expect(perfumeIdentity(parsed.perfume).brand).toBe('WHAT WE DO IS SECRET')})
+  it('trata 50 ml repetidos como oferta inicial e registra saldo final zero',()=>expect(parsed).toMatchObject({announced_balance_ml:50,remaining_available_ml:0,totals:{calculated_balance_ml:0,total_operation_ml:50,volume_consistent:true}}))
+})
+
 describe('texto tabular copiado de planilha',()=>{
   const row=(client:string,type:string,ml:number,perfume:string,value:string,status='',method='',paid='')=>[client,'8/13/2026','9/4/2026','',type,String(ml),perfume,value,status,method,paid,''].join('\t')
   const feve=[row('TATIANA CARVALHO','APC',25,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 1.222,50','PAGO','PIX','8/13/2026'),row('LUCIANA ALVES','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70'),row('MARIANA ZTB','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70','AGUARDANDO'),row('MELANI NUNES','SPLIT',5,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 243,50'),row('CLAUDIA FERNANDA','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70'),row('FERNANDA VT','SPLIT',5,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 243,50'),row('ENDRIGO RODRIGUES','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70'),row('ERICA FREITAS','SPLIT',3,'FÈVE NECTAR - PLACE DE LA RÊVERIE','R$ 149,70')]

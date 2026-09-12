@@ -28,6 +28,7 @@ describe('estoque nascido das vendas validadas',()=>{
   it('explica o fluxo automático no estado vazio',()=>{
     expect(inventory).toContain('Estoque aguardando a primeira venda')
     expect(inventory).toContain('sobra de ML ficará disponível automaticamente')
-    expect(inventory).toContain("label:'ML disponíveis'")
+    expect(inventory).toContain('DISPONÍVEL PARA VENDA')
+    expect(inventory).toContain('inventory-perfume-card')
   })
 })
