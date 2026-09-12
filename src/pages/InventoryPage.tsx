@@ -50,7 +50,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   return <div className="page">
     {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{reload();push('Perfume recebido no estoque.',{tone:'success',duration:6000})}}/>}
     {qrItem&&<BottleOnboardingModal itemId={qrItem.item_id} perfumeName={qrItem.perfume} canManage={canManageBottles} close={()=>setQrItem(null)}/>}
-    <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo em ML e movimentações integradas às novas vendas." actions={<>
+    <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Perfumes e ML disponíveis criados automaticamente a partir das vendas validadas." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
       <SecondaryButton icon={<QrCode size={16}/>} onClick={()=>{history.pushState({},'','/estoque/leitor');dispatchEvent(new PopStateEvent('popstate'))}}>Estação de estoque</SecondaryButton>
       <SecondaryButton onClick={()=>{history.pushState({},'','/estoque/fracionamento');dispatchEvent(new PopStateEvent('popstate'))}}>Fracionamento</SecondaryButton>
@@ -58,7 +58,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setShowCreate(true)}>Receber perfume</PrimaryButton>
     </>}/>
     {summary&&<section className="metrics"><Metric label="Estoque físico" value={`${operational.reduce((sum,row)=>sum+Number(row.physical_ml),0).toLocaleString('pt-BR')} ML`} detail={`${integer(summary.items)} perfumes`} icon={Boxes}/><Metric label="Reservado para clientes" value={`${operational.reduce((sum,row)=>sum+Number(row.reserved_ml)+Number(row.shipping_ml),0).toLocaleString('pt-BR')} ML`} detail="Pago e ainda guardado" icon={UserRound}/><Metric label="Disponível para venda" value={`${operational.reduce((sum,row)=>sum+Number(row.available_ml),0).toLocaleString('pt-BR')} ML`} detail={`${operational.filter((row)=>row.reconciliation_status==='review_required').length} para reconciliar`} icon={Check}/><Metric label="Consumo no período" value={`${Number(summary.consumed_ml).toLocaleString('pt-BR')} ML`} detail={`${integer(summary.movements)} movimentações`} icon={TrendingUp}/></section>}
-    {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="empty card"><h3>Carregando estoque…</h3></div>:rows.length===0?<EmptyState icon={Boxes} title="Estoque pronto para começar" description="Cadastre o saldo físico inicial de um perfume." action={{label:'Cadastrar primeiro perfume',onClick:()=>setShowCreate(true)}}/>:
+    {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="empty card"><h3>Carregando estoque…</h3></div>:rows.length===0?<EmptyState icon={Boxes} title="Estoque aguardando a primeira venda" description="Ao validar uma venda, o perfume será criado aqui e a sobra de ML ficará disponível automaticamente."/>:
     <div className="card clients-table"><div className="clients-caption"><strong>{integer(rows.length)} perfumes controlados</strong><SecondaryButton icon={<Download size={16}/>} onClick={()=>exportCsv('estoque-ruah.csv',operational as unknown as Record<string,unknown>[])}>Exportar</SecondaryButton></div>
       <Table
         rowKey={(balance)=>balance.item_id}
@@ -69,7 +69,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
           {key:'reserved_ml',label:'Reservado',render:(balance)=>`${Number(balance.reserved_ml).toLocaleString('pt-BR')} ML`},
           {key:'preparing_ml',label:'Em preparação',render:(balance)=>`${(preparingByPerfume.get(balance.perfume_id)??0).toLocaleString('pt-BR')} ML`},
           {key:'shipping_ml',label:'Em envio',render:(balance)=>`${Number(balance.shipping_ml).toLocaleString('pt-BR')} ML`},
-          {key:'available_ml',label:'Disponível',render:(balance)=><strong className="stock-available">{Number(balance.available_ml).toLocaleString('pt-BR')} ML</strong>},
+          {key:'available_ml',label:'ML disponíveis',render:(balance)=><strong className="stock-available">{Number(balance.available_ml).toLocaleString('pt-BR')} ML</strong>},
           {key:'minimum_ml',label:'Mínimo',hideOnMobile:true,render:(balance)=>`${Number(balance.minimum_ml).toLocaleString('pt-BR')} ML`},
           {key:'average_cost_per_ml',label:'Custo/ML',hideOnMobile:true,render:(balance)=>balance.average_cost_per_ml===null?'—':brl(balance.average_cost_per_ml)},
           {key:'situacao',label:'Situação',render:(balance)=>{const state=stockState(balance);return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>}},
