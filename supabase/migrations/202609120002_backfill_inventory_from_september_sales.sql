@@ -37,7 +37,7 @@ where s.organization_id=i.organization_id
   and s.inventory_item_id is distinct from i.id;
 
 do $$
-declare batch record;item public.inventory_items;before_ml numeric;source_key text;
+declare batch record;item public.inventory_items;before_ml numeric;v_source_key text;
 begin
   for batch in
     select b.*,
@@ -59,9 +59,9 @@ begin
       )
     order by b.created_at,b.id
   loop
-    source_key:='backfill-2026-09-04|'||batch.fingerprint||'|'||batch.perfume_id::text||'|'||coalesce(batch.bottle_number::text,'');
+    v_source_key:='backfill-2026-09-04|'||batch.fingerprint||'|'||batch.perfume_id::text||'|'||coalesce(batch.bottle_number::text,'');
     if exists(select 1 from public.sale_inventory_births x
-      where x.organization_id=batch.organization_id and x.source_key=source_key) then
+      where x.organization_id=batch.organization_id and x.source_key=v_source_key) then
       continue;
     end if;
 
@@ -90,7 +90,7 @@ begin
     insert into public.sale_inventory_births(
       organization_id,source_key,perfume_id,inventory_item_id,bottle_identifier,available_ml,created_by
     ) values(
-      batch.organization_id,source_key,batch.perfume_id,item.id,
+      batch.organization_id,v_source_key,batch.perfume_id,item.id,
       case when batch.bottle_number is null then null else 'FRASCO '||batch.bottle_number end,
       batch.remainder_ml,batch.created_by
     );

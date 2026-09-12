@@ -21,7 +21,7 @@ describe('backfill do estoque desde 04/09',()=>{
   })
   it('considera somente lote que assina uma venda ativa e não duplica o crédito',()=>{
     expect(sql).toContain("s.import_signature=public.ai_sha256_hex(b.fingerprint||'|0')")
-    expect(sql).toContain("source_key:='backfill-2026-09-04|'")
+    expect(sql).toContain("v_source_key:='backfill-2026-09-04|'")
     expect(sql).toContain('public.sale_inventory_births')
   })
   it('registra movimento e auditoria do saldo positivo',()=>{
