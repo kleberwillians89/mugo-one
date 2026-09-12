@@ -1,20 +1,27 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { PERMISSION_CATALOG } from './permissions'
 
 /**
- * The frontend mirrors public.permissions (202608190011) as a TS constant
+ * The frontend mirrors public.permissions as a TS constant
  * so the UI can render grouped checkboxes without a network round-trip.
  * This is the one place that duplication is checked against drift — if a
  * code is ever added/removed/renamed on one side without the other, this
  * fails loudly instead of silently showing a stale checkbox grid.
  */
-const schema = readFileSync(new URL('../../supabase/migrations/202608190011_team_permissions.sql', import.meta.url), 'utf8')
+const migrationsDirectory = new URL('../../supabase/migrations/', import.meta.url)
 
 function sqlCodes(): string[] {
-  const block = schema.slice(schema.indexOf("insert into public.permissions"), schema.indexOf(';', schema.indexOf('insert into public.permissions')))
-  const matches = block.matchAll(/\('([a-z_]+\.[a-z_]+)','([a-z_]+)','([^']+)',\d+\)/g)
-  return Array.from(matches, (match) => match[1])
+  const codes = new Set<string>()
+  for (const file of readdirSync(migrationsDirectory).filter((name) => name.endsWith('.sql')).sort()) {
+    const schema = readFileSync(new URL(file, migrationsDirectory), 'utf8')
+    for (const statement of schema.matchAll(/insert into public\.permissions\s*\([^;]+;/gsi)) {
+      for (const match of statement[0].matchAll(/\('([a-z_]+\.[a-z_]+)'\s*,\s*'([a-z_]+)'\s*,\s*'([^']+)'\s*,\s*\d+\)/g)) {
+        codes.add(match[1])
+      }
+    }
+  }
+  return [...codes]
 }
 
 describe('catálogo de permissões — TS nunca diverge do SQL', () => {

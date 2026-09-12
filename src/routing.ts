@@ -30,7 +30,7 @@ export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':
 // tudo automaticamente quando access_total=true — nenhum destes códigos
 // precisa listar "access_total" explicitamente aqui.
 export const pagePermission:Record<Page,string[]>={
-  'Visão Geral':['dashboard.view'],'Torre de Controle':['dashboard.view'],
+  'Visão Geral':['dashboard.view'],'Torre de Controle':['tasks.sales','tasks.split','tasks.shipping','tasks.management'],
   'Clientes':['clients.view'],'Vendas':['sales.view'],'Entregas':['shipping.view'],
   'Davi Excel':['sales.view'],'Falta Splitar':['sales.view'],'Cobranças':['sales.view'],
   'Estoque':['inventory.view'],'Relatórios':['reports.view'],'Importação':['ai_import.view'],

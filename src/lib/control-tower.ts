@@ -1,7 +1,7 @@
 import { PerfumeMarginRow, fetchPerfumeMarginSummary, summarizeMargin } from './cost-margin'
 import { presetPeriod } from './period'
 import { fetchClientRecoveryQueue } from './client-recovery'
-import { OperationalShipment, fetchOperationalShipments } from './records'
+import { OperationalShipment, SplitStatusCards, fetchOperationalShipments, fetchSplitStatusCards } from './records'
 import { RadarOffer, fetchOffersForPerfume } from './radar'
 import { classifyBuyingSignal, pickBestOffer } from './radar-buying'
 import { NEEDS_ATTENTION, ReplenishmentSignal, ReplenishmentStatus, fetchReplenishmentSignals } from './replenishment'
@@ -17,10 +17,13 @@ import { fetchWaitlistQueue } from './waitlist'
  * lá por pergunta de quem precisa responder.
  */
 export type ControlTowerSummary = {
-  davi: { blockedSalesCount: number; recoveryCount: number; waitlistReadyCount: number; waitlistWaitingCount: number }
-  ilde: { nextShipment: { id: string; recipientName: string; urgent: boolean } | null; queueLength: number; pendingPhysicalConference: number }
-  gestao: { lowStockCount: number; strongOpportunityCount: number; marginPct: number | null; unpricedCount: number }
+  davi: { blockedSalesCount: number; recoveryCount: number; waitlistReadyCount: number; waitlistWaitingCount: number } | null
+  gabriel: SplitStatusCards | null
+  entregas: { nextShipment: { id: string; recipientName: string; urgent: boolean } | null; queueLength: number; pendingPhysicalConference: number } | null
+  gestao: { lowStockCount: number; strongOpportunityCount: number; marginPct: number | null; unpricedCount: number } | null
 }
+
+export type ControlTowerScope = { sales: boolean; split: boolean; shipping: boolean; management: boolean }
 
 /** Correção final (ordenação SuperFrete/conferência física): a SuperFrete já avançou o envio externamente, mas o gate de post_shipment está bloqueado esperando o bipe do frasco/split — "operational exception", nunca um erro genérico (ver superfrete-sync-shipment). */
 export function countPendingPhysicalConference(shipments: OperationalShipment[]): number {
@@ -57,27 +60,31 @@ function pickNextShipment(shipments: OperationalShipment[]) {
   }
 }
 
-export async function fetchControlTowerSummary(): Promise<ControlTowerSummary> {
-  const [blocked, recovery, waitlist, shipments, replenishment, margin, offers] = await Promise.all([
-    fetchSalesValidationQueue(), fetchClientRecoveryQueue(), fetchWaitlistQueue(), fetchOperationalShipments(),
-    fetchReplenishmentSignals(), fetchPerfumeMarginSummary(presetPeriod('month')), fetchOffersForPerfume({}),
+export async function fetchControlTowerSummary(scope:ControlTowerScope={sales:true,split:true,shipping:true,management:true}): Promise<ControlTowerSummary> {
+  const [blocked, recovery, waitlist, split, shipments, replenishment, margin, offers] = await Promise.all([
+    scope.sales?fetchSalesValidationQueue():Promise.resolve([]), scope.sales?fetchClientRecoveryQueue():Promise.resolve([]),
+    scope.sales?fetchWaitlistQueue():Promise.resolve([]), scope.split?fetchSplitStatusCards():Promise.resolve(null),
+    scope.shipping?fetchOperationalShipments():Promise.resolve([]), scope.management?fetchReplenishmentSignals():Promise.resolve([]),
+    scope.management?fetchPerfumeMarginSummary(presetPeriod('month')):Promise.resolve([]),
+    scope.management?fetchOffersForPerfume({}):Promise.resolve([]),
   ])
 
   const marginTotals = summarizeMargin(margin)
   const { nextShipment, queueLength } = pickNextShipment(shipments)
 
   return {
-    davi: {
+    davi: scope.sales?{
       blockedSalesCount: blocked.length, recoveryCount: recovery.length,
       waitlistReadyCount: waitlist.filter((entry) => entry.ready).length,
       waitlistWaitingCount: waitlist.filter((entry) => entry.status === 'waiting').length,
-    },
-    ilde: { nextShipment, queueLength, pendingPhysicalConference: countPendingPhysicalConference(shipments) },
-    gestao: {
+    }:null,
+    gabriel: split,
+    entregas: scope.shipping?{ nextShipment, queueLength, pendingPhysicalConference: countPendingPhysicalConference(shipments) }:null,
+    gestao: scope.management?{
       lowStockCount: replenishment.filter((signal) => (NEEDS_ATTENTION as ReplenishmentStatus[]).includes(signal.status)).length,
       strongOpportunityCount: countStrongOpportunities(replenishment, margin, offers),
       marginPct: marginTotals.revenue > 0 ? (marginTotals.margin / marginTotals.revenue) * 100 : null,
       unpricedCount: marginTotals.unpriced,
-    },
+    }:null,
   }
 }

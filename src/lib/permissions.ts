@@ -113,7 +113,7 @@ export type PermissionCatalogEntry = { code: string; module: string; label: stri
 export const PERMISSION_MODULE_LABEL: Record<string, string> = {
   dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', inventory: 'Estoque', shipping: 'Envios',
   radar: 'Radar', waitlist: 'Lista de espera', recovery: 'Recuperação de clientes', cost_margin: 'Custo e margem',
-  reports: 'Relatórios', ai_import: 'Importação com IA', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
+  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
 }
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
@@ -155,6 +155,10 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: 'ai_import.view', module: 'ai_import', label: 'Visualizar importação IA' },
   { code: 'ai_import.execute', module: 'ai_import', label: 'Executar importação IA' },
   { code: 'ai_import.confirm', module: 'ai_import', label: 'Confirmar importação IA' },
+  { code: 'tasks.sales', module: 'tasks', label: 'Tarefas de vendas' },
+  { code: 'tasks.split', module: 'tasks', label: 'Tarefas de split' },
+  { code: 'tasks.shipping', module: 'tasks', label: 'Tarefas de entregas' },
+  { code: 'tasks.management', module: 'tasks', label: 'Tarefas de gestão' },
   { code: 'audit.view', module: 'audit', label: 'Visualizar auditoria' },
   { code: 'settings.view', module: 'settings', label: 'Visualizar configurações' },
   { code: 'team.view', module: 'team', label: 'Visualizar equipe' },
