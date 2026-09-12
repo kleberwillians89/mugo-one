@@ -107,7 +107,7 @@ export function FaltaSplitarPage(){
   }
 
   return <div className="falta-splitar-page">
-    <header className="falta-splitar-header"><h1><Scissors size={20}/> Separação</h1><p>Fila do Gabriel: aparece aqui somente depois que o Davi marca a venda como paga.</p></header>
+    <header className="falta-splitar-header"><h1><Scissors size={20}/> Separação</h1><p>Fila do Gabriel: aparece aqui assim que a venda é lançada, mesmo antes do Davi marcar como paga.</p></header>
 
     <section className="falta-splitar-cards">
       <div className="falta-splitar-card-split"><span>SPLITS A SEPARAR</span><strong>{cards?.split_pending??'—'}</strong></div>
