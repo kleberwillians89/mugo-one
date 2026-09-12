@@ -8,7 +8,7 @@ const migration=readFileSync('supabase/migrations/202609050008_reset_deliveries_
 describe('conclusão geral de splits',()=>{
   it('aciona o backend para todo o filtro e informa a quantidade real',()=>{
     expect(page).toContain('completeSplitStatusForFilter(effectiveFilters)')
-    expect(page).toContain('${result.updated_count} vendas marcadas como splitadas.')
+    expect(page).toContain('${result.updated_count} itens marcados como separados.')
     expect(page).toContain('não apenas os itens abertos ou visíveis')
     expect(records).toContain("rpc('complete_sale_splits_for_filter'")
   })
@@ -38,7 +38,7 @@ describe('conclusão geral de splits',()=>{
 
   it('não exibe sucesso antes da confirmação do Supabase',()=>{
     const action=page.slice(page.indexOf('const completeCurrentFilter='),page.indexOf('const openPrint='))
-    expect(action.indexOf('await completeSplitStatusForFilter(effectiveFilters)')).toBeLessThan(action.indexOf('vendas marcadas como splitadas.'))
-    expect(action).toContain("push(error instanceof Error?error.message:'Falha ao marcar os splits do filtro.'")
+    expect(action.indexOf('await completeSplitStatusForFilter(effectiveFilters)')).toBeLessThan(action.indexOf('itens marcados como separados.'))
+    expect(action).toContain("push(error instanceof Error?error.message:'Falha ao marcar os itens do filtro.'")
   })
 })

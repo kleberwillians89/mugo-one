@@ -834,15 +834,17 @@ export async function updateInventoryMinimum(itemId:string,minimumMl:number){
 // ===== Falta Splitar =====
 export type SplitStatus='not_split'|'split'
 export type SplitStatusFilter='not_split'|'split'|'split_today'|'all'
-export type SplitStatusFilters={search?:string;client?:string;perfume?:string;brand?:string;purchase_date?:string;bottle?:string}
-export type SplitStatusCards={not_split:number;split_today:number;clients_pending:number;perfumes_pending:number;ml_pending:number}
-export type SplitStatusPerfumeGroup={perfume_id:string|null;perfume_name:string;brand_house:string|null;clients_count:number;items_count:number;ml_total:number}
-export type SplitStatusItem={id:string;client_id:string;client_name:string;client_number:number|null;perfume_id:string|null;perfume_name:string|null;brand_house:string|null;bottle_identifier:string|null;volume_ml:number|null;sale_date:string;split_status:SplitStatus;split_completed_at:string|null;split_completed_by:string|null;updated_at:string}
+export type SplitStatusFilters={search?:string;client?:string;perfume?:string;brand?:string;purchase_date?:string;bottle?:string;sale_type?:'SPLIT'|'APC'}
+export type SplitStatusCards={not_split:number;split_pending:number;apc_pending:number;split_today:number;clients_pending:number;perfumes_pending:number;ml_pending:number}
+export type SplitStatusPerfumeGroup={sale_type:'SPLIT'|'APC';perfume_id:string|null;perfume_name:string;brand_house:string|null;clients_count:number;items_count:number;ml_total:number}
+export type SplitStatusItem={id:string;sale_type:'SPLIT'|'APC';payment_status:'paid';client_id:string;client_name:string;client_number:number|null;perfume_id:string|null;perfume_name:string|null;brand_house:string|null;bottle_identifier:string|null;volume_ml:number|null;sale_date:string;split_status:SplitStatus;split_completed_at:string|null;split_completed_by:string|null;updated_at:string}
 const splitStatusErrorMessage=(message:string)=>{
   if(message.includes('stale_sale'))return'Este item foi atualizado por outra pessoa. Recarregue antes de tentar de novo.'
   if(message.includes('permission_denied'))return'Você não tem permissão para alterar o status de split.'
   if(message.includes('sale_not_found'))return'Venda não encontrada.'
-  if(message.includes('sale_not_eligible_for_split'))return'Esta venda não é do tipo SPLIT.'
+  if(message.includes('sale_not_eligible_for_separation'))return'Esta venda não é SPLIT nem APC.'
+  if(message.includes('sale_not_paid_for_separation'))return'A venda precisa estar marcada como paga pelo Davi antes de entrar na separação.'
+  if(message.includes('bulk_separation_selection_not_eligible'))return'Um ou mais itens não estão pagos ou não podem ser separados.'
   return message
 }
 export async function fetchSplitStatusCards(){

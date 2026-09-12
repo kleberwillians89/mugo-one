@@ -5,7 +5,7 @@ export type SplitPrintGroup = { key: string; perfume_name: string; brand_house: 
 export function groupSplitItemsByPerfume(items: SplitStatusItem[]): SplitPrintGroup[] {
   const byPerfume = new Map<string, SplitPrintGroup>()
   for (const item of items) {
-    const key = item.perfume_id ?? item.perfume_name ?? '—'
+    const key = `${item.sale_type}:${item.perfume_id ?? item.perfume_name ?? '—'}`
     if (!byPerfume.has(key)) byPerfume.set(key, { key, perfume_name: item.perfume_name ?? '(sem perfume)', brand_house: item.brand_house, items: [], total_ml: 0 })
     const group = byPerfume.get(key)!
     group.items.push(item)

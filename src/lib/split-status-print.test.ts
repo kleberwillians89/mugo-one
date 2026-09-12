@@ -4,7 +4,7 @@ import type { SplitStatusItem } from './records'
 
 const item = (overrides: Partial<SplitStatusItem>): SplitStatusItem => ({
   id: 'id', client_id: 'c1', client_name: 'Cliente', client_number: 1, perfume_id: 'p1', perfume_name: 'Perfume',
-  brand_house: null, bottle_identifier: null, volume_ml: 5, sale_date: '2026-09-01', split_status: 'not_split',
+  sale_type:'SPLIT',payment_status:'paid',brand_house: null, bottle_identifier: null, volume_ml: 5, sale_date: '2026-09-01', split_status: 'not_split',
   split_completed_at: null, split_completed_by: null, updated_at: '2026-09-01T00:00:00Z', ...overrides,
 })
 
@@ -36,7 +36,7 @@ describe('agrupamento de splits do dia para impressão', () => {
       item({ id: '2', perfume_id: 'p1', perfume_name: 'Naxos' }),
     ])
     expect(groups).toHaveLength(2)
-    expect(groups.find((group) => group.key === '—')?.perfume_name).toBe('(sem perfume)')
+    expect(groups.find((group) => group.key === 'SPLIT:—')?.perfume_name).toBe('(sem perfume)')
   })
 
   it('resumo conta clientes distintos, não linhas — mesma cliente em duas linhas conta uma vez', () => {
@@ -48,5 +48,10 @@ describe('agrupamento de splits do dia para impressão', () => {
     const groups = groupSplitItemsByPerfume(items)
     const summary = splitPrintSummary(items, groups)
     expect(summary).toMatchObject({ perfumes: 1, splits: 3, clients: 2, ml_total: 20 })
+  })
+
+  it('não mistura APC e SPLIT do mesmo perfume na folha de separação',()=>{
+    const groups=groupSplitItemsByPerfume([item({id:'1',sale_type:'SPLIT'}),item({id:'2',sale_type:'APC'})])
+    expect(groups.map(group=>group.key)).toEqual(['SPLIT:p1','APC:p1'])
   })
 })

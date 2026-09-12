@@ -54,7 +54,8 @@ export function ControlTowerPage() {
         </Column>}
 
         {summary.gabriel&&<Column icon={Scissors} title="Gabriel" subtitle="Splitar">
-          <Row label="Não splitados" value={String(summary.gabriel.not_split)} tone={summary.gabriel.not_split>0?'danger':'success'} onClick={goToSplits}/>
+          <Row label="Splits a separar" value={String(summary.gabriel.split_pending)} tone={summary.gabriel.split_pending>0?'danger':'success'} onClick={goToSplits}/>
+          <Row label="APC a separar" value={String(summary.gabriel.apc_pending)} tone={summary.gabriel.apc_pending>0?'warning':'success'} onClick={goToSplits}/>
           <Row label="Clientes pendentes" value={String(summary.gabriel.clients_pending)} tone={summary.gabriel.clients_pending>0?'warning':'success'} onClick={goToSplits}/>
           <Row label="Perfumes pendentes" value={String(summary.gabriel.perfumes_pending)} tone={summary.gabriel.perfumes_pending>0?'warning':'success'} onClick={goToSplits}/>
           <Row label="ML pendentes" value={`${Number(summary.gabriel.ml_pending).toLocaleString('pt-BR')} ML`} tone={summary.gabriel.ml_pending>0?'neutral':'success'} onClick={goToSplits}/>
