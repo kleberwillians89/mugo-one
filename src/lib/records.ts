@@ -590,7 +590,7 @@ export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
     if(existingError)throw new Error(existingError.message)
     if(existing)return{id:String(existing.id),alreadyExisted:true}
     const {data,error}=await supabase!.rpc('davi_excel_create_sale_with_bottle',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,bottle_identifier:input.bottleNumber?`FRASCO ${input.bottleNumber}`:null,split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
-    if(error){if(error.message.includes('bottle_number_required')||error.message.includes('invalid_bottle_number'))throw new Error('Escolha o Frasco 1, 2 ou 3.');throw new Error(error.message)}
+    if(error){if(error.message.includes('bottle_number_required')||error.message.includes('invalid_bottle_number'))throw new Error('Informe um número de frasco válido.');throw new Error(error.message)}
     return{id:String(data),alreadyExisted:false}
   }
   const { user, organizationId } = await currentOrganization()

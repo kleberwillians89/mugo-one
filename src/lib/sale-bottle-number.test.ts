@@ -8,7 +8,7 @@ const migration=readFileSync(new URL('../../supabase/migrations/202609110002_sal
 
 describe('número do frasco por venda',()=>{
   it('é obrigatório em novas vendas do Davi e salvo em formato canônico',()=>{
-    expect(newRows).toContain('Escolha o Frasco 1, 2 ou 3.')
+    expect(newRows).toContain('Informe um número de frasco válido.')
     expect(records).toContain('bottle_identifier:input.bottleNumber?`FRASCO ${input.bottleNumber}`:null')
     expect(records).toContain("rpc('davi_excel_create_sale_with_bottle'")
   })
