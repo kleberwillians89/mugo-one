@@ -70,8 +70,8 @@ export function parseDaviSalesBatch(rawText:string):ParsedSalesBatch{
   const bottleNumbers=[...raw.matchAll(/(?:^|[\n(])\s*Frasco\s+(\d+)\s*(?:[.)]|$)/gim)].map(match=>Number(match[1])),distinctBottleNumbers=[...new Set(bottleNumbers)]
   if(distinctBottleNumbers.length>1)throw new Error('multiple_bottle_numbers')
   const bottleNumber=distinctBottleNumbers[0]??null,original=raw.match(/Frasco original\s+(?:com|de)\s*(\d+(?:[.,]\d+)?)\s*ml/i)
-  const quote=raw.match(/Cotaç[aã]o:\s*R\$\s*([\d.,]+)\s*\/\s*ml/i),recrimp=raw.match(/R\$\s*([\d.,]+)\s*recravaç[aã]o/i)
-  const apcRule=raw.match(/APC:\s*(\d+(?:[.,]\d+)?)\s*ml\s*\+\s*R\$\s*([\d.,]+)/i)
+  const quote=raw.match(/(?:Cotaç[aã]o|Valor\s+(?:do|por)\s+ML)\s*(?::|[-–—])?\s*R\$\s*([\d.,]+)\s*(?:\/\s*ml|por\s+ml)?/i),recrimp=raw.match(/R\$\s*([\d.,]+)\s*(?:de\s*)?recravaç[aã]o/i)
+  const apcRule=raw.match(/APC\s*(?::|[-–—])?\s*(\d+(?:[.,]\d+)?)\s*ml\s*\+\s*R\$\s*([\d.,]+)/i)
   const deadline=raw.match(/(?:Disponibilidade|Liberaç[aã]o)[^:]*:\s*([^\n]+)/i),dayMonth=deadline?.[1]?.match(/(\d{1,2}\/\d{1,2})/)?.[1]??null,deadlineBusinessDays=deadline?.[1]?.match(/(\d+)\s*dias?\s+[uú]teis/i)
   const balance=raw.match(/(\d+(?:[.,]\d+)?)\s*mls?\s+dispon[ií]ve/i)
   const prices=new Map<string,number>();for(const line of lines){const match=line.match(/^(\d{1,2})\s*mls?\s*[:\-–—]\s*R\$\s*([\d.,]+)\s*$/i);if(match)prices.set(String(Number(match[1])),money(match[2]))}
