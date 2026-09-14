@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { AlertTriangle, Boxes, Check, Download, Plus, Printer, Search, TrendingUp, UserRound } from 'lucide-react'
+import { AlertTriangle, Boxes, Check, Download, Printer, RefreshCw, Search, TrendingUp, UserRound } from 'lucide-react'
 import { brl, integer } from '../lib/format'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { exportCsv } from '../lib/csv'
 import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
-  InventoryPreparationTotal, PerfumeCandidate, adjustInventory, createCanonicalPerfume, fetchCanonicalPerfume, fetchInventory, fetchInventoryPreparationTotals, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, receiveInventoryPerfume, searchPerfumes, updateInventoryMinimum,
+  InventoryPreparationTotal, PerfumeCandidate, createCanonicalPerfume, fetchCanonicalPerfume, fetchInventory, fetchInventoryPreparationTotals, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, receiveInventoryPerfume, searchPerfumes, updateInventoryMinimum,
 } from '../lib/records'
 import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
@@ -36,10 +36,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,preparing,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
   const replenishmentByItem=new Map(replenishment.map((signal)=>[signal.item_id,signal.status]))
   const preparingByPerfume=new Map(preparationTotals.map(row=>[row.perfume_id,Number(row.preparing_ml)]))
-  const rowsByItem=new Map(rows.map(row=>[row.item_id,row]))
   const visibleOperational=operational.filter(row=>row.perfume.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR')))
-  const receiveEntry=async(row:InventoryRow)=>{const raw=prompt(`Entrada física em ML para ${row.perfume}:`);if(!raw)return;const amount=Number(raw.replace(',','.'));if(!Number.isFinite(amount)||amount<=0)return alert('Informe uma quantidade válida.');const reason=prompt('Motivo obrigatório:')?.trim();if(!reason)return;try{await receiveInventoryPerfume({perfumeId:row.perfume_id,receivedMl:amount,minimumMl:Number(row.minimum_ml),referenceDate:format(new Date(),'yyyy-MM-dd'),notes:reason,idempotencyKey:crypto.randomUUID()});reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível registrar a entrada.')}}
-  const correctBalance=async(row:InventoryRow)=>{const raw=prompt(`Ajuste em ML para ${row.perfume}. Use valor positivo ou negativo:`);if(!raw)return;const delta=Number(raw.replace(',','.'));if(!Number.isFinite(delta)||delta===0)return alert('Informe um ajuste diferente de zero.');const reason=prompt('Motivo obrigatório:')?.trim();if(!reason)return;if(delta<0&&!confirm(`Confirma retirar ${Math.abs(delta)} ML de ${row.perfume}?`))return;try{await adjustInventory(row.item_id,delta,reason);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível ajustar o saldo.')}}
   // Fase 8 do roadmap operacional ("Quanto custa?"): custo médio por ML,
   // mantido pela gestão — string vazia limpa o custo (volta a "não informado").
   const editCost=async(balance:OperationalInventoryRow)=>{const raw=prompt(`Custo por ML para ${balance.perfume} (R$, vazio para limpar):`,balance.average_cost_per_ml!==null?String(balance.average_cost_per_ml):'');if(raw===null)return;const trimmed=raw.trim();if(trimmed===''){try{await setPerfumeCost(balance.perfume_id,null);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}return}const cost=Number(trimmed.replace(',','.'));if(!Number.isFinite(cost)||cost<0)return alert('Informe um custo válido.');try{await setPerfumeCost(balance.perfume_id,cost);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}}
@@ -47,22 +44,22 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
 
   return <div className="page">
     {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{reload();push('Perfume recebido no estoque.',{tone:'success',duration:6000})}}/>}
-    <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Perfumes e ML disponíveis criados automaticamente a partir das vendas validadas." actions={<>
+    <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo automático calculado pelas vendas validadas. Para corrigir ML, corrija a venda de origem." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
       <SecondaryButton onClick={()=>{history.pushState({},'','/estoque/fracionamento');dispatchEvent(new PopStateEvent('popstate'))}}>Fracionamento</SecondaryButton>
       <SecondaryButton onClick={goToReplenishment}>Reposição inteligente</SecondaryButton>
-      <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setShowCreate(true)}>Receber perfume</PrimaryButton>
+      <PrimaryButton icon={<RefreshCw size={16}/>} onClick={()=>{reload();push('Estoque atualizado a partir das vendas.',{tone:'success'})}}>Atualizar vendas</PrimaryButton>
     </>}/>
     {summary&&<section className="metrics"><Metric label="Estoque físico" value={`${operational.reduce((sum,row)=>sum+Number(row.physical_ml),0).toLocaleString('pt-BR')} ML`} detail={`${integer(summary.items)} perfumes`} icon={Boxes}/><Metric label="Reservado para clientes" value={`${operational.reduce((sum,row)=>sum+Number(row.reserved_ml)+Number(row.shipping_ml),0).toLocaleString('pt-BR')} ML`} detail="Pago e ainda guardado" icon={UserRound}/><Metric label="Disponível para venda" value={`${operational.reduce((sum,row)=>sum+Number(row.available_ml),0).toLocaleString('pt-BR')} ML`} detail={`${operational.filter((row)=>row.reconciliation_status==='review_required').length} para reconciliar`} icon={Check}/><Metric label="Consumo no período" value={`${Number(summary.consumed_ml).toLocaleString('pt-BR')} ML`} detail={`${integer(summary.movements)} movimentações`} icon={TrendingUp}/></section>}
     {error?<div className="notice"><AlertTriangle/><span>{error}</span></div>:loading?<div className="empty card"><h3>Carregando estoque…</h3></div>:rows.length===0?<EmptyState icon={Boxes} title="Estoque aguardando a primeira venda" description="Ao validar uma venda, o perfume será criado aqui e a sobra de ML ficará disponível automaticamente."/>:
     <section className="inventory-catalog">
       <div className="inventory-catalog-head">
-        <div><strong>{integer(rows.length)} perfumes controlados</strong><span>Consulte rapidamente o saldo e a situação de cada perfume.</span></div>
+        <div><strong>{integer(rows.length)} perfumes controlados</strong><span>Somente leitura: os ML nascem e são atualizados pelas vendas.</span></div>
         <label className="inventory-search"><Search size={17}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar perfume…" aria-label="Buscar perfume no estoque"/></label>
         <SecondaryButton icon={<Download size={16}/>} onClick={()=>exportCsv('estoque-ruah.csv',operational as unknown as Record<string,unknown>[])}>Exportar</SecondaryButton>
       </div>
       {visibleOperational.length===0?<div className="inventory-no-results"><Search/><strong>Nenhum perfume encontrado</strong><span>Tente buscar por outro nome.</span></div>:<div className="inventory-card-grid">{visibleOperational.map(balance=>{
-        const state=stockState(balance),status=replenishmentByItem.get(balance.item_id),row=rowsByItem.get(balance.item_id)
+        const state=stockState(balance),status=replenishmentByItem.get(balance.item_id)
         return <article className={`inventory-perfume-card inventory-perfume-card--${state.tone}`} key={balance.item_id}>
           <header><div className="inventory-perfume-mark"><Boxes size={18}/></div><StatusBadge tone={state.tone}>{state.label}</StatusBadge></header>
           <div className="inventory-perfume-name"><span>PERFUME</span><h3>{balance.perfume}</h3></div>
@@ -75,7 +72,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
           </dl>
           <div className="inventory-secondary-facts"><span>Mínimo <strong>{Number(balance.minimum_ml).toLocaleString('pt-BR')} ML</strong></span><span>Custo/ML <strong>{balance.average_cost_per_ml===null?'Não informado':brl(balance.average_cost_per_ml)}</strong></span></div>
           {(status==='critico'||status==='repor')&&<div className="inventory-restock-alert"><AlertTriangle size={15}/> Reposição recomendada</div>}
-          <footer className="stock-actions"><button disabled={!row} onClick={()=>row&&receiveEntry(row)}>Entrada</button><button disabled={!row} onClick={()=>row&&correctBalance(row)}>Ajustar saldo</button><button onClick={()=>editCost(balance)}>Custo</button><button onClick={()=>editMinimum(balance)}>Mínimo</button>{state.tone!=='success'&&<button className="stock-action-highlight" onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}</footer>
+          <footer className="stock-actions"><button onClick={()=>editCost(balance)}>Custo</button><button onClick={()=>editMinimum(balance)}>Mínimo</button>{state.tone!=='success'&&<button className="stock-action-highlight" onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}</footer>
         </article>
       })}</div>}
     </section>}

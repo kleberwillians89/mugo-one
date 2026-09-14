@@ -41,10 +41,10 @@ describe('link Estoque -> Radar não muda regras de estoque', () => {
     expect(buttonLine).not.toContain('createInventoryItem')
   })
 
-  it('funções de ajuste de estoque continuam intactas', () => {
-    expect(inventoryPage).toContain('const receiveEntry=async(row:InventoryRow)=>')
-    expect(inventoryPage).toContain('await receiveInventoryPerfume')
-    expect(inventoryPage).toContain('const correctBalance=async(row:InventoryRow)=>')
-    expect(inventoryPage).toContain('await adjustInventory(row.item_id,delta,reason)')
+  it('estoque de vendas não expõe ajuste manual concorrente', () => {
+    expect(inventoryPage).toContain('Atualizar vendas')
+    expect(inventoryPage).not.toContain('const receiveEntry=async(row:InventoryRow)=>')
+    expect(inventoryPage).not.toContain('const correctBalance=async(row:InventoryRow)=>')
+    expect(inventoryPage).not.toContain('await adjustInventory(row.item_id,delta,reason)')
   })
 })
