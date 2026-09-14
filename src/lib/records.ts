@@ -293,7 +293,7 @@ export async function registerCollectionPayment(saleIds:string[],paidAt:string,p
     if(message.includes('paid_at_required'))throw new Error('Informe a data do pagamento.')
     if(message.includes('operator_shipping_only'))throw new Error('Seu perfil de acesso só permite alterar dados de envio nesta venda — peça a um gestor para registrar o pagamento.')
     if(message.includes('viewer_read_only'))throw new Error('Seu perfil de acesso é somente leitura.')
-    if(message.includes('insufficient_available_inventory'))throw new Error('Estoque comercial insuficiente para reservar uma das vendas selecionadas. Ajuste o estoque antes de registrar este pagamento.')
+    if(message.includes('insufficient_available_inventory'))throw new Error('Não foi possível criar a reserva logística desta venda. Atualize a página e tente novamente.')
     if(message.includes('sale_has_active_shipment_allocation'))throw new Error('Uma das vendas selecionadas já está em separação/envio — resolva a alocação no operacional antes de registrar o pagamento aqui.')
     throw new Error(message)
   }
