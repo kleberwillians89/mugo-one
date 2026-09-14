@@ -322,9 +322,11 @@ export async function fetchSalesPage(filters:SaleFilters={},page=0,pageSize=50) 
   if(filters.minValue!==undefined)query=query.gte('amount',filters.minValue)
   if(filters.maxValue!==undefined)query=query.lte('amount',filters.maxValue)
   if(filters.search)query=query.or(`client_name_raw.ilike.%${filters.search}%,perfume_name_raw.ilike.%${filters.search}%,bottle_identifier.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`)
-  const sort=filters.sort??'sale_date_desc'
+  const sort=filters.sort??'perfume_name_raw_asc'
   const [column,direction]=sort.replace(/_(asc|desc)$/,'|$1').split('|')
-  query=query.order(column,{ascending:direction==='asc',nullsFirst:false}).range(page*pageSize,page*pageSize+pageSize-1)
+  query=query.order(column,{ascending:direction==='asc',nullsFirst:false})
+  if(column==='perfume_name_raw')query=query.order('sale_date',{ascending:false,nullsFirst:false}).order('client_name_raw',{ascending:true,nullsFirst:false})
+  query=query.range(page*pageSize,page*pageSize+pageSize-1)
   const {data,error,count}=await query
   if (error) throw new Error(error.message)
   return { rows:(data ?? []) as unknown as CommercialSale[], count:count ?? 0 }

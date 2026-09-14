@@ -19,7 +19,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const [sales,setSales]=useState<CommercialSale[]>([])
   const [count,setCount]=useState(0)
   const [page,setPage]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState('')
-  const [filters,setFilters]=useState<SaleFilters>({period,sort:'sale_date_desc'})
+  const [filters,setFilters]=useState<SaleFilters>({period,sort:'perfume_name_raw_asc'})
   const [filtersOpen,setFiltersOpen]=useState(false)
   const [tab,setTab]=useState<'todas'|'bloqueadas'>(new URLSearchParams(location.search).get('filtro')==='bloqueadas'?'bloqueadas':'todas')
   const [blocked,setBlocked]=useState<BlockedSale[]>([]),[blockedLoading,setBlockedLoading]=useState(true)
@@ -28,7 +28,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const openBlockedSale=(sale:BlockedSale)=>{history.pushState({},'',`/vendas/${sale.sale_id}`);dispatchEvent(new PopStateEvent('popstate'))}
   const setFilter=(key:keyof SaleFilters,value:string)=>{setPage(0);setFilters((current)=>({...current,[key]:value||undefined}))}
   const activeFilterCount=Object.entries(filters).filter(([key,value])=>key!=='period'&&key!=='sort'&&key!=='search'&&value!==undefined&&value!=='').length
-  const clearFilters=()=>{setPage(0);setFilters({period,sort:'sale_date_desc'})}
+  const clearFilters=()=>{setPage(0);setFilters({period,sort:'perfume_name_raw_asc'})}
   const refresh=useCallback(()=>fetchSalesPage({...filters,period},page,50).then((result)=>{setSales(result.rows);setCount(result.count)}).catch(()=>setError('Não foi possível consultar as vendas.')).finally(()=>setLoading(false)),[filters,page,period])
   useEffect(()=>{refresh()},[refresh])
   // Fase 2 do roadmap operacional ("Qual venda está bloqueada?"): a contagem
@@ -77,7 +77,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
     <div className="sales-toolbar">
       <SearchInput value={filters.search??''} onChange={(value)=>setFilter('search',value)} placeholder="Buscar cliente, perfume ou observação…"/>
       <select value={filters.status??''} onChange={(event)=>setFilter('status',event.target.value)}><option value="">Todos os pagamentos</option><option value="paid">Pago</option><option value="pending">Aguardando</option><option value="cancelled">Cancelado</option><option value="unknown">Revisão</option></select>
-      <select value={filters.sort??''} onChange={(event)=>setFilter('sort',event.target.value)}><option value="sale_date_desc">Mais recentes</option><option value="sale_date_asc">Mais antigas</option><option value="amount_desc">Maior valor</option><option value="client_name_raw_asc">Cliente A–Z</option><option value="perfume_name_raw_asc">Perfume A–Z</option></select>
+      <select value={filters.sort??''} onChange={(event)=>setFilter('sort',event.target.value)}><option value="perfume_name_raw_asc">Perfume A–Z</option><option value="sale_date_desc">Mais recentes</option><option value="sale_date_asc">Mais antigas</option><option value="amount_desc">Maior valor</option><option value="client_name_raw_asc">Cliente A–Z</option></select>
       <SecondaryButton icon={<Filter size={16}/>} onClick={()=>setFiltersOpen(true)}>{activeFilterCount>0?`Filtros (${activeFilterCount})`:'Filtros'}</SecondaryButton>
     </div>
 
