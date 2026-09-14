@@ -14,6 +14,9 @@ type Tone = 'success' | 'warning' | 'danger' | 'neutral'
 
 function goToShipment(id: string) { history.pushState({}, '', `/entregas/${id}`); dispatchEvent(new PopStateEvent('popstate')) }
 function goToDeliveries() { history.pushState({}, '', '/entregas'); dispatchEvent(new PopStateEvent('popstate')) }
+function goToDeliveriesTask(task:string) { history.pushState({}, '', `/entregas?task=${encodeURIComponent(task)}`); dispatchEvent(new PopStateEvent('popstate')) }
+function goToNewShipment(saleId:string|null) { history.pushState({}, '', saleId?`/entregas?novo=1&sale=${encodeURIComponent(saleId)}`:'/entregas?novo=1'); dispatchEvent(new PopStateEvent('popstate')) }
+function goToCollections() { history.pushState({}, '', '/cobrancas'); dispatchEvent(new PopStateEvent('popstate')) }
 function goToInventory() { history.pushState({}, '', '/estoque'); dispatchEvent(new PopStateEvent('popstate')) }
 function goToSplits() { history.pushState({}, '', '/falta-splitar'); dispatchEvent(new PopStateEvent('popstate')) }
 
@@ -47,7 +50,9 @@ export function ControlTowerPage() {
     {loading ? <div className="empty card"><h3>Carregando torre de controle…</h3></div> :
       summary && <div className="control-tower-grid">
         {summary.davi&&<Column icon={UsersRound} title="Davi" subtitle="Vendas">
+          <Row label="Vendas aguardando pagamento" value={String(summary.davi.awaitingPaymentSales)} tone={summary.davi.awaitingPaymentSales > 0 ? 'warning' : 'success'} onClick={goToCollections} />
           <Row label="Vendas bloqueadas" value={String(summary.davi.blockedSalesCount)} tone={summary.davi.blockedSalesCount > 0 ? 'danger' : 'success'} onClick={goToSalesBlocked} />
+          <Row label="Clientes sem dados para envio" value={String(summary.davi.clientsMissingShippingData)} tone={summary.davi.clientsMissingShippingData > 0 ? 'warning' : 'success'} onClick={()=>goToDeliveriesTask('data')} />
           <Row label="Clientes em recuperação" value={String(summary.davi.recoveryCount)} tone={summary.davi.recoveryCount > 0 ? 'warning' : 'success'} onClick={goToClientRecovery} />
           <Row label="Prontos para avisar" value={String(summary.davi.waitlistReadyCount)} tone={summary.davi.waitlistReadyCount > 0 ? 'success' : 'neutral'} onClick={goToWaitlist} />
           <Row label="Esperando perfume" value={String(summary.davi.waitlistWaitingCount)} tone="neutral" onClick={goToWaitlist} />
@@ -62,6 +67,12 @@ export function ControlTowerPage() {
         </Column>}
 
         {summary.entregas&&<Column icon={Truck} title="Emily e Ilde" subtitle="Entregas">
+          <Row label="Pagos aguardando novo envio" value={String(summary.entregas.paidWaitingClients)} tone={summary.entregas.paidWaitingClients > 0 ? 'danger' : 'success'} onClick={()=>goToNewShipment(summary.entregas!.nextWaitingSaleId)} />
+          <Row label="Aguardando cotação" value={String(summary.entregas.awaitingQuote)} tone={summary.entregas.awaitingQuote > 0 ? 'warning' : 'success'} onClick={()=>goToDeliveriesTask('quote')} />
+          <Row label="Aguardando aprovação do frete" value={String(summary.entregas.awaitingApproval)} tone={summary.entregas.awaitingApproval > 0 ? 'warning' : 'success'} onClick={()=>goToDeliveriesTask('approval')} />
+          <Row label="Aguardando conferência" value={String(summary.entregas.awaitingConference)} tone={summary.entregas.awaitingConference > 0 ? 'warning' : 'success'} onClick={()=>goToDeliveriesTask('conference')} />
+          <Row label="Etiquetas para emitir" value={String(summary.entregas.labelsToIssue)} tone={summary.entregas.labelsToIssue > 0 ? 'warning' : 'success'} onClick={()=>goToDeliveriesTask('label')} />
+          <Row label="Prontos para postar" value={String(summary.entregas.readyToPost)} tone={summary.entregas.readyToPost > 0 ? 'success' : 'neutral'} onClick={()=>goToDeliveriesTask('post')} />
           <Row
             label="Próximo pedido"
             value={summary.entregas.nextShipment ? (summary.entregas.nextShipment.urgent ? `${summary.entregas.nextShipment.recipientName} — URGENTE` : summary.entregas.nextShipment.recipientName) : 'Fila vazia'}

@@ -14,22 +14,27 @@ import { countLegacyShippingStatuses, type LegacyShippingStatus } from '../lib/l
 import { Metric } from '../components/shared/Metric'
 import { Divider, Drawer, Modal, PageHeader, PrimaryButton, SearchInput, SecondaryButton, SectionHeader, Table } from '../components/ui'
 import './DeliveriesPage.css'
+import type {ShippingTaskFilter} from '../lib/shipping-tasks'
 
 export function DeliveriesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
+  const routeParams=new URLSearchParams(location.search)
+  const requestedTask=routeParams.get('task') as ShippingTaskFilter|null
+  const preselectedSaleId=routeParams.get('sale')||undefined
   const [rows,setRows]=useState<CommercialSale[]>([]),[filter,setFilter]=useState(''),[search,setSearch]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(true)
   const [legacyStatusFilter,setLegacyStatusFilter]=useState<'all'|LegacyShippingStatus>('all')
-  const [newShipment,setNewShipment]=useState(false),[historical,setHistorical]=useState<CommercialSale|null>(null),[historicalDate,setHistoricalDate]=useState(todayIso())
+  const [newShipment,setNewShipment]=useState(routeParams.get('novo')==='1'),[historical,setHistorical]=useState<CommercialSale|null>(null),[historicalDate,setHistoricalDate]=useState(todayIso())
   const [summary,setSummary]=useState<LogisticsSummary|null>(null)
   const [filtersOpen,setFiltersOpen]=useState(false)
   const reload=()=>{Promise.all([fetchDeliveryRows(period),fetchLogisticsSummary(period)]).then(([sales,metrics])=>{setRows(sales);setSummary(metrics)}).catch(()=>setError('Não foi possível consultar as entregas.')).finally(()=>setLoading(false))}
   useEffect(reload,[period])
+  useEffect(()=>{if(routeParams.get('novo')==='1')setNewShipment(true)},[location.search])
   const counts=rows.reduce((acc,row)=>{const key=deliveryState(row);acc[key]=(acc[key]??0)+1;return acc},{} as Record<string,number>),legacyCounts=countLegacyShippingStatuses(rows)
   const visible=rows.filter((row)=>(legacyStatusFilter==='all'||row.legacy_shipping_status===legacyStatusFilter)&&(!filter||deliveryState(row)===filter)&&(!search||`${row.original_client} ${row.perfume_name_raw}`.toLowerCase().includes(search.toLowerCase())))
   const register=async(row:CommercialSale,value:string|null)=>{try{await updateShipment(row.id,value);setHistorical(null);reload()}catch(err){setError(err instanceof Error?err.message:'Falha ao atualizar envio.')}}
   const applyLegacyStatus=(result:LegacyShippingStatusResult)=>setRows(current=>current.map(row=>row.id===result.sale_id?{...row,legacy_shipping_status:result.status,legacy_shipping_status_updated_at:result.status_updated_at,legacy_shipping_status_updated_by:result.status_updated_by,updated_at:result.updated_at}:row))
 
   return <div className="page">
-    {newShipment&&<NewShipmentModal close={()=>setNewShipment(false)}/>}
+    {newShipment&&<NewShipmentModal preselectedSaleId={preselectedSaleId} close={()=>{setNewShipment(false);if(location.search){history.replaceState({},'',location.pathname)}}}/>}
     <Modal open={Boolean(historical)} onClose={()=>setHistorical(null)} eyebrow="LOGÍSTICA HISTÓRICA" title="Registrar envio histórico">
       {historical&&<div className="record-form">
         <p>Atualiza somente a data histórica da venda; não cria reserva nem envio operacional.</p>
@@ -51,7 +56,7 @@ export function DeliveriesPage({period,setPeriod}:{period:PeriodValue;setPeriod:
     <CustomerRequestsQueue/>
 
     <SectionHeader title="Envios em andamento" description="Operação atual — cada etiqueta pode reunir várias compras do mesmo cliente."/>
-    <OperationalShipments/>
+    <OperationalShipments initialTask={requestedTask&&['quote','approval','conference','label','post','data'].includes(requestedTask)?requestedTask:undefined}/>
 
     {summary&&<section className="coverage card"><div><span>Envios identificados</span><strong>{integer(summary.identified_shipments)}</strong></div><div><span>Enviados no período</span><strong>{integer(summary.shipped_in_period)}</strong></div><div><span>Média até envio</span><strong>{summary.average_days_to_ship==null?'—':`${summary.average_days_to_ship} dias`}</strong></div><div><span>Backlog operacional</span><strong>{integer(summary.operational_backlog)}</strong></div><div><span>Dentro do prazo real</span><strong>{integer(summary.historical_on_time)}</strong></div><div><span>Atrasados com prazo real</span><strong>{integer(summary.historical_late)}</strong></div></section>}
 

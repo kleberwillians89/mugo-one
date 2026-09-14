@@ -7,7 +7,8 @@ const present=(value:unknown)=>String(value??'').trim().length>0
 
 Deno.serve(async(req)=>{
   const ctx=await context(req);if('response'in ctx)return ctx.response
-  if(!['admin','manager'].includes(String(ctx.role)))return json({error:{code:'forbidden',message:'Somente gestores podem emitir etiquetas.'}},403,req)
+  const {data:canLabel,error:permissionError}=await ctx.client.rpc('has_org_permission',{org_id:ctx.organizationId,permission_code:'shipping.label'})
+  if(permissionError||!canLabel)return json({error:{code:'forbidden',message:'Seu acesso não permite emitir etiquetas.'}},403,req)
   const shipmentId=uuid(ctx.body.shipment_id)
   const requestedAction=String(ctx.body.action??'cart')
   if(!shipmentId)return json({error:{code:'invalid_shipment',message:'Envio inválido.'}},400,req)
@@ -23,7 +24,11 @@ Deno.serve(async(req)=>{
   // exatamente a mesma consulta/formato de erro que já existia aqui para
   // checked_at/divergence_note — só acrescenta bottle_id/split_unit_id ao
   // select e mais uma condição de bloqueio, mesmo shape de resposta 409.
-  const {data:conference}=await ctx.client.from('shipment_items').select('checked_at,divergence_note,bottle_id,split_unit_id,inventory_allocations(stock_managed,inventory_items(bottle_tracking_status))').eq('shipment_id',shipmentId).is('removed_at',null)
+  const {data:conference}=await ctx.client.from('shipment_items').select('checked_at,divergence_note,bottle_id,split_unit_id,inventory_allocations(stock_managed,inventory_items(bottle_tracking_status)),sales(payment_status,split_completed_at,sale_type)').eq('shipment_id',shipmentId).is('removed_at',null)
+  const unpaid=conference?.some(item=>(item.sales as {payment_status?:string}|null)?.payment_status!=='paid')
+  if(unpaid)return json({error:{code:'payment_incomplete',message:'Todos os produtos precisam estar pagos antes da emissão.'}},409,req)
+  const splitPending=conference?.some(item=>{const sale=item.sales as {sale_type?:string;split_completed_at?:string|null}|null;return ['SPLIT','APC'].includes(String(sale?.sale_type||'').toUpperCase())&&!sale?.split_completed_at})
+  if(splitPending)return json({error:{code:'split_incomplete',message:'Finalize a separação de todos os itens SPLIT/APC antes da emissão.'}},409,req)
   if(!conference?.length||conference.some(item=>!item.checked_at||present(item.divergence_note)))return json({error:{code:'conference_incomplete',message:'Conferência incompleta. Confira todos os itens e resolva as divergências antes da emissão.'}},409,req)
   const missingPhysicalSource=conference.some(item=>{
     const allocation=item.inventory_allocations as {stock_managed?:boolean;inventory_items?:{bottle_tracking_status?:string}|null}|null

@@ -8,7 +8,7 @@ const migration=readFileSync('supabase/migrations/202609120003_role_scoped_tasks
 
 describe('tarefas por responsabilidade e acesso',()=>{
  it('roteia tarefas por permissões próprias',()=>{for(const code of['tasks.sales','tasks.split','tasks.shipping','tasks.management'])expect(routing).toContain(code)})
- it('carrega somente os domínios permitidos',()=>{expect(domain).toContain('scope.sales?fetchSalesValidationQueue()');expect(domain).toContain('scope.split?fetchSplitStatusCards()');expect(domain).toContain('scope.shipping?fetchOperationalShipments()')})
+ it('carrega somente os domínios permitidos',()=>{expect(domain).toContain('scope.sales?fetchSalesValidationQueue()');expect(domain).toContain('scope.split?fetchSplitStatusCards()');expect(domain).toContain('scope.sales||scope.shipping?fetchOperationalShipments()');expect(domain).toContain('scope.shipping?fetchReservedAllocations()')})
  it('apresenta os responsáveis corretos',()=>{expect(page).toContain('title="Davi" subtitle="Vendas"');expect(page).toContain('title="Gabriel" subtitle="Splitar"');expect(page).toContain('title="Emily e Ilde" subtitle="Entregas"')})
  it('configura os presets e mantém o Gabriel antigo inativo',()=>{expect(migration).toContain("permission_preset='comercial'");expect(migration).toContain("permission_preset='entregas'");expect(migration).toContain("'tasks.split',true");expect(migration).toContain("status='inactive'")})
  it('preserva a conta mestre e valida identidades antes de alterar',()=>{expect(migration).toContain('task_role_identity_check_failed');expect(migration).not.toMatch(/update public\.organization_members[^;]+3f34fe2b/s)})
