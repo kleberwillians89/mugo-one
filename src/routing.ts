@@ -6,9 +6,10 @@ export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Davi 
 
 export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Visão Geral', icon: Home }, { label: 'Torre de Controle', icon: Compass },
+  { label: 'Davi Excel', icon: FileSpreadsheet }, { label: 'Vendas', icon: ShoppingBag },
+  { label: 'Cobranças', icon: CircleDollarSign }, { label: 'Falta Splitar', icon: Scissors },
+  { label: 'Entregas', icon: Truck }, { label: 'Estoque', icon: Boxes },
   { label: 'Clientes', icon: UsersRound },
-  { label: 'Vendas', icon: ShoppingBag }, { label: 'Davi Excel', icon: FileSpreadsheet }, { label: 'Falta Splitar', icon: Scissors }, { label: 'Cobranças', icon: CircleDollarSign }, { label: 'Entregas', icon: Truck },
-  { label: 'Estoque', icon: Boxes },
   { label: 'Relatórios', icon: FileText }, { label: 'Importação', icon: Import },
   { label: 'IA', icon: Sparkles }, { label: 'Insights', icon: Lightbulb },
   { label: 'Radar', icon: Radar },
