@@ -7,7 +7,7 @@ import { PeriodValue } from '../lib/period'
 import { exportCsv } from '../lib/csv'
 import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
-  InventoryPreparationTotal, PerfumeCandidate, createCanonicalPerfume, fetchCanonicalPerfume, fetchInventory, fetchInventoryPreparationTotals, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, receiveInventoryPerfume, searchPerfumes, updateInventoryMinimum,
+  InventoryPreparationTotal, PerfumeCandidate, createCanonicalPerfume, fetchCanonicalPerfume, fetchInventory, fetchInventoryPreparationTotals, fetchInventorySaleBottleIdentities, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, receiveInventoryPerfume, searchPerfumes, updateInventoryMinimum,
 } from '../lib/records'
 import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
@@ -29,13 +29,15 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   const [summary,setSummary]=useState<InventorySummary|null>(null),[rows,setRows]=useState<InventoryRow[]>([])
   const [operational,setOperational]=useState<OperationalInventoryRow[]>([])
   const [preparationTotals,setPreparationTotals]=useState<InventoryPreparationTotal[]>([])
+  const [saleBottles,setSaleBottles]=useState<{inventory_item_id:string;bottle_identifier:string|null}[]>([])
   const [replenishment,setReplenishment]=useState<ReplenishmentSignal[]>([])
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[showCreate,setShowCreate]=useState(false)
   const [query,setQuery]=useState('')
-  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,preparing,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
-  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[])]).then(([result,balances,preparing,signals])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
+  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[]),fetchInventorySaleBottleIdentities()]).then(([result,balances,preparing,signals,bottles])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setSaleBottles(bottles);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
+  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[]),fetchInventorySaleBottleIdentities()]).then(([result,balances,preparing,signals,bottles])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setSaleBottles(bottles);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
   const replenishmentByItem=new Map(replenishment.map((signal)=>[signal.item_id,signal.status]))
   const preparingByPerfume=new Map(preparationTotals.map(row=>[row.perfume_id,Number(row.preparing_ml)]))
+  const bottleLabelsByItem=new Map<string,string[]>();for(const row of saleBottles){if(!row.bottle_identifier)continue;const labels=bottleLabelsByItem.get(row.inventory_item_id)??[];if(!labels.includes(row.bottle_identifier))labels.push(row.bottle_identifier);bottleLabelsByItem.set(row.inventory_item_id,labels)}
   const visibleOperational=operational.filter(row=>row.perfume.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR')))
   // Fase 8 do roadmap operacional ("Quanto custa?"): custo médio por ML,
   // mantido pela gestão — string vazia limpa o custo (volta a "não informado").
@@ -63,6 +65,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
         return <article className={`inventory-perfume-card inventory-perfume-card--${state.tone}`} key={balance.item_id}>
           <header><div className="inventory-perfume-mark"><Boxes size={18}/></div><StatusBadge tone={state.tone}>{state.label}</StatusBadge></header>
           <div className="inventory-perfume-name"><span>PERFUME</span><h3>{balance.perfume}</h3></div>
+          {(bottleLabelsByItem.get(balance.item_id)?.length??0)>0&&<div className="inventory-bottle-identities"><span>FRASCOS DESTA VENDA</span><div>{bottleLabelsByItem.get(balance.item_id)?.sort().map(label=><b key={label}>{label}</b>)}</div></div>}
           <div className="inventory-balance"><span>DISPONÍVEL PARA VENDA</span><strong>{Number(balance.available_ml).toLocaleString('pt-BR')} <small>ML</small></strong></div>
           <dl className="inventory-facts">
             <div><dt>Físico</dt><dd>{Number(balance.physical_ml).toLocaleString('pt-BR')} ML</dd></div>

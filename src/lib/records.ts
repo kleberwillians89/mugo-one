@@ -590,7 +590,7 @@ export async function createSale(input: SaleInput):Promise<SaleCreateResult> {
     if(existingError)throw new Error(existingError.message)
     if(existing)return{id:String(existing.id),alreadyExisted:true}
     const {data,error}=await supabase!.rpc('davi_excel_create_sale_with_bottle',{p_payload:{client_id:input.clientId,perfume_id:input.perfumeId,sale_date:input.date,shipping_deadline_raw:input.shippingDeadlineRaw||null,shipping_deadline_date:input.shippingDeadlineDate||null,sale_type:input.saleType,volume_ml:input.volumeMl,bottle_identifier:input.bottleNumber?`FRASCO ${input.bottleNumber}`:null,split_completed_at:input.saleType==='SPLIT'?input.splitCompletedAt||null:null,amount:input.amount,payment_status:input.status,payment_method:input.method||null,paid_at:input.status==='paid'?input.paidAt||null:null,notes:input.notes||null},p_idempotency_key:input.idempotencyKey})
-    if(error)throw new Error(error.message)
+    if(error){if(error.message.includes('bottle_number_required')||error.message.includes('invalid_bottle_number'))throw new Error('Escolha o Frasco 1, 2 ou 3.');throw new Error(error.message)}
     return{id:String(data),alreadyExisted:false}
   }
   const { user, organizationId } = await currentOrganization()
@@ -761,6 +761,7 @@ export type OperationalInventoryRow = {
   shipping_ml:number;available_ml:number;minimum_ml:number;reconciliation_status:string
   average_cost_per_ml:number|null
 }
+export type InventorySaleBottleIdentity={inventory_item_id:string;bottle_identifier:string|null}
 export type ExternalCustodyRow={perfume_id:string;reserved_ml:number;shipping_ml:number}
 export type InventoryPreparationTotal={perfume_id:string;preparing_ml:number}
 
@@ -770,6 +771,7 @@ export async function fetchOperationalInventory() {
   if(error)throw new Error(error.message)
   return (data??[]) as OperationalInventoryRow[]
 }
+export async function fetchInventorySaleBottleIdentities(){const{organizationId}=await authenticatedOrganization();const{data,error}=await supabase!.from('sale_inventory_births').select('inventory_item_id,bottle_identifier').eq('organization_id',organizationId).not('bottle_identifier','is',null);if(error)throw new Error(error.message);return(data??[])as InventorySaleBottleIdentity[]}
 export async function fetchExternalCustody() {
   const {organizationId}=await authenticatedOrganization()
   const {data,error}=await supabase!.rpc('inventory_external_custody_rows',{org_id:organizationId})
@@ -836,7 +838,7 @@ export type SplitStatus='not_split'|'split'
 export type SplitStatusFilter='not_split'|'split'|'split_today'|'all'
 export type SplitStatusFilters={search?:string;client?:string;perfume?:string;brand?:string;purchase_date?:string;bottle?:string;sale_type?:'SPLIT'|'APC'}
 export type SplitStatusCards={not_split:number;split_pending:number;apc_pending:number;split_today:number;clients_pending:number;perfumes_pending:number;ml_pending:number}
-export type SplitStatusPerfumeGroup={sale_type:'SPLIT'|'APC';perfume_id:string|null;perfume_name:string;brand_house:string|null;clients_count:number;items_count:number;ml_total:number}
+export type SplitStatusPerfumeGroup={sale_type:'SPLIT'|'APC';perfume_id:string|null;perfume_name:string;brand_house:string|null;bottle_identifier:string|null;clients_count:number;items_count:number;ml_total:number}
 export type SplitStatusItem={id:string;sale_type:'SPLIT'|'APC';payment_status:string;client_id:string;client_name:string;client_number:number|null;perfume_id:string|null;perfume_name:string|null;brand_house:string|null;bottle_identifier:string|null;volume_ml:number|null;sale_date:string;split_status:SplitStatus;split_completed_at:string|null;split_completed_by:string|null;updated_at:string}
 const splitStatusErrorMessage=(message:string)=>{
   if(message.includes('stale_sale'))return'Este item foi atualizado por outra pessoa. Recarregue antes de tentar de novo.'

@@ -22,7 +22,8 @@ describe('fila de separação do Gabriel',()=>{
   })
   it('mostra APC e SPLIT de forma explícita para o Gabriel, mesmo antes do pagamento',()=>{
     for(const label of['SPLITS A SEPARAR','APC A SEPARAR','Fila do Gabriel','A SEPARAR','SEPARADO'])expect(page).toContain(label)
-    expect(page).toContain("sale_type:saleType")
+    expect(page).toContain("sale_type:group.sale_type,bottle:group.bottle_identifier")
+    expect(page).toContain("group.perfume_name} · {group.bottle_identifier")
     expect(page).not.toContain('somente depois que o Davi marca a venda como paga')
   })
 })

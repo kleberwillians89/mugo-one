@@ -7,6 +7,7 @@ import'./FaltaSplitarPage.css'
 
 const QUICK_FILTERS:{value:SplitStatusFilter;label:string}[]=[{value:'not_split',label:'A SEPARAR'},{value:'split',label:'SEPARADOS'},{value:'split_today',label:'SEPARADOS HOJE'},{value:'all',label:'TODOS'}]
 const shortDatePt=(iso:string|null)=>iso?new Date(`${iso}T12:00:00Z`).toLocaleDateString('pt-BR'):'—'
+const splitGroupKey=(group:Pick<SplitStatusPerfumeGroup,'sale_type'|'perfume_id'|'bottle_identifier'>)=>`${group.sale_type}:${group.perfume_id??'none'}:${group.bottle_identifier??'sem-frasco'}`
 
 export function FaltaSplitarPage(){
   const canEdit=useHasPermission('sales.edit')
@@ -30,31 +31,31 @@ export function FaltaSplitarPage(){
   },[quickFilter,effectiveFilters,push])
   useEffect(()=>{loadSummary()},[loadSummary])
 
-  const loadItems=useCallback((perfumeId:string|null,saleType:'SPLIT'|'APC')=>{
-    const key=`${saleType}:${perfumeId??'none'}`
-    fetchSplitStatusItems({perfumeId,status:quickFilter,filters:{...effectiveFilters,sale_type:saleType}}).then(result=>setItemsByPerfume(current=>({...current,[key]:result.rows})))
+  const loadItems=useCallback((group:SplitStatusPerfumeGroup)=>{
+    const key=splitGroupKey(group)
+    fetchSplitStatusItems({perfumeId:group.perfume_id,status:quickFilter,filters:{...effectiveFilters,sale_type:group.sale_type,bottle:group.bottle_identifier??undefined}}).then(result=>setItemsByPerfume(current=>({...current,[key]:result.rows})))
       .catch(()=>push('Não foi possível carregar os itens deste perfume.',{tone:'error'}))
   },[quickFilter,effectiveFilters,push])
 
-  const toggleGroup=(perfumeId:string|null,saleType:'SPLIT'|'APC')=>{
-    const key=`${saleType}:${perfumeId??'none'}`
+  const toggleGroup=(group:SplitStatusPerfumeGroup)=>{
+    const key=splitGroupKey(group)
     if(expanded===key){setExpanded(null);return}
     setExpanded(key)
-    if(!itemsByPerfume[key])loadItems(perfumeId,saleType)
+    if(!itemsByPerfume[key])loadItems(group)
   }
 
-  const refreshAfterChange=(perfumeId:string|null,saleType:'SPLIT'|'APC')=>{loadSummary();loadItems(perfumeId,saleType)}
+  const refreshAfterChange=(item:SplitStatusItem)=>{loadSummary();const group=groups?.find(group=>group.perfume_id===item.perfume_id&&group.sale_type===item.sale_type&&group.bottle_identifier===item.bottle_identifier);if(group)loadItems(group)}
 
   const onStatusChange=async(item:SplitStatusItem,nextStatus:'not_split'|'split')=>{
     const previous=item.split_status
-    const key=`${item.sale_type}:${item.perfume_id??'none'}`
+    const key=splitGroupKey(item)
     setItemsByPerfume(current=>({...current,[key]:(current[key]??[]).map(row=>row.id===item.id?{...row,split_status:nextStatus}:row)}))
     setLoadingItem(item.id)
     try{
       await setSplitStatus(item.id,nextStatus,item.updated_at)
       setLoadingItem(null)
       push(nextStatus==='split'?'Item marcado como separado.':'Item voltou para a fila de separação.',{tone:'success'})
-      refreshAfterChange(item.perfume_id,item.sale_type)
+      refreshAfterChange(item)
     }catch(error){
       setLoadingItem(null)
       setItemsByPerfume(current=>({...current,[key]:(current[key]??[]).map(row=>row.id===item.id?{...row,split_status:previous}:row)}))
@@ -80,7 +81,7 @@ export function FaltaSplitarPage(){
       push(`${result.updated_count} itens marcados como separados.`,{tone:'success'})
       setSelected(new Set())
       loadSummary()
-      if(expanded){const[type,...parts]=expanded.split(':'),perfumeId=parts.join(':');loadItems(perfumeId==='none'?null:perfumeId,type as'SPLIT'|'APC')}
+      if(expanded){const group=groups?.find(item=>splitGroupKey(item)===expanded);if(group)loadItems(group)}
     }catch(error){
       push(error instanceof Error?error.message:'Falha ao atualizar em massa.',{tone:'error'})
     }finally{
@@ -144,14 +145,14 @@ export function FaltaSplitarPage(){
       {groups===null&&<p className="falta-splitar-empty">Carregando…</p>}
       {groups!==null&&groups.length===0&&<p className="falta-splitar-empty">Nenhum item encontrado para este filtro.</p>}
       {groups?.map(group=>{
-        const perfumeId=group.perfume_id,key=`${group.sale_type}:${perfumeId??'none'}`
+        const key=splitGroupKey(group)
         const isOpen=expanded===key
         const items=itemsByPerfume[key]
         return <article className="falta-splitar-group" key={key}>
-          <button className="falta-splitar-group-header" onClick={()=>toggleGroup(perfumeId,group.sale_type)}>
+          <button className="falta-splitar-group-header" onClick={()=>toggleGroup(group)}>
             {isOpen?<ChevronDown size={16}/>:<ChevronRight size={16}/>}
             <span className={`falta-splitar-type falta-splitar-type--${group.sale_type.toLowerCase()}`}>{group.sale_type==='APC'?<PackageCheck size={13}/>:<Scissors size={13}/>} {group.sale_type}</span>
-            <div className="falta-splitar-group-title"><strong>{group.perfume_name}</strong>{group.brand_house&&<span> — {group.brand_house}</span>}</div>
+            <div className="falta-splitar-group-title"><strong>{group.perfume_name} · {group.bottle_identifier??'FRASCO NÃO INFORMADO'}</strong>{group.brand_house&&<span> — {group.brand_house}</span>}</div>
             <div className="falta-splitar-group-stats"><span>{group.clients_count} cliente{group.clients_count===1?'':'s'}</span><span>{group.items_count} {group.sale_type==='APC'?'frasco':'split'}{group.items_count===1?'':'s'}</span><span>{group.ml_total.toLocaleString('pt-BR')} ml</span></div>
           </button>
           {isOpen&&<div className="falta-splitar-group-detail">
