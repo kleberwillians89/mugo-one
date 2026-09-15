@@ -44,6 +44,10 @@ describe('ManyChat send — contrato oficial e telefone',()=>{
     await expect(sendManychatFlow({apiKey:'x',flowNs:'x',phone:'11999999999',name:'A',fetcher:vi.fn().mockRejectedValue(new Error('offline'))})).rejects.toMatchObject({code:'manychat_unavailable',httpStatus:503})
     await expect(sendManychatFlow({apiKey:'x',flowNs:'x',phone:'11999999999',name:'A',fetcher:vi.fn().mockResolvedValue(response(401,{status:'error'}))})).rejects.toMatchObject({code:'manychat_token_invalid'})
   })
+  it('preserva status e motivo sanitizado quando o ManyChat recusa iniciar o fluxo',async()=>{
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(400,{status:'error',message:'Flow not found for cliente@example.com +5511999999999'}))
+    await expect(sendManychatFlow({apiKey:'x',flowNs:'incorreto',phone:'11999999999',name:'Cliente',fetcher})).rejects.toMatchObject({code:'manychat_send_failed',providerStatus:400,providerReason:'Flow not found for [email] [telefone]'})
+  })
   it('não transforma erro 400 desconhecido em criação de contato',async()=>{
     const fetcher=vi.fn().mockResolvedValue(response(400,{status:'error',message:'Invalid phone'}))
     await expect(sendManychatFlow({apiKey:'x',flowNs:'x',phone:'11999999999',name:'A',fetcher})).rejects.toMatchObject({code:'manychat_lookup_failed'})
@@ -75,6 +79,11 @@ describe('manychat-send — fronteira segura CRM → ManyChat',()=>{
   it('cobrança e ativação usam flow separado sem tocar pagamento ou estoque',()=>{
     expect(sendEdge).toContain("Deno.env.get(messageType==='collection'?'MANYCHAT_COLLECTION_FLOW_ID':'MANYCHAT_ACCESS_FLOW_ID')")
     expect(sendEdge).not.toMatch(/payment_status|paid_at|inventory_|stock|estoque/i)
+  })
+  it('devolve diagnóstico seguro quando o provedor recusa o fluxo',()=>{
+    expect(sendEdge).toContain('provider_status:providerStatus')
+    expect(sendEdge).toContain('provider_reason:providerReason')
+    expect(sendEdge).toContain('flow_ns configurado corresponde a essa automação')
   })
 })
 

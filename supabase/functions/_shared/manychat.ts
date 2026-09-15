@@ -2,7 +2,7 @@ export type MessageType='collection'|'access'
 export type Fetcher=(input:string|URL,init?:RequestInit)=>Promise<Response>
 
 export class ManychatApiError extends Error{
-  constructor(public code:string,public httpStatus=502){super(code)}
+  constructor(public code:string,public httpStatus=502,public providerStatus?:number,public providerReason?:string){super(code)}
 }
 
 export function normalizeBrazilianPhone(value:unknown){
@@ -28,6 +28,12 @@ export function firstName(value:string){return value.trim().split(/\s+/)[0]||'Cl
 
 const parse=async(response:Response)=>{try{return await response.json() as Record<string,unknown>}catch{return{}}}
 const providerMessage=(body:Record<string,unknown>)=>JSON.stringify(body).slice(0,500)
+const safeProviderReason=(body:Record<string,unknown>)=>{
+  const nested=body.error as Record<string,unknown>|undefined
+  const value=body.message??body.error_message??nested?.message??nested?.description
+  if(typeof value!=='string'||!value.trim())return undefined
+  return value.trim().slice(0,240).replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g,'[email]').replace(/\+?\d[\d\s().-]{7,}\d/g,'[telefone]')
+}
 const isNotFound=(status:number,body:Record<string,unknown>)=>status===404||(status===400&&/(not found|does not exist|subscriber.+exist)/i.test(providerMessage(body)))
 const subscriberData=(body:Record<string,unknown>)=>{
   const data=body.data
@@ -63,7 +69,7 @@ export async function sendManychatFlow(input:{apiKey:string;flowNs:string;phone:
     id=subscriberId(created.body)
   }else throw new ManychatApiError('manychat_lookup_failed')
   const sent=await call(fetcher,'https://api.manychat.com/fb/sending/sendFlow',input.apiKey,{method:'POST',body:`{"subscriber_id":${id},"flow_ns":${JSON.stringify(input.flowNs)}}`})
-  if(!sent.response.ok)throw new ManychatApiError('manychat_send_failed')
+  if(!sent.response.ok)throw new ManychatApiError('manychat_send_failed',502,sent.response.status,safeProviderReason(sent.body))
   return{subscriber_id:id,phone_last4:phone.slice(-4)}
 }
 
