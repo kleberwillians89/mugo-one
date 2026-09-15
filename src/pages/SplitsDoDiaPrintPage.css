@@ -57,7 +57,7 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 10mm;
-  padding-bottom: 7mm;
+  padding: 0 0 7mm;
   margin-bottom: 8mm;
   border-bottom: 1px solid #1d1b17;
   position: static;
@@ -135,6 +135,36 @@
   break-inside: avoid;
   page-break-inside: avoid;
 }
+
+.splits-document-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  white-space: normal;
+  font-family: Arial, sans-serif;
+  font-size: 8.5pt;
+}
+
+.splits-document-table thead { display: table-header-group; }
+.splits-document-table tbody { display: table-row-group; }
+.splits-document-table tr { break-inside: avoid; page-break-inside: avoid; }
+.splits-document-table th,
+.splits-document-table td { box-sizing: border-box; height: auto; max-width: none; padding: 2.2mm 1.8mm; border: 0; border-bottom: 1px solid #ddd8cf; background: #fff; color: #171612; text-align: left; white-space: normal; overflow: visible; }
+.splits-document-table thead th { border-bottom: 1.5px solid #171612; color: #625d55; font: 700 7pt Arial; letter-spacing: .08em; text-transform: uppercase; }
+.splits-document-table th:nth-child(1),
+.splits-document-table td:nth-child(1) { width: 9mm; text-align: center; }
+.splits-document-table th:nth-child(2),
+.splits-document-table td:nth-child(2) { width: 18mm; }
+.splits-document-table th:nth-child(4),
+.splits-document-table td:nth-child(4) { width: 27mm; }
+.splits-document-table th:nth-child(5),
+.splits-document-table td:nth-child(5) { width: 16mm; text-align: right; }
+.splits-document-table th:nth-child(6),
+.splits-document-table td:nth-child(6) { width: 24mm; }
+.splits-client-row th { padding: 3mm 1.8mm 1.8mm; border-bottom: 1px solid #91887a; background: #f1eee7; }
+.splits-client-row th span { display: inline; font: 700 9pt Arial; letter-spacing: .025em; }
+.splits-client-row th small { float: right; color: #625d55; font: 400 7.5pt Arial; }
+.splits-item-row td:nth-child(3) { overflow-wrap: anywhere; }
 
 .splits-document-group h2 {
   margin: 0 0 3mm;
@@ -284,20 +314,31 @@
 }
 
 @media print {
+  @page { size: A4 portrait; margin: 12mm 14mm; }
+
   html,
-  body {
+  body,
+  #root {
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
     margin: 0;
     padding: 0;
     background: #fff;
+    overflow: visible !important;
   }
 
   .splits-document-page {
-    width: auto;
+    display: block !important;
+    width: 100% !important;
     max-width: none;
+    height: auto !important;
     min-height: auto;
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #fff;
+    overflow: visible !important;
   }
 
   .splits-document-actions {
@@ -305,11 +346,20 @@
   }
 
   .splits-document {
-    width: auto;
+    display: block !important;
+    width: 100% !important;
     max-width: none;
+    height: auto !important;
     min-height: auto;
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
     box-shadow: none;
+    overflow: visible !important;
   }
+
+  .splits-document-header { display: flex !important; position: static !important; height: auto !important; min-height: 0 !important; padding: 0 0 7mm !important; }
+  .splits-document-summary { display: block !important; break-inside: avoid; }
+  .splits-document-table { display: table !important; width: 100% !important; overflow: visible !important; }
+  .splits-client-row { break-after: avoid; page-break-after: avoid; }
+  .splits-document-footer { break-before: auto; page-break-before: auto; }
 }

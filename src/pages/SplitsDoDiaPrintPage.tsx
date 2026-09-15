@@ -1,4 +1,4 @@
-import{useEffect,useMemo,useState}from'react'
+import{Fragment,useEffect,useMemo,useState}from'react'
 import{ArrowLeft,Printer}from'lucide-react'
 import{fetchSplitStatusItems,SplitStatusItem}from'../lib/records'
 import{groupSplitItemsByClient,groupSplitItemsByPerfume,splitPrintSummary}from'../lib/split-status-print'
@@ -32,13 +32,13 @@ export function SplitsDoDiaPrintPage(){
         <div><dt>Total de clientes</dt><dd>{summary.clients}</dd></div>
         <div><dt>Total de ml</dt><dd>{summary.ml_total.toLocaleString('pt-BR')} ml</dd></div>
       </dl></section>
-      {groups.map(group=>
-        <section className="splits-document-group" key={group.key}>
-          <h2>{group.client_name}{group.client_number!=null&&<span> — CLIENTE Nº {group.client_number}</span>}</h2>
-          <ul>{group.items.map(item=><li key={item.id}><span className={`splits-check-box ${item.split_status==='split'?'checked':''}`}>{item.split_status==='split'?'✓':''}</span><div><strong>{item.sale_type} · {item.perfume_name??'(sem perfume)'}</strong><span>{[item.bottle_identifier,item.volume_ml!=null?`${item.volume_ml} ml`:null,item.split_status==='split'?'SEPARADO':'A SEPARAR'].filter(Boolean).join(' — ')}</span></div></li>)}</ul>
-          <div className="splits-group-total"><span>{group.pending} a separar · {group.separated} separados</span><strong>{group.total_ml.toLocaleString('pt-BR')} ml</strong></div>
-        </section>
-      )}
+      <table className="splits-document-table">
+        <thead><tr><th aria-label="Conferência"></th><th>Tipo</th><th>Perfume</th><th>Frasco</th><th>ML</th><th>Status</th></tr></thead>
+        <tbody>{groups.map(group=><Fragment key={group.key}>
+          <tr className="splits-client-row"><th colSpan={6}><span>{group.client_name}{group.client_number!=null&&<> — CLIENTE Nº {group.client_number}</>}</span><small>{group.pending} a separar · {group.separated} separados · {group.total_ml.toLocaleString('pt-BR')} ml</small></th></tr>
+          {group.items.map(item=><tr className="splits-item-row" key={item.id}><td><span className={`splits-check-box ${item.split_status==='split'?'checked':''}`}>{item.split_status==='split'?'✓':''}</span></td><td><strong>{item.sale_type}</strong></td><td>{item.perfume_name??'(sem perfume)'}</td><td>{item.bottle_identifier??'—'}</td><td>{item.volume_ml!=null?`${item.volume_ml.toLocaleString('pt-BR')} ml`:'—'}</td><td>{item.split_status==='split'?'SEPARADO':'A SEPARAR'}</td></tr>)}
+        </Fragment>)}</tbody>
+      </table>
       <section className="splits-document-footer">
         <div className="splits-document-signature"><span>Responsável:</span><div className="splits-line"/></div>
         <div className="splits-document-finished"><span>Finalizado em:</span><div className="splits-date-fields"><div className="splits-line short"/>/<div className="splits-line short"/>/<div className="splits-line short"/> &nbsp; <div className="splits-line short"/>:<div className="splits-line short"/></div></div>
