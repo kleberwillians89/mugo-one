@@ -1,6 +1,6 @@
-import{createClient}from'https://esm.sh/@supabase/supabase-js@2'
-import{audit,context,json}from'../_shared/security.ts'
-import{ManychatApiError,MessageType,normalizeBrazilianPhone,sendManychatFlow,withInFlightKey}from'../_shared/manychat.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { audit, context, json } from '../_shared/security.ts'
+import { ManychatApiError, MessageType, normalizeBrazilianPhone, sendManychatFlow, withInFlightKey } from '../_shared/manychat.ts'
 
 Deno.serve(async(req)=>{
   const ctx=await context(req,{allowSingleOrganizationFallback:true});if('response'in ctx)return ctx.response

@@ -1,5 +1,5 @@
-import{createClient}from'https://esm.sh/@supabase/supabase-js@2'
-import{constantTimeEqual,firstName,formatBrl,normalizeBrazilianPhone}from'../_shared/manychat.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { constantTimeEqual, firstName, formatBrl, normalizeBrazilianPhone } from '../_shared/manychat.ts'
 
 const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json'}})
 Deno.serve(async(req)=>{
