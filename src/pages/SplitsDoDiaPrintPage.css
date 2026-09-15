@@ -173,13 +173,19 @@
 }
 
 .splits-check-box {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   box-sizing: border-box;
   width: 4mm;
   height: 4mm;
   border: 1px solid #171612;
+  color: #171612 !important;
+  font: 700 8pt Arial !important;
 }
+
+.splits-check-box.checked { background: #ece8df; }
 
 .splits-group-total {
   display: flex;

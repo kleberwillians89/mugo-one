@@ -872,6 +872,15 @@ export async function fetchSplitStatusItems(options:{perfumeId?:string|null;stat
   const result=data as{rows:SplitStatusItem[];total:number}|null
   return result??{rows:[],total:0}
 }
+export async function fetchAllSplitStatusItems(status:SplitStatusFilter,filters:SplitStatusFilters={}){
+  const rows:SplitStatusItem[]=[]
+  for(let page=0;;page++){
+    const result=await fetchSplitStatusItems({status,filters,page,pageSize:500})
+    rows.push(...result.rows)
+    if(rows.length>=result.total||result.rows.length===0)break
+  }
+  return rows
+}
 export async function setSplitStatus(saleId:string,status:SplitStatus,expectedUpdatedAt:string){
   await authenticatedOrganization()
   const{data,error}=await supabase!.rpc('set_sale_split_status',{p_sale_id:saleId,p_status:status,p_expected_updated_at:expectedUpdatedAt})

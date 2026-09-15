@@ -1,6 +1,7 @@
 import{useCallback,useEffect,useMemo,useState}from'react'
 import{ChevronDown,ChevronRight,PackageCheck,Printer,Scissors,Search}from'lucide-react'
-import{completeSplitStatusForFilter,fetchSplitStatusCards,fetchSplitStatusItems,fetchSplitStatusPerfumeSummary,setSplitStatus,setSplitStatusBulk,SplitStatusCards,SplitStatusFilter,SplitStatusFilters,SplitStatusItem,SplitStatusPerfumeGroup}from'../lib/records'
+import{completeSplitStatusForFilter,fetchAllSplitStatusItems,fetchSplitStatusCards,fetchSplitStatusItems,fetchSplitStatusPerfumeSummary,setSplitStatus,setSplitStatusBulk,SplitStatusCards,SplitStatusFilter,SplitStatusFilters,SplitStatusItem,SplitStatusPerfumeGroup}from'../lib/records'
+import{groupSplitItemsByClient}from'../lib/split-status-print'
 import{useHasPermission}from'../lib/PermissionsContext'
 import{useToast}from'../components/ui'
 import'./FaltaSplitarPage.css'
@@ -13,12 +14,14 @@ export function FaltaSplitarPage(){
   const canEdit=useHasPermission('sales.edit')
   const{push}=useToast()
   const[quickFilter,setQuickFilter]=useState<SplitStatusFilter>('not_split')
+  const[viewMode,setViewMode]=useState<'people'|'perfumes'>('people')
   const[filters,setFilters]=useState<SplitStatusFilters>({})
   const[search,setSearch]=useState('')
   const[cards,setCards]=useState<SplitStatusCards|null>(null)
   const[groups,setGroups]=useState<SplitStatusPerfumeGroup[]|null>(null)
   const[expanded,setExpanded]=useState<string|null>(null)
   const[itemsByPerfume,setItemsByPerfume]=useState<Record<string,SplitStatusItem[]>>({})
+  const[personItems,setPersonItems]=useState<SplitStatusItem[]|null>(null)
   const[loadingItem,setLoadingItem]=useState<string|null>(null)
   const[selected,setSelected]=useState<Set<string>>(new Set())
   const[bulkRunning,setBulkRunning]=useState(false)
@@ -30,6 +33,9 @@ export function FaltaSplitarPage(){
     fetchSplitStatusPerfumeSummary(quickFilter,effectiveFilters).then(setGroups).catch(()=>push('Não foi possível carregar os perfumes pendentes.',{tone:'error'}))
   },[quickFilter,effectiveFilters,push])
   useEffect(()=>{loadSummary()},[loadSummary])
+  const loadPeople=useCallback(()=>{setPersonItems(null);fetchAllSplitStatusItems(quickFilter,effectiveFilters).then(setPersonItems).catch(()=>push('Não foi possível carregar a lista por pessoa.',{tone:'error'}))},[quickFilter,effectiveFilters,push])
+  useEffect(()=>{loadPeople()},[loadPeople])
+  const people=useMemo(()=>groupSplitItemsByClient(personItems??[]),[personItems])
 
   const loadItems=useCallback((group:SplitStatusPerfumeGroup)=>{
     const key=splitGroupKey(group)
@@ -44,7 +50,7 @@ export function FaltaSplitarPage(){
     if(!itemsByPerfume[key])loadItems(group)
   }
 
-  const refreshAfterChange=(item:SplitStatusItem)=>{loadSummary();const group=groups?.find(group=>group.perfume_id===item.perfume_id&&group.sale_type===item.sale_type&&group.bottle_identifier===item.bottle_identifier);if(group)loadItems(group)}
+  const refreshAfterChange=(item:SplitStatusItem)=>{loadSummary();loadPeople();const group=groups?.find(group=>group.perfume_id===item.perfume_id&&group.sale_type===item.sale_type&&group.bottle_identifier===item.bottle_identifier);if(group)loadItems(group)}
 
   const onStatusChange=async(item:SplitStatusItem,nextStatus:'not_split'|'split')=>{
     const previous=item.split_status
@@ -80,7 +86,7 @@ export function FaltaSplitarPage(){
       const result=await setSplitStatusBulk([...selected])
       push(`${result.updated_count} itens marcados como separados.`,{tone:'success'})
       setSelected(new Set())
-      loadSummary()
+      loadSummary();loadPeople()
       if(expanded){const group=groups?.find(item=>splitGroupKey(item)===expanded);if(group)loadItems(group)}
     }catch(error){
       push(error instanceof Error?error.message:'Falha ao atualizar em massa.',{tone:'error'})
@@ -96,7 +102,7 @@ export function FaltaSplitarPage(){
     try{
       const result=await completeSplitStatusForFilter(effectiveFilters)
       push(`${result.updated_count} itens marcados como separados.`,{tone:'success'})
-      setSelected(new Set());setItemsByPerfume({});setExpanded(null);loadSummary()
+      setSelected(new Set());setItemsByPerfume({});setExpanded(null);loadSummary();loadPeople()
     }catch(error){
       push(error instanceof Error?error.message:'Falha ao marcar os itens do filtro.',{tone:'error'})
     }finally{setBulkRunning(false)}
@@ -106,6 +112,7 @@ export function FaltaSplitarPage(){
     if(!selected.size)return
     window.open(`/print/splits-do-dia?ids=${[...selected].join(',')}`,'_blank')
   }
+  const printItems=(ids:string[])=>{if(ids.length)window.open(`/print/splits-do-dia?ids=${ids.join(',')}`,'_blank')}
 
   return <div className="falta-splitar-page">
     <header className="falta-splitar-header"><h1><Scissors size={20}/> Separação</h1><p>Fila do Gabriel: aparece aqui assim que a venda é lançada, mesmo antes do Davi marcar como paga.</p></header>
@@ -129,6 +136,12 @@ export function FaltaSplitarPage(){
       </div>
     </section>
 
+    <section className="falta-splitar-view-tools">
+      <div><button className={viewMode==='people'?'active':''} onClick={()=>setViewMode('people')}>POR PESSOA</button><button className={viewMode==='perfumes'?'active':''} onClick={()=>setViewMode('perfumes')}>POR PERFUME</button></div>
+      {viewMode==='people'&&personItems&&personItems.length>0&&<button className="falta-splitar-print-list" onClick={()=>printItems(personItems.map(item=>item.id))}><Printer size={14}/> IMPRIMIR LISTA POR PESSOA</button>}
+      <small>Em “Todos”, a impressão identifica o que está a separar e o que já foi separado.</small>
+    </section>
+
     {canEdit&&quickFilter==='not_split'&&eligibleCount>0&&<section className="falta-splitar-complete-all">
       <label><input aria-label="Marcar todos os itens pagos do filtro como separados" type="checkbox" checked={false} disabled={bulkRunning} onChange={()=>void completeCurrentFilter()}/><span>{bulkRunning?'MARCANDO ITENS…':`MARCAR TODOS OS ${eligibleCount} ITENS COMO SEPARADOS`}</span></label>
       <small>A ação inclui todos os resultados do filtro, não apenas os itens abertos ou visíveis.</small>
@@ -141,7 +154,20 @@ export function FaltaSplitarPage(){
       <button className="falta-splitar-bulk-clear" onClick={()=>setSelected(new Set())}>Limpar seleção</button>
     </section>}
 
-    <section className="falta-splitar-groups">
+    {viewMode==='people'?<section className="falta-splitar-groups falta-splitar-people">
+      {personItems===null&&<p className="falta-splitar-empty">Carregando pessoas…</p>}
+      {personItems!==null&&people.length===0&&<p className="falta-splitar-empty">Nenhuma pessoa encontrada para este filtro.</p>}
+      {people.map(person=>{
+        const key=`client:${person.client_id}`,isOpen=expanded===key
+        return <article className="falta-splitar-group" key={key}>
+          <button className="falta-splitar-group-header" onClick={()=>setExpanded(isOpen?null:key)}>
+            {isOpen?<ChevronDown size={16}/>:<ChevronRight size={16}/>}<div className="falta-splitar-person-title"><strong>{person.client_name}</strong>{person.client_number!=null&&<span>CLIENTE Nº {person.client_number}</span>}</div>
+            <div className="falta-splitar-person-status"><span>{person.pending} a separar</span><span>{person.separated} separados</span><strong>{person.total_ml.toLocaleString('pt-BR')} ml</strong></div>
+          </button>
+          {isOpen&&<div className="falta-splitar-group-detail"><div className="falta-splitar-person-actions"><button onClick={()=>printItems(person.items.map(item=>item.id))}><Printer size={13}/> IMPRIMIR ESTA PESSOA</button></div><table><thead><tr><th><input type="checkbox" checked={person.items.every(item=>selected.has(item.id))} onChange={()=>toggleSelectAllVisible(person.items)}/></th><th>Tipo</th><th>Perfume</th><th>Data</th><th>Frasco</th><th>ML</th><th>Status</th></tr></thead><tbody>{person.items.map(item=><tr key={item.id}><td><input type="checkbox" checked={selected.has(item.id)} onChange={()=>toggleSelected(item.id)}/></td><td><span className={`falta-splitar-type falta-splitar-type--${item.sale_type.toLowerCase()}`}>{item.sale_type}</span></td><td><strong>{item.perfume_name??'—'}</strong></td><td>{shortDatePt(item.sale_date)}</td><td>{item.bottle_identifier??'—'}</td><td>{item.volume_ml??'—'}</td><td><select disabled={!canEdit||loadingItem===item.id} value={item.split_status} onChange={event=>onStatusChange(item,event.target.value as'not_split'|'split')}><option value="not_split">A SEPARAR</option><option value="split">SEPARADO</option></select></td></tr>)}</tbody></table></div>}
+        </article>
+      })}
+    </section>:<section className="falta-splitar-groups">
       {groups===null&&<p className="falta-splitar-empty">Carregando…</p>}
       {groups!==null&&groups.length===0&&<p className="falta-splitar-empty">Nenhum item encontrado para este filtro.</p>}
       {groups?.map(group=>{
@@ -176,6 +202,6 @@ export function FaltaSplitarPage(){
           </div>}
         </article>
       })}
-    </section>
+    </section>}
   </div>
 }

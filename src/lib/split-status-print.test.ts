@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupSplitItemsByPerfume, splitPrintSummary } from './split-status-print'
+import { groupSplitItemsByClient, groupSplitItemsByPerfume, splitPrintSummary } from './split-status-print'
 import type { SplitStatusItem } from './records'
 
 const item = (overrides: Partial<SplitStatusItem>): SplitStatusItem => ({
@@ -53,5 +53,16 @@ describe('agrupamento de splits do dia para impressão', () => {
   it('não mistura APC e SPLIT do mesmo perfume na folha de separação',()=>{
     const groups=groupSplitItemsByPerfume([item({id:'1',sale_type:'SPLIT'}),item({id:'2',sale_type:'APC'})])
     expect(groups.map(group=>group.key)).toEqual(['SPLIT:p1','APC:p1'])
+  })
+
+  it('agrupa a impressão por pessoa e mantém todos os perfumes da cliente',()=>{
+    const groups=groupSplitItemsByClient([
+      item({id:'1',client_id:'m',client_name:'Melani Nunes',perfume_id:'p2',perfume_name:'Naxos',volume_ml:5}),
+      item({id:'2',client_id:'a',client_name:'Aline Slongo',perfume_id:'p1',perfume_name:'Ambre',volume_ml:3}),
+      item({id:'3',client_id:'m',client_name:'Melani Nunes',perfume_id:'p1',perfume_name:'Ambre',volume_ml:8,split_status:'split'}),
+    ])
+    expect(groups.map(group=>group.client_name)).toEqual(['Aline Slongo','Melani Nunes'])
+    expect(groups[1]).toMatchObject({total_ml:13,pending:1,separated:1})
+    expect(groups[1].items.map(row=>row.perfume_name)).toEqual(['Ambre','Naxos'])
   })
 })
