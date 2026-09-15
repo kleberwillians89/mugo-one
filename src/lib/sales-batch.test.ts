@@ -151,6 +151,70 @@ describe('normalização segura de perfumes',()=>{
   it('não perde o nome reconhecido',()=>expect(perfumeIdentity('  CÈDRE  FIGALIA - ATELIER MATERI  ')).toMatchObject({raw_perfume_name:'CÈDRE FIGALIA - ATELIER MATERI',display_name:'CÈDRE FIGALIA - ATELIER MATERI',brand:'ATELIER MATERI'}))
 })
 
+describe('listas reais — novos frascos e APC com volume diferente do anúncio',()=>{
+  const cityOfStars=`CITY OF STARS — LOUIS VUITTON
+Frasco 2.
+▪️ Cotação: R$ 29,90/ml (+ R$ 9,00 recravação)
+▪️ APC: 50ml + R$ 50,00 (frasco original de 100ml)
+📦 Liberação para envio: a partir de 25/09 (prazo estimado: 15 dias úteis)
+🚨 FRASCO FECHADO. 🚨
+03ml — R$ 98,70
+05ml — R$ 158,50
+08ml — R$ 248,20
+10ml — R$ 308,00
+12ml — R$ 367,80
+15ml — R$ 457,50
+APC — R$ 1.545,00
+55ml: Rute Bonjardim
+10ml: Erica Freitas
+05ml: Priscilla Duque
+05ml: Julia Castro
+05ml: Mariana Castelo
+05ml: Tonia Schauffer
+03ml: Cida Mamão
+03ml: Germana
+03ml: Igor Barros
+03ml: Larissa Simões
+03ml: Viviane Messias`
+  const omnia=`OMNIA OMNIBUS UBIQUE — MEMO PARIS
+Frasco 2.
+▪️ Cotação: R$ 37,90/ml (+ R$ 9,00 recravação)
+▪️ APC: 40ml + R$ 50,00 (frasco original de 75ml)
+📦 Liberação para envio: a partir de 25/09 (prazo estimado: 15 dias úteis)
+🚨 FRASCO FECHADO. 🚨
+03ml — R$ 122,70
+05ml — R$ 198,50
+08ml — R$ 312,20
+10ml — R$ 388,00
+12ml — R$ 463,50
+15ml — R$ 577,50
+APC — R$ 1.566,00
+APC 37ml: Tonia Schauffer
+08ml: Juliana Chicrala
+05ml: Priscilla Duque
+05ml: Ligia Baruffaldi
+03ml: Ana Paula Vital
+03ml: Anna Julia Veloso
+03ml: Cecilia Teixeira
+03ml: Luciana Alves
+03ml: Munique Mello
+03ml: Daniela Toledo
+02ml: Vi Coimbra`
+
+  it('aceita o Frasco 2 de City of Stars independentemente do Frasco 1 histórico',()=>{
+    const parsed=parseDaviSalesBatch(cityOfStars)
+    expect(parsed).toMatchObject({perfume:'CITY OF STARS — LOUIS VUITTON',bottle_number:2,pricing_consistent:true,totals:{sales:11,volume_ml:100,calculated_balance_ml:0}})
+    expect(parsed.sales[0]).toMatchObject({client_name:'Rute Bonjardim',sale_type:'SPLIT',volume_ml:55,amount:1653.5})
+  })
+
+  it('aceita APC 37ml, preserva o volume real e recalcula o valor',()=>{
+    const parsed=parseDaviSalesBatch(omnia)
+    expect(parsed).toMatchObject({perfume:'OMNIA OMNIBUS UBIQUE — MEMO PARIS',bottle_number:2,pricing_consistent:false,totals:{sales:11,volume_ml:75,calculated_balance_ml:0}})
+    expect(parsed.pricing_issues).toContainEqual({sale_type:'SPLIT',volume_ml:12,announced_amount:463.5,expected_amount:463.8})
+    expect(parsed.sales[0]).toMatchObject({client_name:'Tonia Schauffer',sale_type:'APC',volume_ml:37,amount:1452.3})
+  })
+})
+
 describe('enriquecimento determinístico de clientes',()=>{
   const complete={id:'1',name:'Luciana Alves',cpf:'1',phone:'2',postal_code:'3',address_line:'Rua',address_number:'4',district:'Centro',city:'SP',state:'SP'}
   it('reaproveita match exato único e cadastro completo',()=>{expect(classifyClientMatches('Luciana Alves',[complete]).status).toBe('found');expect(missingShippingFields(complete)).toEqual([])})

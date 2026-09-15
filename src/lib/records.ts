@@ -773,7 +773,7 @@ export async function fetchOperationalInventory() {
   if(error)throw new Error(error.message)
   return (data??[]) as OperationalInventoryRow[]
 }
-export async function fetchInventorySaleBottleIdentities(){const{organizationId}=await authenticatedOrganization();const{data,error}=await supabase!.from('sale_inventory_births').select('inventory_item_id,bottle_identifier').eq('organization_id',organizationId).not('bottle_identifier','is',null);if(error)throw new Error(error.message);return(data??[])as InventorySaleBottleIdentity[]}
+export async function fetchInventorySaleBottleIdentities(period:PeriodValue){const{organizationId}=await authenticatedOrganization();const{data,error}=await supabase!.from('sales').select('inventory_item_id,bottle_identifier').eq('organization_id',organizationId).is('deleted_at',null).eq('data_quality_status','verified').gte('sale_date',period.start).lte('sale_date',period.end).not('inventory_item_id','is',null);if(error)throw new Error(error.message);return(data??[])as InventorySaleBottleIdentity[]}
 export async function fetchExternalCustody() {
   const {organizationId}=await authenticatedOrganization()
   const {data,error}=await supabase!.rpc('inventory_external_custody_rows',{org_id:organizationId})
