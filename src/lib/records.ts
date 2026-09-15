@@ -766,6 +766,7 @@ export type OperationalInventoryRow = {
 export type InventorySaleBottleIdentity={inventory_item_id:string;bottle_identifier:string|null}
 export type ExternalCustodyRow={perfume_id:string;reserved_ml:number;shipping_ml:number}
 export type InventoryPreparationTotal={perfume_id:string;preparing_ml:number}
+export type InventorySalesInsight={item_id:string;perfume_id:string;sales_count:number;buyers_count:number;total_ml:number;total_sold:number;total_collected:number;sale_price_per_ml:number|null}
 
 export async function fetchOperationalInventory() {
   const {organizationId}=await authenticatedOrganization()
@@ -781,6 +782,7 @@ export async function fetchExternalCustody() {
   return (data??[]) as ExternalCustodyRow[]
 }
 export async function fetchInventoryPreparationTotals(){await authenticatedOrganization();const{data,error}=await supabase!.rpc('inventory_preparation_totals');if(error)throw new Error(error.message);return(data??[])as InventoryPreparationTotal[]}
+export async function fetchInventorySalesInsights(period:PeriodValue){const{organizationId}=await authenticatedOrganization();const{data,error}=await supabase!.rpc('inventory_sales_insights',{org_id:organizationId,start_date:period.start,end_date:period.end});if(error)throw new Error(error.message);return(data??[])as InventorySalesInsight[]}
 export type InventoryRow = {
   item_id:string;perfume_id:string;perfume:string;available_ml:number;minimum_ml:number
   status:string;sold_ml:number;monthly_average:number;estimated_days:number|null;last_movement:string|null
@@ -832,6 +834,11 @@ export async function adjustInventory(itemId:string,quantity:number,reason:strin
 export async function updateInventoryMinimum(itemId:string,minimumMl:number){
   await authenticatedOrganization()
   const{error}=await supabase!.rpc('inventory_update_minimum',{p_item_id:itemId,p_minimum_ml:minimumMl})
+  if(error)throw new Error(error.message)
+}
+export async function updateInventorySalePrice(itemId:string,pricePerMl:number|null){
+  await authenticatedOrganization()
+  const{error}=await supabase!.rpc('inventory_set_sale_price',{p_item_id:itemId,p_price_per_ml:pricePerMl})
   if(error)throw new Error(error.message)
 }
 

@@ -21,7 +21,7 @@ function groupByClient(rows:CollectionSaleRow[]):ClientGroup[]{
   if(existing){existing.sales.push(row);existing.total+=row.amount}
   else map.set(row.client_id,{client_id:row.client_id,client_number:row.client_number,client_name:row.client_name,sales:[row],total:row.amount,last_message_copied_at:row.last_message_copied_at,message_copied_count:row.message_copied_count})
  }
- return[...map.values()].sort((a,b)=>b.total-a.total)
+ return[...map.values()].sort((a,b)=>a.client_name.localeCompare(b.client_name,'pt-BR',{sensitivity:'base'}))
 }
 
 const buildMessage=(group:ClientGroup)=>

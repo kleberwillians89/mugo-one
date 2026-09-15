@@ -12,6 +12,10 @@ describe('CobrancasPage — agrupamento por cliente (item 4)',()=>{
     expect(page).toContain('map.set(row.client_id,{client_id:row.client_id')
     expect(page).toContain('total:row.amount')
   })
+  it('ordena os clientes alfabeticamente para a rotina de cobrança',()=>{
+    expect(page).toContain("a.client_name.localeCompare(b.client_name,'pt-BR',{sensitivity:'base'})")
+    expect(page).not.toContain('sort((a,b)=>b.total-a.total)')
+  })
   it('cada card mostra client_number, nome, total em aberto e quantidade de vendas pendentes',()=>{
     expect(page).toContain('clientNumber(group.client_number)')
     expect(page).toContain('group.client_name')

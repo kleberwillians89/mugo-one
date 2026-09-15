@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { AlertTriangle, Boxes, Check, Download, Printer, RefreshCw, Search, TrendingUp, UserRound } from 'lucide-react'
-import { brl, integer } from '../lib/format'
+import { brl, integer, slugify } from '../lib/format'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { exportCsv } from '../lib/csv'
 import {
   InventoryRow, InventorySummary, OperationalInventoryRow,
-  InventoryPreparationTotal, PerfumeCandidate, createCanonicalPerfume, fetchCanonicalPerfume, fetchInventory, fetchInventoryPreparationTotals, fetchInventorySaleBottleIdentities, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, receiveInventoryPerfume, searchPerfumes, updateInventoryMinimum,
+  InventoryPreparationTotal, InventorySalesInsight, PerfumeCandidate, createCanonicalPerfume, fetchCanonicalPerfume, fetchInventory, fetchInventoryPreparationTotals, fetchInventorySaleBottleIdentities, fetchInventorySalesInsights, fetchOperationalInventory, findEquivalentPerfumes, perfumeCount, receiveInventoryPerfume, searchPerfumes, updateInventoryMinimum, updateInventorySalePrice,
 } from '../lib/records'
 import { looksLikeMlWithUnitSuffix, parseMlAmount } from '../lib/ml-input'
 import { ReplenishmentSignal, fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
@@ -15,6 +15,8 @@ import { setPerfumeCost } from '../lib/cost-margin'
 import { Metric } from '../components/shared/Metric'
 import { EmptyState, EntityCombobox, EntityOption, Modal, PageHeader, PrimaryButton, SecondaryButton, StatusBadge, useToast } from '../components/ui'
 import { printPerfumeLabel } from '../lib/preparation'
+import { downloadNodeAsPng } from '../lib/download-image'
+import { INVENTORY_OFFER_IMAGE_PIXEL_RATIO, InventoryOfferImageCard, InventoryOfferImageData } from '../components/InventoryOfferImageCard'
 import './InventoryPage.css'
 
 function stockState(balance: OperationalInventoryRow): { tone: 'success'|'warning'|'danger'; label: string } {
@@ -24,20 +26,29 @@ function stockState(balance: OperationalInventoryRow): { tone: 'success'|'warnin
   return { tone: 'success', label: 'Disponível' }
 }
 
+function InventoryOfferDownload({offer,onDone}:{offer:InventoryOfferImageData;onDone:()=>void}){
+  const{push}=useToast(),ref=useRef<HTMLDivElement>(null)
+  useEffect(()=>{let cancelled=false;const run=async()=>{if(!ref.current)return;try{await downloadNodeAsPng(ref.current,`disponivel-${slugify(offer.perfume)}-${new Date().toISOString().slice(0,10)}.png`,INVENTORY_OFFER_IMAGE_PIXEL_RATIO);if(!cancelled)push('Imagem do perfume baixada.',{tone:'success'})}catch(reason){if(!cancelled)push(reason instanceof Error?reason.message:'Não foi possível gerar a imagem.',{tone:'error'})}finally{if(!cancelled)onDone()}};void run();return()=>{cancelled=true}},[offer,onDone,push])
+  return <div className="inventory-offer-image-offscreen" aria-hidden="true"><InventoryOfferImageCard ref={ref} offer={offer}/></div>
+}
+
 export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
   const {push}=useToast()
   const [summary,setSummary]=useState<InventorySummary|null>(null),[rows,setRows]=useState<InventoryRow[]>([])
   const [operational,setOperational]=useState<OperationalInventoryRow[]>([])
   const [preparationTotals,setPreparationTotals]=useState<InventoryPreparationTotal[]>([])
+  const [salesInsights,setSalesInsights]=useState<InventorySalesInsight[]>([])
   const [saleBottles,setSaleBottles]=useState<{inventory_item_id:string;bottle_identifier:string|null}[]>([])
   const [replenishment,setReplenishment]=useState<ReplenishmentSignal[]>([])
-  const [loading,setLoading]=useState(true),[error,setError]=useState(''),[showCreate,setShowCreate]=useState(false)
+  const [loading,setLoading]=useState(true),[error,setError]=useState(''),[showCreate,setShowCreate]=useState(false),[downloadOffer,setDownloadOffer]=useState<InventoryOfferImageData|null>(null)
   const [query,setQuery]=useState('')
-  const reload=()=>{setLoading(true);Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[]),fetchInventorySaleBottleIdentities(period)]).then(([result,balances,preparing,signals,bottles])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setSaleBottles(bottles);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
-  useEffect(()=>{Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[]),fetchInventorySaleBottleIdentities(period)]).then(([result,balances,preparing,signals,bottles])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setSaleBottles(bottles);setError('')}).catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
+  const loadAll=()=>Promise.all([fetchInventory(period),fetchOperationalInventory(),fetchInventoryPreparationTotals(),fetchReplenishmentSignals().catch(()=>[]),fetchInventorySaleBottleIdentities(period),fetchInventorySalesInsights(period)] as const).then(([result,balances,preparing,signals,bottles,insights])=>{setSummary(result.summary);setRows(result.rows);setOperational(balances);setPreparationTotals(preparing);setReplenishment(signals);setSaleBottles(bottles);setSalesInsights(insights);setError('')})
+  const reload=()=>{setLoading(true);loadAll().catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))}
+  useEffect(()=>{loadAll().catch((reason)=>setError(reason instanceof Error?reason.message:'Não foi possível carregar o estoque.')).finally(()=>setLoading(false))},[period])
   const replenishmentByItem=new Map(replenishment.map((signal)=>[signal.item_id,signal.status]))
   const preparingByPerfume=new Map(preparationTotals.map(row=>[row.perfume_id,Number(row.preparing_ml)]))
   const bottleLabelsByItem=new Map<string,string[]>();for(const row of saleBottles){if(!row.bottle_identifier)continue;const labels=bottleLabelsByItem.get(row.inventory_item_id)??[];if(!labels.includes(row.bottle_identifier))labels.push(row.bottle_identifier);bottleLabelsByItem.set(row.inventory_item_id,labels)}
+  const insightByItem=new Map(salesInsights.map(row=>[row.item_id,row]))
   const periodItemIds=new Set(saleBottles.map(row=>row.inventory_item_id))
   const periodOperational=operational.filter(row=>periodItemIds.has(row.item_id))
   const visibleOperational=periodOperational.filter(row=>row.perfume.toLocaleLowerCase('pt-BR').includes(query.trim().toLocaleLowerCase('pt-BR')))
@@ -45,9 +56,11 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   // mantido pela gestão — string vazia limpa o custo (volta a "não informado").
   const editCost=async(balance:OperationalInventoryRow)=>{const raw=prompt(`Custo por ML para ${balance.perfume} (R$, vazio para limpar):`,balance.average_cost_per_ml!==null?String(balance.average_cost_per_ml):'');if(raw===null)return;const trimmed=raw.trim();if(trimmed===''){try{await setPerfumeCost(balance.perfume_id,null);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}return}const cost=Number(trimmed.replace(',','.'));if(!Number.isFinite(cost)||cost<0)return alert('Informe um custo válido.');try{await setPerfumeCost(balance.perfume_id,cost);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o custo.')}}
   const editMinimum=async(balance:OperationalInventoryRow)=>{const raw=prompt(`Reserva mínima em ML para ${balance.perfume}:`,String(balance.minimum_ml));if(raw===null)return;const minimum=Number(raw.replace(',','.'));if(!Number.isFinite(minimum)||minimum<0)return alert('Informe um mínimo válido.');try{await updateInventoryMinimum(balance.item_id,minimum);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o mínimo.')}}
+  const editSalePrice=async(balance:OperationalInventoryRow,insight:InventorySalesInsight|undefined)=>{const raw=prompt(`Valor anunciado por ML para ${balance.perfume} (R$, vazio para limpar):`,insight?.sale_price_per_ml==null?'':String(insight.sale_price_per_ml).replace('.',','));if(raw===null)return;const trimmed=raw.trim(),price=trimmed===''?null:Number(trimmed.replace(',','.'));if(price!==null&&(!Number.isFinite(price)||price<0))return alert('Informe um valor por ML válido.');try{await updateInventorySalePrice(balance.item_id,price);reload()}catch(reason){alert(reason instanceof Error?reason.message:'Não foi possível atualizar o valor por ML.')}}
 
   return <div className="page">
     {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{reload();push('Perfume recebido no estoque.',{tone:'success',duration:6000})}}/>}
+    {downloadOffer&&<InventoryOfferDownload offer={downloadOffer} onDone={()=>setDownloadOffer(null)}/>}
     <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo automático calculado pelas vendas validadas. Para corrigir ML, corrija a venda de origem." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
       <SecondaryButton onClick={()=>{history.pushState({},'','/estoque/fracionamento');dispatchEvent(new PopStateEvent('popstate'))}}>Fracionamento</SecondaryButton>
@@ -63,11 +76,11 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
         <SecondaryButton icon={<Download size={16}/>} onClick={()=>exportCsv('estoque-ruah.csv',periodOperational as unknown as Record<string,unknown>[])}>Exportar</SecondaryButton>
       </div>
       {visibleOperational.length===0?<div className="inventory-no-results"><Search/><strong>Nenhum perfume encontrado</strong><span>Tente buscar por outro nome.</span></div>:<div className="inventory-card-grid">{visibleOperational.map(balance=>{
-        const state=stockState(balance),status=replenishmentByItem.get(balance.item_id)
+        const state=stockState(balance),status=replenishmentByItem.get(balance.item_id),insight=insightByItem.get(balance.item_id),bottles=bottleLabelsByItem.get(balance.item_id)?.sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}))??[]
         return <article className={`inventory-perfume-card inventory-perfume-card--${state.tone}`} key={balance.item_id}>
           <header><div className="inventory-perfume-mark"><Boxes size={18}/></div><StatusBadge tone={state.tone}>{state.label}</StatusBadge></header>
           <div className="inventory-perfume-name"><span>PERFUME</span><h3>{balance.perfume}</h3></div>
-          {(bottleLabelsByItem.get(balance.item_id)?.length??0)>0&&<div className="inventory-bottle-identities"><span>FRASCOS DESTA VENDA</span><div>{bottleLabelsByItem.get(balance.item_id)?.sort().map(label=><b key={label}>{label}</b>)}</div></div>}
+          {bottles.length>0&&<div className="inventory-bottle-identities"><span>FRASCOS DESTA VENDA</span><div>{bottles.map(label=><b key={label}>{label}</b>)}</div></div>}
           <div className="inventory-balance"><span>DISPONÍVEL PARA VENDA</span><strong>{Number(balance.available_ml).toLocaleString('pt-BR')} <small>ML</small></strong></div>
           <dl className="inventory-facts">
             <div><dt>Físico</dt><dd>{Number(balance.physical_ml).toLocaleString('pt-BR')} ML</dd></div>
@@ -75,9 +88,10 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
             <div><dt>Em preparo</dt><dd>{(preparingByPerfume.get(balance.perfume_id)??0).toLocaleString('pt-BR')} ML</dd></div>
             <div><dt>Em envio</dt><dd>{Number(balance.shipping_ml).toLocaleString('pt-BR')} ML</dd></div>
           </dl>
+          <dl className="inventory-commercial-facts"><div><dt>Total vendido</dt><dd>{brl(Number(insight?.total_sold??0))}</dd></div><div><dt>Arrecadado</dt><dd>{brl(Number(insight?.total_collected??0))}</dd></div><div><dt>Compradores</dt><dd>{integer(Number(insight?.buyers_count??0))}</dd></div><div><dt>Valor por ML</dt><dd>{insight?.sale_price_per_ml==null?'Não informado':brl(Number(insight.sale_price_per_ml))}</dd></div></dl>
           <div className="inventory-secondary-facts"><span>Mínimo <strong>{Number(balance.minimum_ml).toLocaleString('pt-BR')} ML</strong></span><span>Custo/ML <strong>{balance.average_cost_per_ml===null?'Não informado':brl(balance.average_cost_per_ml)}</strong></span></div>
           {(status==='critico'||status==='repor')&&<div className="inventory-restock-alert"><AlertTriangle size={15}/> Reposição recomendada</div>}
-          <footer className="stock-actions"><button onClick={()=>editCost(balance)}>Custo</button><button onClick={()=>editMinimum(balance)}>Mínimo</button>{state.tone!=='success'&&<button className="stock-action-highlight" onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}</footer>
+          <footer className="stock-actions"><button onClick={()=>editSalePrice(balance,insight)}>Valor/ML</button><button disabled={Number(balance.available_ml)<=0} className="stock-action-highlight" onClick={()=>setDownloadOffer({perfume:balance.perfume,availableMl:Number(balance.available_ml),pricePerMl:insight?.sale_price_per_ml==null?null:Number(insight.sale_price_per_ml),bottles})}><Download size={13}/> Imagem</button><button onClick={()=>editCost(balance)}>Custo</button><button onClick={()=>editMinimum(balance)}>Mínimo</button>{state.tone!=='success'&&<button onClick={()=>{history.pushState({},'',`/radar?q=${encodeURIComponent(balance.perfume)}`);dispatchEvent(new PopStateEvent('popstate'))}}>Buscar reposição</button>}</footer>
         </article>
       })}</div>}
     </section>}
