@@ -1,0 +1,7 @@
+.davi-editable-row>td:not(.davi-row-actions){cursor:cell}
+.davi-editable-row:focus{outline:2px solid #b38a38;outline-offset:-2px}
+.davi-row-actions{white-space:nowrap}
+.davi-inline-edit{display:inline-grid;place-items:center;width:30px;height:26px;border:1px solid transparent;border-radius:5px;background:transparent;color:#76530d;vertical-align:middle}
+.davi-inline-edit:hover{border-color:#b99850;background:#fff8e8}
+.davi-inline-edit svg{width:13px;height:13px}
+.davi-row-actions .davi-action-menu-trigger{display:inline-grid;vertical-align:middle}
