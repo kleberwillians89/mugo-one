@@ -29,11 +29,17 @@ export function firstName(value:string){return value.trim().split(/\s+/)[0]||'Cl
 const parse=async(response:Response)=>{try{return await response.json() as Record<string,unknown>}catch{return{}}}
 const providerMessage=(body:Record<string,unknown>)=>JSON.stringify(body).slice(0,500)
 const isNotFound=(status:number,body:Record<string,unknown>)=>status===404||(status===400&&/(not found|does not exist|subscriber.+exist)/i.test(providerMessage(body)))
+const subscriberData=(body:Record<string,unknown>)=>{
+  const data=body.data
+  if(Array.isArray(data))return data[0] as Record<string,unknown>|undefined
+  return data as Record<string,unknown>|undefined
+}
 const subscriberId=(body:Record<string,unknown>)=>{
-  const data=body.data as Record<string,unknown>|undefined,id=String(data?.id??'')
+  const data=subscriberData(body),id=String(data?.id??'')
   if(!/^\d+$/.test(id))throw new ManychatApiError('manychat_invalid_subscriber')
   return id
 }
+const hasNoSubscriber=(body:Record<string,unknown>)=>Array.isArray(body.data)&&body.data.length===0
 
 async function call(fetcher:Fetcher,url:string,apiKey:string,init:RequestInit={}){
   let response:Response
@@ -49,8 +55,8 @@ export async function sendManychatFlow(input:{apiKey:string;flowNs:string;phone:
   if(!phone)throw new ManychatApiError('invalid_phone',422)
   let lookup=await call(fetcher,`https://api.manychat.com/fb/subscriber/findBySystemField?phone=${encodeURIComponent(phone)}`,input.apiKey)
   let id:string
-  if(lookup.response.ok)id=subscriberId(lookup.body)
-  else if(isNotFound(lookup.response.status,lookup.body)){
+  if(lookup.response.ok&&!hasNoSubscriber(lookup.body))id=subscriberId(lookup.body)
+  else if(lookup.response.ok||isNotFound(lookup.response.status,lookup.body)){
     const name=splitContactName(input.name)
     const created=await call(fetcher,'https://api.manychat.com/fb/subscriber/createSubscriber',input.apiKey,{method:'POST',body:JSON.stringify({...name,whatsapp_phone:phone})})
     if(!created.response.ok)throw new ManychatApiError('manychat_create_contact_failed')
