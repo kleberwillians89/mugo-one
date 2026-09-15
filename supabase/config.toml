@@ -52,3 +52,5 @@ verify_jwt = false
 verify_jwt = true
 [functions.whatsapp-customer-balance]
 verify_jwt = false
+[functions.collection-image-upload]
+verify_jwt = true

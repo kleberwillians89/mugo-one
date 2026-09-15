@@ -1,9 +1,9 @@
 import{useEffect,useMemo,useRef,useState}from'react'
 import{ClipboardCopy,CircleDollarSign,Download,ExternalLink,MessageCircle}from'lucide-react'
 import{brl,clientNumber,shortDate,slugify}from'../lib/format'
-import{downloadNodeAsPng}from'../lib/download-image'
+import{downloadNodeAsPng,renderNodeAsPngBlob}from'../lib/download-image'
 import{useHasPermission}from'../lib/PermissionsContext'
-import{CollectionSaleRow,fetchCollectionsPending,fetchDaviExcelDistinct,logCollectionMessageCopied,registerCollectionPayment,sendManychatMessage}from'../lib/records'
+import{CollectionSaleRow,fetchCollectionsPending,fetchDaviExcelDistinct,logCollectionMessageCopied,registerCollectionPayment,sendManychatMessage,uploadCollectionImage}from'../lib/records'
 import{EmptyState,FormField,Modal,PageHeader,PrimaryButton,SecondaryButton,useToast}from'../components/ui'
 import{COLLECTION_IMAGE_PIXEL_RATIO,CollectionSummaryImageCard}from'../components/CollectionSummaryImageCard'
 import'./CobrancasPage.css'
@@ -76,6 +76,25 @@ function CollectionImageDownload({group,onDone}:{group:ClientGroup;onDone:()=>vo
  return<div className="collections-image-offscreen" aria-hidden="true"><CollectionSummaryImageCard ref={nodeRef} group={group}/></div>
 }
 
+function CollectionWhatsAppDispatch({group,onSuccess,onError,onDone}:{group:ClientGroup;onSuccess:()=>void;onError:(reason:unknown)=>void;onDone:()=>void}){
+ const nodeRef=useRef<HTMLDivElement>(null),callbacks=useRef({onSuccess,onError,onDone})
+ useEffect(()=>{
+  let cancelled=false
+  const run=async()=>{
+   if(!nodeRef.current)return
+   try{
+    const saleIds=group.sales.map(sale=>sale.id),blob=await renderNodeAsPngBlob(nodeRef.current,COLLECTION_IMAGE_PIXEL_RATIO)
+    const imageUrl=await uploadCollectionImage(group.client_id,saleIds,blob)
+    await sendManychatMessage(group.client_id,'collection',saleIds,imageUrl)
+    if(!cancelled)callbacks.current.onSuccess()
+   }catch(reason){if(!cancelled)callbacks.current.onError(reason)}
+   finally{if(!cancelled)callbacks.current.onDone()}
+  }
+  void run();return()=>{cancelled=true}
+ },[group])
+ return<div className="collections-image-offscreen" aria-hidden="true"><CollectionSummaryImageCard ref={nodeRef} group={group}/></div>
+}
+
 function RegisterPaymentModal({group,onClose,onPaid}:{group:ClientGroup;onClose:()=>void;onPaid:()=>void}){
  const toast=useToast()
  const[selected,setSelected]=useState<Set<string>>(()=>new Set(group.sales.map(s=>s.id)))
@@ -130,6 +149,7 @@ export function CobrancasPage(){
  const[paymentGroup,setPaymentGroup]=useState<ClientGroup|null>(null)
  const[whatsappSending,setWhatsappSending]=useState<string|null>(null)
  const[whatsappSent,setWhatsappSent]=useState<Set<string>>(()=>new Set())
+ const[whatsappGroup,setWhatsappGroup]=useState<ClientGroup|null>(null)
 
  const load=(term:string)=>fetchCollectionsPending(term).then(setRows).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar as cobranças.')).finally(()=>setLoading(false))
  useEffect(()=>{const timer=setTimeout(()=>{setLoading(true);void load(search)},250);return()=>clearTimeout(timer)},[search])
@@ -143,17 +163,16 @@ export function CobrancasPage(){
  const totals={open:rows.reduce((sum,row)=>sum+row.amount,0),clients:allGroups.length,sales:rows.length}
 
  const reload=()=>void load(search)
- const sendWhatsapp=async(group:ClientGroup)=>{
+ const sendWhatsapp=(group:ClientGroup)=>{
   if(whatsappSending||whatsappSent.has(group.client_id))return
   setWhatsappSending(group.client_id)
-  try{await sendManychatMessage(group.client_id,'collection');setWhatsappSent(current=>new Set(current).add(group.client_id));toast.push('WHATSAPP ENVIADO',{tone:'success'})}
-  catch(reason){toast.push(reason instanceof Error?reason.message:'Não foi possível enviar o WhatsApp.',{tone:'error'})}
-  finally{setWhatsappSending(null)}
+  setWhatsappGroup(group)
  }
 
  return<div className="page collections-page">
   {copyGroup&&<CopyMessageModal group={copyGroup} onClose={()=>setCopyGroup(null)} onCopied={reload}/>}
   {downloadGroup&&<CollectionImageDownload group={downloadGroup} onDone={()=>setDownloadGroup(null)}/>}
+  {whatsappGroup&&<CollectionWhatsAppDispatch group={whatsappGroup} onSuccess={()=>{setWhatsappSent(current=>new Set(current).add(whatsappGroup.client_id));toast.push('WHATSAPP ENVIADO',{tone:'success'})}} onError={reason=>toast.push(reason instanceof Error?reason.message:'Não foi possível enviar o WhatsApp.',{tone:'error'})} onDone={()=>{setWhatsappSending(null);setWhatsappGroup(null)}}/>}
   {paymentGroup&&<RegisterPaymentModal group={paymentGroup} onClose={()=>setPaymentGroup(null)} onPaid={reload}/>}
   <PageHeader eyebrow="RUAH INTELLIGENCE" title="Cobranças" description="Clientes com vendas comercialmente pendentes de pagamento."/>
   <div className="collections-summary">

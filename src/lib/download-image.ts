@@ -18,10 +18,15 @@ export const EXPORT_BACKGROUND_COLOR='#faf6ee'
  * pronto no instante exato do toBlob, e o PNG sai com a fonte de
  * fallback do sistema — inconsistente com o que a tela mostrava.
  */
-export async function downloadNodeAsPng(node:HTMLElement,name:string,pixelRatio=2){
+export async function renderNodeAsPngBlob(node:HTMLElement,pixelRatio=2){
  await document.fonts.ready
  const blob=await toBlob(node,{pixelRatio,backgroundColor:EXPORT_BACKGROUND_COLOR,cacheBust:true})
  if(!blob)throw new Error('Não foi possível gerar a imagem.')
+ return blob
+}
+
+export async function downloadNodeAsPng(node:HTMLElement,name:string,pixelRatio=2){
+ const blob=await renderNodeAsPngBlob(node,pixelRatio)
  const url=URL.createObjectURL(blob)
  const link=document.createElement('a')
  link.href=url

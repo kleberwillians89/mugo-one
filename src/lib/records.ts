@@ -169,9 +169,16 @@ export async function inviteCustomerAccount(clientId:string,email:string,channel
   return data?.data as CustomerInviteResult
 }
 export type ManychatMessageType='collection'|'access'
-export async function sendManychatMessage(clientId:string,messageType:ManychatMessageType){
+export async function uploadCollectionImage(clientId:string,saleIds:string[],blob:Blob){
+  const{organizationId}=await currentOrganization(),form=new FormData()
+  form.set('organization_id',organizationId);form.set('client_id',clientId);form.set('sale_ids',JSON.stringify(saleIds));form.set('file',new File([blob],'cobranca.png',{type:'image/png'}))
+  const{data,error}=await supabase!.functions.invoke('collection-image-upload',{body:form})
+  if(error){const response=(error as{context?:Response}).context;let message='Não foi possível preparar a imagem da cobrança.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
+  return String(data?.data?.url??'')
+}
+export async function sendManychatMessage(clientId:string,messageType:ManychatMessageType,saleIds:string[]=[],imageUrl?:string){
   await currentOrganization()
-  const{data,error}=await supabase!.functions.invoke('manychat-send',{body:{client_id:clientId,message_type:messageType}})
+  const{data,error}=await supabase!.functions.invoke('manychat-send',{body:{client_id:clientId,message_type:messageType,...(messageType==='collection'?{sale_ids:saleIds,imagem_cobranca_url:imageUrl}: {})}})
   if(error){const response=(error as{context?:Response}).context;let message='Não foi possível enviar o WhatsApp.';try{const body=await response?.clone().json();message=body?.error?.message??message}catch{/* resposta sem JSON */}throw new Error(message)}
   return data?.data as{status:'sent';message_type:ManychatMessageType}
 }

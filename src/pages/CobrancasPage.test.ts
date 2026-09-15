@@ -209,8 +209,8 @@ describe('CobrancasPage — invariantes de estoque/logística (item "Invariantes
     for(const forbidden of ['inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','physical_ml','operational_code','RUAH-P','shipment','preparation_batch'])
       expect(page.toLowerCase()).not.toContain(forbidden.toLowerCase())
   })
-  it('baixar imagem não chama nenhuma RPC de escrita — só as chamadas await já esperadas continuam presentes (log de cópia, geração local de PNG, registro de pagamento)',()=>{
+  it('mantém somente as escritas esperadas, incluindo preparação segura do envio ManyChat',()=>{
     const rpcCalls=[...page.matchAll(/await (\w+)\(/g)].map((match)=>match[1])
-    expect(new Set(rpcCalls)).toEqual(new Set(['logCollectionMessageCopied','downloadNodeAsPng','registerCollectionPayment','sendManychatMessage']))
+    expect(new Set(rpcCalls)).toEqual(new Set(['logCollectionMessageCopied','downloadNodeAsPng','renderNodeAsPngBlob','uploadCollectionImage','registerCollectionPayment','sendManychatMessage']))
   })
 })

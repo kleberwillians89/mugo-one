@@ -26,7 +26,18 @@ ou:
 {"client_id":"UUID","message_type":"access"}
 ```
 
-O backend obtém nome e telefone no CRM, valida unicidade, procura o contato com `GET /fb/subscriber/findBySystemField?phone=+55...`, cria com `POST /fb/subscriber/createSubscriber` apenas se a API confirmar ausência e inicia a automação com `POST /fb/sending/sendFlow`.
+O backend obtém nome e telefone no CRM, valida unicidade, procura/cria o contato e, para cobrança, recalcula no banco o total das vendas selecionadas. Antes de iniciar a automação, resolve os IDs dos Custom User Fields existentes com `GET /fb/page/getCustomFields` e atualiza o contato com `POST /fb/subscriber/setCustomFields`. Somente depois de uma resposta de sucesso chama `POST /fb/sending/sendFlow`.
+
+Campos esperados no ManyChat:
+
+- `nome_cliente` — Text;
+- `numero_pedido` — Text (uma venda usa seu UUID; cobranças agrupadas usam os UUIDs separados por vírgula);
+- `valor_pedido` — Number. Por compatibilidade, o nome anterior `ruah_valor_pendente` também é reconhecido, desde que seja Number;
+- `imagem_cobranca_url` — Text, opcional.
+
+Os IDs são descobertos pela API; não existem IDs de Custom User Fields gravados no código. Se um dos três campos obrigatórios estiver ausente ou se o campo de valor não for Number, o flow não é disparado.
+
+A imagem usa o mesmo card de cobrança da tela, é salva no bucket privado `collection-images` e enviada como URL assinada por sete dias. A chave do ManyChat e a chave de serviço do Supabase permanecem somente nas Edge Functions.
 
 ## ManyChat → CRM: Ver valor do pedido
 

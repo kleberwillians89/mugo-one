@@ -58,6 +58,26 @@ describe('ManyChat send — contrato oficial e telefone',()=>{
     const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(400,{status:'error',message:'Validation error'})).mockResolvedValueOnce(response(200,{status:'success',data:{flows:[{ns:'outro-flow'}]}}))
     await expect(sendManychatFlow({apiKey:'x',flowNs:'incorreto',phone:'11999999999',name:'Cliente',fetcher})).rejects.toMatchObject({code:'manychat_flow_not_found',httpStatus:422})
   })
+  it('envia valor numérico e todos os campos antes de iniciar o flow',async()=>{
+    const fields=[{id:11,name:'nome_cliente',type:'text'},{id:12,name:'numero_pedido',type:'text'},{id:13,name:'valor_pedido',type:'number'},{id:14,name:'imagem_cobranca_url',type:'text'}]
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(200,{status:'success',data:fields})).mockResolvedValueOnce(response(200,{status:'success'})).mockResolvedValueOnce(response(200,{status:'success'}))
+    await sendManychatFlow({apiKey:'x',flowNs:'flow',phone:'11999999999',name:'Cliente',customFields:{nome_cliente:'Cliente',numero_pedido:'sale-1',valor_pedido:1497,imagem_cobranca_url:'https://example.com/image.png'},fetcher})
+    expect(String(fetcher.mock.calls[2][0])).toContain('/fb/subscriber/setCustomFields')
+    const body=JSON.parse(String(fetcher.mock.calls[2][1]?.body));expect(body.fields).toContainEqual({field_id:13,field_value:1497});expect(typeof body.fields.find((field:{field_id:number})=>field.field_id===13).field_value).toBe('number')
+    expect(String(fetcher.mock.calls[3][0])).toContain('/fb/sending/sendFlow')
+  })
+  it('não chama sendFlow quando a atualização dos custom fields falha',async()=>{
+    const fields=[{id:11,name:'nome_cliente',type:'text'},{id:12,name:'numero_pedido',type:'text'},{id:13,name:'ruah_valor_pendente',type:'number'}]
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(200,{status:'success',data:fields})).mockResolvedValueOnce(response(400,{status:'error',message:'Validation error'}))
+    await expect(sendManychatFlow({apiKey:'x',flowNs:'flow',phone:'11999999999',name:'Cliente',customFields:{nome_cliente:'Cliente',numero_pedido:'sale-1',valor_pedido:1497},fetcher})).rejects.toMatchObject({code:'manychat_custom_fields_update_failed'})
+    expect(fetcher).toHaveBeenCalledTimes(3);expect(fetcher.mock.calls.some(call=>String(call[0]).includes('/sending/sendFlow'))).toBe(false)
+  })
+  it('recusa campo de valor que não seja Number antes de atualizar ou disparar',async()=>{
+    const fields=[{id:11,name:'nome_cliente',type:'text'},{id:12,name:'numero_pedido',type:'text'},{id:13,name:'valor_pedido',type:'text'}]
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(200,{status:'success',data:fields}))
+    await expect(sendManychatFlow({apiKey:'x',flowNs:'flow',phone:'11999999999',name:'Cliente',customFields:{nome_cliente:'Cliente',numero_pedido:'sale-1',valor_pedido:1497},fetcher})).rejects.toMatchObject({code:'manychat_value_field_type'})
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
   it('não transforma erro 400 desconhecido em criação de contato',async()=>{
     const fetcher=vi.fn().mockResolvedValue(response(400,{status:'error',message:'Invalid phone'}))
     await expect(sendManychatFlow({apiKey:'x',flowNs:'x',phone:'11999999999',name:'A',fetcher})).rejects.toMatchObject({code:'manychat_lookup_failed'})
@@ -74,7 +94,9 @@ describe('manychat-send — fronteira segura CRM → ManyChat',()=>{
   it('frontend envia somente client_id e message_type; nunca tenant, key, telefone ou valor',()=>{
     const call=records.slice(records.indexOf('export async function sendManychatMessage'),records.indexOf('export type CustomerIdentityReview'))
     expect(call).toContain("functions.invoke('manychat-send'")
-    expect(call).toContain('body:{client_id:clientId,message_type:messageType}')
+    expect(call).toContain('body:{client_id:clientId,message_type:messageType')
+    expect(call).toContain('sale_ids:saleIds')
+    expect(call).toContain('imagem_cobranca_url:imageUrl')
     expect(call).not.toContain('organization_id')
     expect(call).not.toMatch(/api.?key|phone|amount|total/i)
   })
@@ -135,7 +157,8 @@ describe('balance — mesma fonte canônica da CobrancasPage',()=>{
 describe('UX mínima',()=>{
   it('Cobranças oferece ENVIAR WHATSAPP com enviando, sucesso e trava de clique',()=>{
     for(const text of ['ENVIAR WHATSAPP','ENVIANDO...','WHATSAPP ENVIADO'])expect(collections).toContain(text)
-    expect(collections).toContain("sendManychatMessage(group.client_id,'collection')")
+    expect(collections).toContain("sendManychatMessage(group.client_id,'collection',saleIds,imageUrl)")
+    expect(collections.indexOf('uploadCollectionImage(group.client_id,saleIds,blob)')).toBeLessThan(collections.indexOf("sendManychatMessage(group.client_id,'collection',saleIds,imageUrl)"))
     expect(collections).toContain('disabled={Boolean(whatsappSending)||whatsappSent.has(group.client_id)}')
   })
   it('Cliente 360 oferece ENVIAR ACESSO WHATSAPP com os mesmos estados',()=>{
