@@ -46,6 +46,7 @@ const subscriberId=(body:Record<string,unknown>)=>{
   return id
 }
 const hasNoSubscriber=(body:Record<string,unknown>)=>Array.isArray(body.data)&&body.data.length===0
+const subscriberRows=(body:Record<string,unknown>)=>Array.isArray(body.data)?body.data.filter((row):row is Record<string,unknown>=>Boolean(row)&&typeof row==='object'):[]
 
 async function call(fetcher:Fetcher,url:string,apiKey:string,init:RequestInit={}){
   let response:Response
@@ -63,13 +64,24 @@ export async function sendManychatFlow(input:{apiKey:string;flowNs:string;phone:
   let id:string
   if(lookup.response.ok&&!hasNoSubscriber(lookup.body))id=subscriberId(lookup.body)
   else if(lookup.response.ok||isNotFound(lookup.response.status,lookup.body)){
-    const name=splitContactName(input.name)
-    const created=await call(fetcher,'https://api.manychat.com/fb/subscriber/createSubscriber',input.apiKey,{method:'POST',body:JSON.stringify({...name,whatsapp_phone:phone})})
-    if(!created.response.ok)throw new ManychatApiError('manychat_create_contact_failed')
-    id=subscriberId(created.body)
+    const byName=await call(fetcher,`https://api.manychat.com/fb/subscriber/findByName?name=${encodeURIComponent(input.name.trim())}`,input.apiKey)
+    const exact=subscriberRows(byName.body).filter(row=>normalizeBrazilianPhone(row.whatsapp_phone??row.phone)===phone)
+    if(byName.response.ok&&exact.length===1)id=subscriberId({data:exact[0]})
+    else{
+      const name=splitContactName(input.name)
+      const created=await call(fetcher,'https://api.manychat.com/fb/subscriber/createSubscriber',input.apiKey,{method:'POST',body:JSON.stringify({...name,whatsapp_phone:phone})})
+      if(!created.response.ok)throw new ManychatApiError('manychat_create_contact_failed',502,created.response.status,safeProviderReason(created.body))
+      id=subscriberId(created.body)
+    }
   }else throw new ManychatApiError('manychat_lookup_failed')
   const sent=await call(fetcher,'https://api.manychat.com/fb/sending/sendFlow',input.apiKey,{method:'POST',body:`{"subscriber_id":${id},"flow_ns":${JSON.stringify(input.flowNs)}}`})
-  if(!sent.response.ok)throw new ManychatApiError('manychat_send_failed',502,sent.response.status,safeProviderReason(sent.body))
+  if(!sent.response.ok){
+    const flows=await call(fetcher,'https://api.manychat.com/fb/page/getFlows',input.apiKey)
+    const rawFlows=(flows.body.data as Record<string,unknown>|undefined)?.flows
+    const flowRows=Array.isArray(rawFlows)?rawFlows as Array<Record<string,unknown>>:[]
+    if(flows.response.ok&&!flowRows.some(flow=>String(flow.ns??'')===input.flowNs))throw new ManychatApiError('manychat_flow_not_found',422,sent.response.status,safeProviderReason(sent.body))
+    throw new ManychatApiError('manychat_send_failed',502,sent.response.status,safeProviderReason(sent.body))
+  }
   return{subscriber_id:id,phone_last4:phone.slice(-4)}
 }
 

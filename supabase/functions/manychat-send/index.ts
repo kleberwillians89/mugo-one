@@ -32,10 +32,10 @@ Deno.serve(async(req)=>{
     return json({data:{status:'sent',message_type:messageType}},200,req)
   }catch(error){
     const code=error instanceof ManychatApiError?error.code:'manychat_unavailable',status=error instanceof ManychatApiError?error.httpStatus:503
-    const messages:Record<string,string>={manychat_token_invalid:'A autenticação do ManyChat foi recusada.',manychat_unavailable:'O ManyChat está indisponível. Tente novamente.',manychat_create_contact_failed:'Não foi possível preparar o contato no ManyChat.',manychat_lookup_failed:'Não foi possível localizar o contato no ManyChat.',manychat_send_failed:'O ManyChat não conseguiu iniciar a automação.',manychat_invalid_subscriber:'O contato retornado pelo ManyChat é inválido.'}
+    const messages:Record<string,string>={manychat_token_invalid:'A autenticação do ManyChat foi recusada.',manychat_unavailable:'O ManyChat está indisponível. Tente novamente.',manychat_create_contact_failed:'O contato já pode existir no WhatsApp do ManyChat, mas não foi possível localizá-lo ou criá-lo.',manychat_lookup_failed:'Não foi possível localizar o contato no ManyChat.',manychat_flow_not_found:'O flow_ns configurado não existe entre as automações desta conta do ManyChat.',manychat_send_failed:'O ManyChat não conseguiu iniciar a automação.',manychat_invalid_subscriber:'O contato retornado pelo ManyChat é inválido.'}
     const providerStatus=error instanceof ManychatApiError?error.providerStatus:undefined,providerReason=error instanceof ManychatApiError?error.providerReason:undefined
     const providerHint=providerReason?` Motivo informado pelo ManyChat: ${providerReason}.`:''
-    const flowHint=code==='manychat_send_failed'?' Verifique se o fluxo de cobrança está publicado e se o flow_ns configurado corresponde a essa automação.':''
+    const flowHint=code==='manychat_send_failed'?' O flow_ns existe; confira se a automação está publicada e começa com um modelo WhatsApp aprovado.':''
     console.error({event:'manychat_send_failed',client_id:clientId,message_type:messageType,code,provider_status:providerStatus,provider_reason:providerReason})
     return json({error:{code,message:`${messages[code]??'Não foi possível enviar o WhatsApp.'}${providerHint}${flowHint}`,provider_status:providerStatus,provider_reason:providerReason}},status,req)
   }

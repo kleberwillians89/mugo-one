@@ -25,15 +25,21 @@ describe('ManyChat send — contrato oficial e telefone',()=>{
     expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({subscriber_id:123,flow_ns:'content123'})
   })
   it('cria contato WhatsApp quando a busca confirma ausência e depois inicia o flow',async()=>{
-    const fetcher=vi.fn().mockResolvedValueOnce(response(404,{status:'error',message:'Subscriber not found'})).mockResolvedValueOnce(response(200,{status:'success',data:{id:'456'}})).mockResolvedValueOnce(response(200,{status:'success'}))
+    const fetcher=vi.fn().mockResolvedValueOnce(response(404,{status:'error',message:'Subscriber not found'})).mockResolvedValueOnce(response(200,{status:'success',data:[]})).mockResolvedValueOnce(response(200,{status:'success',data:{id:'456'}})).mockResolvedValueOnce(response(200,{status:'success'}))
     await sendManychatFlow({apiKey:'secret',flowNs:'access',phone:'11999999999',name:'Maria da Silva',fetcher})
-    expect(String(fetcher.mock.calls[1][0])).toBe('https://api.manychat.com/fb/subscriber/createSubscriber')
-    expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({first_name:'Maria',last_name:'da Silva',whatsapp_phone:'+5511999999999'})
+    expect(String(fetcher.mock.calls[2][0])).toBe('https://api.manychat.com/fb/subscriber/createSubscriber')
+    expect(JSON.parse(String(fetcher.mock.calls[2][1]?.body))).toEqual({first_name:'Maria',last_name:'da Silva',whatsapp_phone:'+5511999999999'})
   })
   it('trata data vazio com HTTP 200 como contato ausente e cria o contato WhatsApp',async()=>{
-    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:[]})).mockResolvedValueOnce(response(200,{status:'success',data:{id:'789'}})).mockResolvedValueOnce(response(200,{status:'success'}))
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:[]})).mockResolvedValueOnce(response(200,{status:'success',data:[]})).mockResolvedValueOnce(response(200,{status:'success',data:{id:'789'}})).mockResolvedValueOnce(response(200,{status:'success'}))
     await expect(sendManychatFlow({apiKey:'secret',flowNs:'collection',phone:'11999999999',name:'Adriana Rezende',fetcher})).resolves.toMatchObject({subscriber_id:'789'})
-    expect(String(fetcher.mock.calls[1][0])).toBe('https://api.manychat.com/fb/subscriber/createSubscriber')
+    expect(String(fetcher.mock.calls[2][0])).toBe('https://api.manychat.com/fb/subscriber/createSubscriber')
+  })
+  it('recupera contato WhatsApp existente por nome e confirma o telefone exato antes de enviar',async()=>{
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:[]})).mockResolvedValueOnce(response(200,{status:'success',data:[{id:'654',whatsapp_phone:'+5511999999999'}]})).mockResolvedValueOnce(response(200,{status:'success'}))
+    await expect(sendManychatFlow({apiKey:'secret',flowNs:'collection',phone:'11999999999',name:'Adriana Rezende',fetcher})).resolves.toMatchObject({subscriber_id:'654'})
+    expect(String(fetcher.mock.calls[1][0])).toContain('/fb/subscriber/findByName?name=Adriana%20Rezende')
+    expect(fetcher).toHaveBeenCalledTimes(3)
   })
   it('aceita resposta de contato em lista quando o ManyChat a devolve nesse formato',async()=>{
     const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:[{id:'987'}]})).mockResolvedValueOnce(response(200,{status:'success'}))
@@ -45,8 +51,12 @@ describe('ManyChat send — contrato oficial e telefone',()=>{
     await expect(sendManychatFlow({apiKey:'x',flowNs:'x',phone:'11999999999',name:'A',fetcher:vi.fn().mockResolvedValue(response(401,{status:'error'}))})).rejects.toMatchObject({code:'manychat_token_invalid'})
   })
   it('preserva status e motivo sanitizado quando o ManyChat recusa iniciar o fluxo',async()=>{
-    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(400,{status:'error',message:'Flow not found for cliente@example.com +5511999999999'}))
-    await expect(sendManychatFlow({apiKey:'x',flowNs:'incorreto',phone:'11999999999',name:'Cliente',fetcher})).rejects.toMatchObject({code:'manychat_send_failed',providerStatus:400,providerReason:'Flow not found for [email] [telefone]'})
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(400,{status:'error',message:'Validation error for cliente@example.com +5511999999999'})).mockResolvedValueOnce(response(200,{status:'success',data:{flows:[{ns:'incorreto'}]}}))
+    await expect(sendManychatFlow({apiKey:'x',flowNs:'incorreto',phone:'11999999999',name:'Cliente',fetcher})).rejects.toMatchObject({code:'manychat_send_failed',providerStatus:400,providerReason:'Validation error for [email] [telefone]'})
+  })
+  it('distingue flow_ns inexistente de outra recusa do sendFlow',async()=>{
+    const fetcher=vi.fn().mockResolvedValueOnce(response(200,{status:'success',data:{id:'123'}})).mockResolvedValueOnce(response(400,{status:'error',message:'Validation error'})).mockResolvedValueOnce(response(200,{status:'success',data:{flows:[{ns:'outro-flow'}]}}))
+    await expect(sendManychatFlow({apiKey:'x',flowNs:'incorreto',phone:'11999999999',name:'Cliente',fetcher})).rejects.toMatchObject({code:'manychat_flow_not_found',httpStatus:422})
   })
   it('não transforma erro 400 desconhecido em criação de contato',async()=>{
     const fetcher=vi.fn().mockResolvedValue(response(400,{status:'error',message:'Invalid phone'}))
@@ -83,7 +93,7 @@ describe('manychat-send — fronteira segura CRM → ManyChat',()=>{
   it('devolve diagnóstico seguro quando o provedor recusa o fluxo',()=>{
     expect(sendEdge).toContain('provider_status:providerStatus')
     expect(sendEdge).toContain('provider_reason:providerReason')
-    expect(sendEdge).toContain('flow_ns configurado corresponde a essa automação')
+    expect(sendEdge).toContain('O flow_ns existe; confira se a automação está publicada')
   })
 })
 
