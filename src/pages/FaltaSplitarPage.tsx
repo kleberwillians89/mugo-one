@@ -9,6 +9,17 @@ import'./FaltaSplitarPage.css'
 const QUICK_FILTERS:{value:SplitStatusFilter;label:string}[]=[{value:'not_split',label:'A SEPARAR'},{value:'split',label:'SEPARADOS'},{value:'split_today',label:'SEPARADOS HOJE'},{value:'all',label:'TODOS'}]
 const shortDatePt=(iso:string|null)=>iso?new Date(`${iso}T12:00:00Z`).toLocaleDateString('pt-BR'):'—'
 const splitGroupKey=(group:Pick<SplitStatusPerfumeGroup,'sale_type'|'perfume_id'|'bottle_identifier'>)=>`${group.sale_type}:${group.perfume_id??'none'}:${group.bottle_identifier??'sem-frasco'}`
+const openSplitPrintWindow=(ids:string[])=>{
+  if(!ids.length)return
+  const href=`/print/splits-do-dia?ids=${ids.join(',')}`
+  const printWindow=window.open('','_blank')
+  if(!printWindow){location.assign(href);return}
+  // A sessão "não manter conectado" é deliberadamente restrita à aba.
+  // Autoriza somente a nova aba criada pelo clique antes de navegar para o
+  // documento isolado, evitando que o PDF acabe capturando a tela de login.
+  try{printWindow.sessionStorage.setItem('ruah_session','active')}catch{/* o gate também valida window.opener */}
+  printWindow.location.assign(href)
+}
 
 export function FaltaSplitarPage(){
   const canEdit=useHasPermission('sales.edit')
@@ -110,9 +121,9 @@ export function FaltaSplitarPage(){
 
   const openPrint=()=>{
     if(!selected.size)return
-    window.open(`/print/splits-do-dia?ids=${[...selected].join(',')}`,'_blank')
+    openSplitPrintWindow([...selected])
   }
-  const printItems=(ids:string[])=>{if(ids.length)window.open(`/print/splits-do-dia?ids=${ids.join(',')}`,'_blank')}
+  const printItems=(ids:string[])=>openSplitPrintWindow(ids)
 
   return <div className="falta-splitar-page">
     <header className="falta-splitar-header"><h1><Scissors size={20}/> Separação</h1><p>Fila do Gabriel: aparece aqui assim que a venda é lançada, mesmo antes do Davi marcar como paga.</p></header>

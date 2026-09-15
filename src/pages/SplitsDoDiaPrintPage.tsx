@@ -21,6 +21,7 @@ export function SplitsDoDiaPrintPage(){
 
   if(error)return <main className="splits-document-state"><p>{error}</p><button onClick={()=>history.back()}>Voltar</button></main>
   if(!items)return <main className="splits-document-state"><p>Preparando separação do dia…</p></main>
+  if(!items.length)return <main className="splits-document-state"><p>Nenhum item da seleção foi encontrado. Volte e gere a folha novamente.</p><button onClick={()=>history.back()}>Voltar</button></main>
   return <main className="splits-document-page"><style>{PAGE_STYLE}</style>
     <nav className="splits-document-actions"><button onClick={()=>history.back()}><ArrowLeft/> VOLTAR</button><button onClick={()=>window.print()}><Printer/> IMPRIMIR SEPARAÇÃO</button></nav>
     <article className="splits-document">

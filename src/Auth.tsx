@@ -86,7 +86,8 @@ export function AuthRoot() {
   const [path,setPath]=useState(location.pathname),[session,setSession]=useState<Session|null>(null),[ready,setReady]=useState(!supabase)
   useEffect(()=>{const change=()=>setPath(location.pathname);addEventListener('popstate',change)
     if(!supabase)return()=>removeEventListener('popstate',change)
-    supabase.auth.getSession().then(async({data})=>{if(data.session&&localStorage.getItem('ruah_remember')==='false'&&!sessionStorage.getItem('ruah_session'))await supabase!.auth.signOut();else setSession(data.session);setReady(true)})
+    supabase.auth.getSession().then(async({data})=>{let trustedPrintPopup=false;try{trustedPrintPopup=path.startsWith('/print/')&&window.opener?.location.origin===location.origin}catch{trustedPrintPopup=false}
+      if(data.session&&localStorage.getItem('ruah_remember')==='false'&&!sessionStorage.getItem('ruah_session')&&!trustedPrintPopup)await supabase!.auth.signOut();else{if(data.session&&trustedPrintPopup)sessionStorage.setItem('ruah_session','active');setSession(data.session)}setReady(true)})
     const {data}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));return()=>{removeEventListener('popstate',change);data.subscription.unsubscribe()}},[])
   if(!ready)return <div className="app-loading"><LoaderCircle className="spin"/></div>
   // Portal da cliente ("Minha RUAH"): gerencia a própria sessão do zero,

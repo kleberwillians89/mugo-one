@@ -1,0 +1,23 @@
+import{describe,expect,it}from'vitest'
+import{readFileSync}from'node:fs'
+
+const auth=readFileSync('src/Auth.tsx','utf8')
+const queue=readFileSync('src/pages/FaltaSplitarPage.tsx','utf8')
+const print=readFileSync('src/pages/SplitsDoDiaPrintPage.tsx','utf8')
+
+describe('sessão da folha de splits',()=>{
+ it('transfere a sessão temporária antes de navegar a nova aba',()=>{
+  expect(queue).toContain("const printWindow=window.open('','_blank')")
+  expect(queue).toContain("printWindow.sessionStorage.setItem('ruah_session','active')")
+  expect(queue).toContain('printWindow.location.assign(href)')
+ })
+ it('aceita somente popup de impressão aberto pela mesma origem',()=>{
+  expect(auth).toContain("path.startsWith('/print/')")
+  expect(auth).toContain('window.opener?.location.origin===location.origin')
+  expect(auth).toContain("sessionStorage.setItem('ruah_session','active')")
+ })
+ it('não imprime documento vazio quando os ids não retornam itens',()=>{
+  expect(print).toContain('if(!items.length)')
+  expect(print).toContain('Nenhum item da seleção foi encontrado')
+ })
+})
