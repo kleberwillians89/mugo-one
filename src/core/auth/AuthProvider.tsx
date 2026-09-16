@@ -9,31 +9,42 @@ import {
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../../shared/lib/supabase'
 
-type OAuthProvider = 'google' | 'azure'
-
 type AuthContextValue = {
   user: User | null
   session: Session | null
   loading: boolean
 
+  signUp: (
+    fullName: string,
+    email: string,
+    password: string,
+  ) => Promise<{
+    error: string | null
+    needsConfirmation: boolean
+  }>
+
   signInWithPassword: (
     email: string,
     password: string,
-  ) => Promise<{ error: string | null }>
+  ) => Promise<{
+    error: string | null
+  }>
 
   signInWithMagicLink: (
     email: string,
-  ) => Promise<{ error: string | null }>
-
-  signInWithOAuth: (
-    provider: OAuthProvider,
-  ) => Promise<{ error: string | null }>
+  ) => Promise<{
+    error: string | null
+  }>
 
   resetPassword: (
     email: string,
-  ) => Promise<{ error: string | null }>
+  ) => Promise<{
+    error: string | null
+  }>
 
-  signOut: () => Promise<void>
+  signOut: () => Promise<{
+    error: string | null
+  }>
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(
@@ -51,10 +62,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let mounted = true
 
-    const loadSession = async () => {
+    async function loadSession() {
       const {
         data: { session },
+        error,
       } = await supabase.auth.getSession()
+
+      if (error) {
+        console.error(
+          'Erro ao carregar sessão:',
+          error.message,
+        )
+      }
 
       if (mounted) {
         setSession(session)
@@ -66,10 +85,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
-      setLoading(false)
-    })
+    } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        if (!mounted) {
+          return
+        }
+
+        setSession(nextSession)
+        setLoading(false)
+      },
+    )
 
     return () => {
       mounted = false
@@ -77,12 +102,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [])
 
-  const signInWithPassword = useCallback(
-    async (email: string, password: string) => {
-      const { error } = await supabase.auth.signInWithPassword({
+  const signUp = useCallback(
+    async (
+      fullName: string,
+      email: string,
+      password: string,
+    ) => {
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
       })
+
+      return {
+        error: error?.message ?? null,
+        needsConfirmation: !data.session,
+      }
+    },
+    [],
+  )
+
+  const signInWithPassword = useCallback(
+    async (
+      email: string,
+      password: string,
+    ) => {
+      const { error } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        })
 
       return {
         error: error?.message ?? null,
@@ -91,25 +145,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   )
 
-  const signInWithMagicLink = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-
-    return {
-      error: error?.message ?? null,
-    }
-  }, [])
-
-  const signInWithOAuth = useCallback(
-    async (provider: OAuthProvider) => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
+  const signInWithMagicLink = useCallback(
+    async (email: string) => {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
@@ -120,21 +161,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   )
 
-  const resetPassword = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      email.trim().toLowerCase(),
-      {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      },
-    )
+  const resetPassword = useCallback(
+    async (email: string) => {
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+          email.trim().toLowerCase(),
+          {
+            redirectTo: `${window.location.origin}/auth/reset-password`,
+          },
+        )
+
+      return {
+        error: error?.message ?? null,
+      }
+    },
+    [],
+  )
+
+  const signOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error(
+        'Erro ao encerrar sessão:',
+        error.message,
+      )
+    }
 
     return {
       error: error?.message ?? null,
     }
-  }, [])
-
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
   }, [])
 
   const value = useMemo<AuthContextValue>(
@@ -142,18 +198,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user: session?.user ?? null,
       session,
       loading,
+      signUp,
       signInWithPassword,
       signInWithMagicLink,
-      signInWithOAuth,
       resetPassword,
       signOut,
     }),
     [
       session,
       loading,
+      signUp,
       signInWithPassword,
       signInWithMagicLink,
-      signInWithOAuth,
       resetPassword,
       signOut,
     ],

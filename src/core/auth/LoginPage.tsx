@@ -8,7 +8,6 @@ export function LoginPage() {
     loading,
     signInWithPassword,
     signInWithMagicLink,
-    signInWithOAuth,
     resetPassword,
   } = useAuth()
 
@@ -46,6 +45,7 @@ export function LoginPage() {
       return
     }
 
+    setMessage('')
     setSubmitting(true)
 
     const result = await signInWithMagicLink(email)
@@ -57,19 +57,16 @@ export function LoginPage() {
       return
     }
 
-    setMessage(
-      'Enviamos um link de acesso para o seu e-mail.',
-    )
+    setMessage('Enviamos um link de acesso para o seu e-mail.')
   }
 
   async function handleResetPassword() {
     if (!email.trim()) {
-      setMessage(
-        'Digite seu e-mail para recuperar sua senha.',
-      )
+      setMessage('Digite seu e-mail para recuperar sua senha.')
       return
     }
 
+    setMessage('')
     setSubmitting(true)
 
     const result = await resetPassword(email)
@@ -132,7 +129,7 @@ export function LoginPage() {
           </label>
 
           <button type="submit" disabled={submitting}>
-            Entrar
+            {submitting ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 
@@ -142,22 +139,6 @@ export function LoginPage() {
           onClick={handleMagicLink}
         >
           Receber link mágico
-        </button>
-
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => void signInWithOAuth('google')}
-        >
-          Continuar com Google
-        </button>
-
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => void signInWithOAuth('azure')}
-        >
-          Continuar com Microsoft
         </button>
 
         <button
