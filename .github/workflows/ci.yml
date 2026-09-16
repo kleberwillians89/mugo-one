@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [feat/mugo-one-productization]
+  pull_request:
+
+jobs:
+  build-lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (typecheck + vite build)
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      # Só src/ — scripts/*.test.mjs presume dados privados/produção real
+      # (snapshots em private_data/, credenciais de projeto Supabase real)
+      # e não deve rodar em CI. Ver docs/RUAH_HARDCODE_CATALOG.md.
+      - name: Unit tests (src/)
+        run: npx vitest run src
