@@ -150,6 +150,12 @@ grant select, insert, update, delete on public.organization_features to authenti
 -- (security definer, filtrado sempre por organization_id explícito).
 -- Módulo "core" (is_core=true) é considerado habilitado por padrão
 -- quando não há linha explícita em organization_features.
+-- SECURITY DEFINER contorna RLS de organization_features/features, então
+-- a função tem que checar membership sozinha (não basta receber
+-- p_organization_id como parâmetro) — mesmo predicado já usado nas
+-- policies de select deste arquivo (current_user_org_ids()). Sem isso,
+-- qualquer usuário autenticado poderia consultar feature flags de
+-- qualquer organização, não só a própria.
 create or replace function public.has_organization_feature(
   p_organization_id uuid,
   p_feature_code text
@@ -160,18 +166,20 @@ stable
 security definer
 set search_path = public
 as $$
-  select coalesce(
-    (
-      select of.enabled
-      from public.organization_features of
-      where of.organization_id = p_organization_id
-        and of.feature_code = p_feature_code
-    ),
-    exists (
-      select 1 from public.features f
-      where f.code = p_feature_code and f.is_core = true
-    )
-  );
+  select
+    p_organization_id in (select public.current_user_org_ids())
+    and coalesce(
+      (
+        select of.enabled
+        from public.organization_features of
+        where of.organization_id = p_organization_id
+          and of.feature_code = p_feature_code
+      ),
+      exists (
+        select 1 from public.features f
+        where f.code = p_feature_code and f.is_core = true
+      )
+    );
 $$;
 
 grant execute on function public.has_organization_feature(uuid, text) to authenticated;

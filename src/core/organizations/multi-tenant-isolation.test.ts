@@ -44,6 +44,21 @@ describe('isolamento multi-tenant — organization_settings e organization_featu
     expect(migration).toContain('where of.organization_id = p_organization_id')
   })
 
+  it('has_organization_feature checa membership do usuário atual antes de responder (SECURITY DEFINER não é suficiente sozinho)', () => {
+    const start = migration.indexOf('create or replace function public.has_organization_feature(')
+    const end = migration.indexOf('grant execute on function public.has_organization_feature', start)
+    const fn = migration.slice(start, end)
+    expect(fn).toContain('p_organization_id in (select public.current_user_org_ids())')
+  })
+
+  it('preserva o comportamento de feature core habilitada por default e override por organization_features', () => {
+    const start = migration.indexOf('create or replace function public.has_organization_feature(')
+    const end = migration.indexOf('grant execute on function public.has_organization_feature', start)
+    const fn = migration.slice(start, end)
+    expect(fn).toContain('f.is_core = true')
+    expect(fn).toContain('select of.enabled')
+  })
+
   it('nenhum arquivo novo de src/core/organizations referencia SERVICE_ROLE (mesma garantia já testada para o resto do frontend)', () => {
     const files = [
       'organizationStorage.ts',

@@ -10,7 +10,7 @@ type OrganizationState = {
   error: string
 }
 
-type OrganizationContextValue = OrganizationState & {
+export type OrganizationContextValue = OrganizationState & {
   /** Troca a organização atual (persistida) e recarrega o contexto. Base para um futuro seletor de organização. */
   switchOrganization: (organizationId: string) => Promise<void>
   reload: () => void
@@ -18,11 +18,11 @@ type OrganizationContextValue = OrganizationState & {
 
 const initialState: OrganizationState = { organizations: [], currentOrganization: null, loading: true, error: '' }
 
-export const OrganizationContext = createContext<OrganizationContextValue>({
-  ...initialState,
-  switchOrganization: async () => {},
-  reload: () => {},
-})
+// undefined (em vez de um valor default silencioso) é proposital: força
+// useOrganization() a lançar um erro claro quando chamado fora de
+// OrganizationProvider, em vez de devolver dados vazios sem avisar —
+// mesmo padrão de useOrganization em feat/core-foundation.
+export const OrganizationContext = createContext<OrganizationContextValue | undefined>(undefined)
 
 /**
  * Fonte única de verdade de "qual organização está ativa agora".
