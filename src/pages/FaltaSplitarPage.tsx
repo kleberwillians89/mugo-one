@@ -45,7 +45,7 @@ export function FaltaSplitarPage(){
   },[quickFilter,effectiveFilters,push])
   useEffect(()=>{loadSummary()},[loadSummary])
   const loadPeople=useCallback(()=>{setPersonItems(null);fetchAllSplitStatusItems(quickFilter,effectiveFilters).then(setPersonItems).catch(()=>push('Não foi possível carregar a lista por pessoa.',{tone:'error'}))},[quickFilter,effectiveFilters,push])
-  useEffect(()=>{loadPeople()},[loadPeople])
+  useEffect(()=>{const timer=window.setTimeout(loadPeople,0);return()=>window.clearTimeout(timer)},[loadPeople])
   const people=useMemo(()=>groupSplitItemsByClient(personItems??[]),[personItems])
 
   const loadItems=useCallback((group:SplitStatusPerfumeGroup)=>{

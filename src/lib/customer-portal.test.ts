@@ -36,9 +36,12 @@ describe('A/B/C — primeiro acesso nunca permite enumeração de CPF', () => {
     expect(genericOccurrences.length).toBeGreaterThanOrEqual(4)
     expect(claimStartFn).not.toMatch(/cpf_not_found|email_mismatch|already_registered/i)
   })
-  it('login por CPF também nunca revela existência: CPF sem conta ativa devolve o MESMO placeholder que qualquer CPF inválido', () => {
+  it('endpoint legado de login por CPF nunca consulta nem devolve o e-mail real', () => {
     const placeholderOccurrences = resolveLoginFn.match(/PLACEHOLDER_EMAIL/g) ?? []
-    expect(placeholderOccurrences.length).toBeGreaterThanOrEqual(3)
+    expect(placeholderOccurrences.length).toBeGreaterThanOrEqual(2)
+    expect(resolveLoginFn).not.toContain("from('clients')")
+    expect(resolveLoginFn).not.toContain('getUserById')
+    expect(resolveLoginFn).not.toContain('SUPABASE_SERVICE_ROLE_KEY')
   })
 })
 

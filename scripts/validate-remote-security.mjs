@@ -12,7 +12,7 @@ const check = async (name, url, options, expected) => {
   const response = await fetch(url, options)
   results.push({ name, status:response.status, passed:expected.includes(response.status) })
 }
-for (const table of ['clients','perfumes','sales']) {
+for (const table of ['clients','perfumes','sales','shipments','inventory_allocations','client_accounts','audit_logs']) {
   const response = await fetch(`${base}/rest/v1/${table}?select=id&limit=1`, { headers })
   const body = response.ok ? await response.json() : null
   results.push({
@@ -21,8 +21,22 @@ for (const table of ['clients','perfumes','sales']) {
     passed:response.status===200 && Array.isArray(body) && body.length===0,
   })
 }
-await check('RLS: escrita anônima bloqueada',`${base}/rest/v1/clients`,{method:'POST',headers,body:'{}'},[401,403])
-await check('Bucket comercial não público',`${base}/storage/v1/object/public/commercial-imports/security-check.txt`,{},[400,404])
+{
+  const response = await fetch(`${base}/rest/v1/clients`,{method:'POST',headers,body:JSON.stringify({
+    organization_id:'032fd96e-638f-428b-8cc2-37afc71e10ea',
+    name:'SECURITY CHECK — MUST NEVER BE INSERTED',
+    normalized_name:'security check must never be inserted',
+  })})
+  let body = null
+  try { body = await response.json() } catch { /* corpo não JSON */ }
+  const rlsRejected = response.status === 400
+    && body?.code === '42501'
+    && /row-level security|permission denied/i.test(String(body?.message ?? ''))
+  results.push({ name:'RLS: escrita anônima bloqueada', status:response.status, passed:[401,403].includes(response.status)||rlsRejected })
+}
+for (const bucket of ['commercial-imports','collection-images','sale-payment-attachments','customer-support-attachments']) {
+  await check(`Bucket privado: ${bucket}`,`${base}/storage/v1/object/public/${bucket}/security-check.txt`,{},[400,404])
+}
 for (const fn of ['process-import','confirm-import','revert-import','generate-insights','ask-intelligence','recalculate-metrics']) {
   await check(`JWT obrigatório: ${fn}`,`${base}/functions/v1/${fn}`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'},[401])
 }

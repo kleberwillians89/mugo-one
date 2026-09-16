@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/security.ts'
 import { firstAccessRedirectUrl, isAllowedPublicOrigin } from '../_shared/public-app-url.ts'
 import {sendInviteEmail} from '../_shared/customer-invite.ts'
+import {publicRateLimit} from '../_shared/public-rate-limit.ts'
 
 // Primeiro acesso da cliente ("Minha RUAH"). SEM Authorization: a cliente
 // ainda não tem sessão nenhuma — não pode reusar context() (exige Bearer
@@ -34,6 +35,13 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!supabaseUrl || !serviceRoleKey) return json({ error: { code: 'server_config', message: 'Função não configurada.' } }, 500, req)
   const admin = createClient(supabaseUrl, serviceRoleKey)
+  try {
+    const [addressAllowed,identityAllowed] = await Promise.all([
+      publicRateLimit({ admin, req, serviceRoleKey, scope: 'customer-claim-start.ip', limit: 20, windowSeconds: 3600 }),
+      publicRateLimit({ admin, req, serviceRoleKey, scope: 'customer-claim-start.identity', identifier: `${cpf}|${email}`, includeAddress: false, limit: 5, windowSeconds: 3600 }),
+    ])
+    if (!addressAllowed || !identityAllowed) return json(generic, 200, req)
+  } catch { return json({ error: { code: 'service_unavailable', message: 'Serviço temporariamente indisponível.' } }, 503, req) }
 
   const { data: client } = await admin.from('clients').select('id,organization_id,name')
     .eq('normalized_cpf', cpf).ilike('email', email).is('deleted_at', null).limit(1).maybeSingle()

@@ -29,7 +29,6 @@ export function OperationalShipments({initialTask}:{initialTask?:ShippingTaskFil
   const [scanNotice,setScanNotice]=useState('')
   const reload=()=>fetchOperationalShipments().then(data=>{setRows(data);setError('')}).catch(reason=>setError(reason instanceof Error?reason.message:'Não foi possível carregar os envios.')).finally(()=>setLoading(false))
   useEffect(()=>{reload()},[])
-  useEffect(()=>{setTaskFilter(initialTask??'');if(initialTask)setStageFilter('')},[initialTask])
   // Priority 0 (nota de controle impressa): Code128 carrega o shipment.id
   // inteiro — bipar aqui abre o envio direto, sem precisar procurar na
   // lista. Um código de frasco (RUAH-Fxxxxxx) nunca casa com a forma de

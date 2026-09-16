@@ -86,7 +86,8 @@ export function AuthRoot() {
   const [path,setPath]=useState(location.pathname),[session,setSession]=useState<Session|null>(null),[ready,setReady]=useState(!supabase)
   useEffect(()=>{const change=()=>setPath(location.pathname);addEventListener('popstate',change)
     if(!supabase)return()=>removeEventListener('popstate',change)
-    supabase.auth.getSession().then(async({data})=>{let trustedPrintPopup=false;try{trustedPrintPopup=path.startsWith('/print/')&&window.opener?.location.origin===location.origin}catch{trustedPrintPopup=false}
+    const initialPath=location.pathname
+    supabase.auth.getSession().then(async({data})=>{const trustedPrintPopup=(()=>{try{return initialPath.startsWith('/print/')&&window.opener?.location.origin===location.origin}catch{return false}})()
       if(data.session&&localStorage.getItem('ruah_remember')==='false'&&!sessionStorage.getItem('ruah_session')&&!trustedPrintPopup)await supabase!.auth.signOut();else{if(data.session&&trustedPrintPopup)sessionStorage.setItem('ruah_session','active');setSession(data.session)}setReady(true)})
     const {data}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));return()=>{removeEventListener('popstate',change);data.subscription.unsubscribe()}},[])
   if(!ready)return <div className="app-loading"><LoaderCircle className="spin"/></div>

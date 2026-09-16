@@ -12,7 +12,7 @@ describe('sessão da folha de splits',()=>{
   expect(queue).toContain('printWindow.location.assign(href)')
  })
  it('aceita somente popup de impressão aberto pela mesma origem',()=>{
-  expect(auth).toContain("path.startsWith('/print/')")
+  expect(auth).toContain("initialPath.startsWith('/print/')")
   expect(auth).toContain('window.opener?.location.origin===location.origin')
   expect(auth).toContain("sessionStorage.setItem('ruah_session','active')")
  })

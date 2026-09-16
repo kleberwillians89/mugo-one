@@ -71,13 +71,6 @@ export async function finalizeCustomerIdentity():Promise<'linked'|'review_requir
   return data as 'linked'|'review_required'
 }
 
-export async function resolveLoginEmail(identifier: string): Promise<string> {
-  const trimmed = identifier.trim()
-  if (trimmed.includes('@')) return trimmed
-  const { email } = await invoke('customer-resolve-login', { cpf: onlyDigits(trimmed) })
-  return email as string
-}
-
 export type CustodyItem = { allocation_id: string; perfume_id: string; perfume_name: string; quantity_ml: number; sale_date: string | null; allocation_status: 'reserved' | 'shipping'; requested: boolean; request_id: string | null; shipping_availability_text?:string|null; shipping_availability_kind?:string|null; shipping_available_date?:string|null; shipping_lead_business_days?:number|null; shipping_availability_confirmed_at?:string|null; shipping_requestable?:boolean;requestable_quantity_ml?:number;prepared_quantity_ml?:number }
 export async function fetchCustody(): Promise<CustodyItem[]> {
   const { data, error } = await supabase!.rpc('customer_custody')
