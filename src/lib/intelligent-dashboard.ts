@@ -1,4 +1,3 @@
-import { authenticatedOrganization } from './records'
 import { supabase } from './supabase'
 
 export type DashboardPeriodKey='last_hour'|'today'|'24h'|'7d'|'30d'|'custom'
@@ -16,8 +15,7 @@ export type IntelligentDashboard={
 }
 
 export async function fetchIntelligentDashboard(period:DashboardPeriodKey,startDate?:string,endDate?:string){
-  const {organizationId}=await authenticatedOrganization()
-  const {data,error}=await supabase!.rpc('dashboard_summary',{p_organization_id:organizationId,p_period:period,p_start_date:startDate??null,p_end_date:endDate??null})
+  const {data,error}=await supabase!.rpc('dashboard_home_summary',{p_period:period,p_start_date:startDate??null,p_end_date:endDate??null})
   if(error)throw new Error(error.message)
   return data as IntelligentDashboard
 }
