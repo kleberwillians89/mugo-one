@@ -3,27 +3,14 @@ import { supabase } from './supabase'
 import type { PeriodValue } from './period'
 import { OPERATIONAL_START_DATE, operationalPeriod, withOperationalDaviFilters } from './operational-sales'
 
-export async function authenticatedOrganization() {
-  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Faça login para continuar.')
-  const { data, error } = await supabase.from('organization_members')
-    .select('organization_id,role').eq('user_id', user.id).limit(1).single()
-  if (error || !data) throw new Error('Usuário sem organização vinculada.')
-  return { user, organizationId: data.organization_id as string, role: data.role as string }
-}
-
-export async function fetchOperationalSalesStartDate(organizationId:string) {
-  const{data,error}=await supabase!.from('organizations').select('operational_sales_start_date').eq('id',organizationId).single()
-  if(error)throw new Error(error.message)
-  return(data?.operational_sales_start_date as string|null)??OPERATIONAL_START_DATE
-}
-
-export async function currentOrganization() {
-  const context = await authenticatedOrganization()
-  if (context.role === 'viewer') throw new Error('Seu perfil não permite alterações.')
-  return context
-}
+// Contexto de organização (auth/tenant) foi extraído para
+// src/core/organizations/legacyOrganizationAccess.ts na sprint de
+// productização — mesma assinatura, mesmo comportamento observável para
+// os ~50 call sites deste arquivo, só a resolução de tenant deixou de
+// ser "pegar a primeira organization_members sem ORDER BY" (ver
+// resolveCurrentOrganization.ts para o porquê). Ver docs/RECORDS_TS_DOMAIN_MAP.md.
+import { authenticatedOrganization, currentOrganization, fetchOperationalSalesStartDate } from '../core/organizations/legacyOrganizationAccess'
+export { authenticatedOrganization, currentOrganization, fetchOperationalSalesStartDate }
 
 export type DashboardMetrics = {
   clients:number; sales:number; paid:number; pending:number; cancelled:number; review:number
