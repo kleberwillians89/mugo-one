@@ -8,6 +8,7 @@ const companiesContacts = readFileSync(base('202609180002_crm_companies_contacts
 const tags = readFileSync(base('202609180003_crm_tags.sql'), 'utf8')
 const customFields = readFileSync(base('202609180004_crm_custom_fields.sql'), 'utf8')
 const notesActivities = readFileSync(base('202609180005_crm_notes_activities.sql'), 'utf8')
+const securityHardening = readFileSync(base('202609180006_crm_security_hardening.sql'), 'utf8')
 
 const all = [companiesContacts, tags, customFields, notesActivities].join('\n')
 
@@ -76,6 +77,89 @@ describe('CRM universal — activities só é escrita via log_activity() (SECURI
     const fn = notesActivities.slice(start, end)
     expect(fn).toContain('security definer')
     expect(fn).toContain('entity_belongs_to_organization(p_entity_type, p_entity_id, p_organization_id)')
+  })
+})
+
+describe('CRM universal — helpers internos não ficam expostos como RPCs', () => {
+  const revoke = (signature: string) =>
+    `revoke execute on function public.${signature}\n  from public, anon, authenticated;`
+
+  it('revoga explicitamente PUBLIC, anon e authenticated dos helpers SECURITY DEFINER', () => {
+    expect(securityHardening).toContain(revoke('entity_belongs_to_organization(text, uuid, uuid)'))
+    expect(securityHardening).toContain(revoke('log_activity(uuid, text, uuid, text, uuid, text, text, jsonb)'))
+  })
+
+  it('revoga execução direta de todos os trigger helpers da Sprint 2', () => {
+    const triggerHelpers = [
+      'companies_set_updated_at()',
+      'contacts_set_updated_at()',
+      'contacts_validate_tenant_refs()',
+      'validate_entity_tenant_ownership()',
+      'entity_tags_validate_tag_tenant()',
+      'custom_fields_set_updated_at()',
+      'custom_field_values_set_updated_at()',
+      'custom_field_values_validate()',
+      'notes_set_updated_at()',
+      'clients_log_activity()',
+      'companies_log_activity()',
+      'contacts_log_activity()',
+      'notes_log_activity()',
+      'entity_tags_log_activity()',
+    ]
+
+    for (const helper of triggerHelpers) {
+      expect(securityHardening).toContain(revoke(helper))
+    }
+  })
+
+  it('eleva somente wrappers que precisam chamar helpers revogados e mantém search_path fixo', () => {
+    const wrappers = [
+      ['validate_entity_tenant_ownership()', tags],
+      ['custom_field_values_validate()', customFields],
+      ['clients_log_activity()', notesActivities],
+      ['companies_log_activity()', notesActivities],
+      ['contacts_log_activity()', notesActivities],
+      ['notes_log_activity()', notesActivities],
+      ['entity_tags_log_activity()', notesActivities],
+    ] as const
+
+    for (const [signature, source] of wrappers) {
+      expect(securityHardening).toContain(`alter function public.${signature} security definer;`)
+      const functionName = signature.slice(0, -2)
+      const start = source.indexOf(`create or replace function public.${functionName}()`)
+      const end = source.indexOf('$$;', start)
+      expect(start).toBeGreaterThanOrEqual(0)
+      expect(source.slice(start, end)).toContain('set search_path = public')
+    }
+  })
+
+  it('preserva os cinco triggers de timeline e seus tipos de evento', () => {
+    const triggerEvents = [
+      ['clients_log_activity', 'customer_created'],
+      ['companies_log_activity', 'company_created'],
+      ['contacts_log_activity', 'contact_created'],
+      ['notes_log_activity', 'note_added'],
+      ['entity_tags_log_activity', 'tag_added'],
+    ]
+
+    for (const [trigger, event] of triggerEvents) {
+      expect(notesActivities).toContain(`create trigger ${trigger}`)
+      expect(notesActivities).toContain(`'${event}'`)
+    }
+  })
+
+  it('não concede os helpers a service_role nem introduz essa credencial no frontend CRM', () => {
+    expect(securityHardening.toLowerCase()).not.toContain('grant execute')
+    expect(securityHardening.toLowerCase()).not.toContain('service_role')
+
+    const frontendSources = [
+      readFileSync(new URL('./activities/activities.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('./notes/notes.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('./tags/tags.ts', import.meta.url), 'utf8'),
+    ]
+    for (const source of frontendSources) {
+      expect(source.toLowerCase()).not.toContain('service_role')
+    }
   })
 })
 
