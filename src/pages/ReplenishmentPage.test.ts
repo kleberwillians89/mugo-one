@@ -81,16 +81,17 @@ describe('InventoryPage: badge de reposição não altera o botão/ação de est
   })
 })
 
-describe('Dashboard: seção "O que precisa da sua atenção" usa só sinais determinísticos', () => {
-  it('conta reposição/atenção a partir de replenishment_signals, sem hardcode', () => {
-    expect(dashboard).toContain('fetchReplenishmentSignals()')
-    expect(dashboard).toContain("signals.filter((signal)=>signal.status==='critico'||signal.status==='repor')")
+describe('Dashboard: Home inteligente consome atenção já calculada no backend', () => {
+  it('faz uma única chamada agregada, sem buscar reposição separadamente', () => {
+    expect(dashboard).toContain('fetchIntelligentDashboard(period,start,end)')
+    expect(dashboard).not.toContain('fetchReplenishmentSignals()')
   })
-  it('o botão "Ver reposições" navega para /estoque/reposicao, nunca dispara busca', () => {
-    expect(dashboard).toContain('goToReplenishment')
+  it('não dispara busca externa e oferece navegação operacional explícita', () => {
+    expect(dashboard).toContain('href="/entregas"')
     expect(dashboard).not.toContain('searchRadar')
   })
-  it('não polui o dashboard: a seção só aparece quando há algo para mostrar', () => {
-    expect(dashboard).toContain('{(stockAlerts.repor > 0 || stockAlerts.atencao > 0) &&')
+  it('renderiza alertas somente a partir do payload centralizado', () => {
+    expect(dashboard).toContain('data.alerts.length?')
+    expect(dashboard).toContain('ALERTAS CENTRALIZADOS')
   })
 })

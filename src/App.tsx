@@ -74,7 +74,7 @@ export function App() {
       return wantsTeam ? <TeamSettingsPage/> : <ShippingSettingsPage/>
     }
     if (!permissionsLoading && !pagePermission[page].some((code) => can(code))) return <AccessRestricted/>
-    if (page === 'Visão Geral') return <Dashboard period={period} setPeriod={setPeriod}/>
+    if (page === 'Visão Geral') return <Dashboard/>
     if (page === 'Torre de Controle') return <ControlTowerPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}

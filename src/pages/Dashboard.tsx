@@ -1,125 +1,47 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowUpRight, ChartNoAxesCombined, Clock3, ShoppingBag, Sparkles, TrendingUp, X } from 'lucide-react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { brl, integer, shortDate } from '../lib/format'
-import { PeriodFilter } from '../components/PeriodFilter'
-import { PeriodValue } from '../lib/period'
-import { DashboardActivityItem, PeriodSummary, fetchDashboardActivity, fetchPeriodSummary } from '../lib/records'
-import { fetchReplenishmentSignals, goToReplenishment } from '../lib/replenishment'
-import { fetchSalesValidationQueue, goToSalesBlocked } from '../lib/sales-validation'
-import { fetchClientRecoveryQueue, goToClientRecovery } from '../lib/client-recovery'
-import { Metric } from '../components/shared/Metric'
-import { SecondaryButton } from '../components/ui'
+import {useEffect,useMemo,useState} from 'react'
+import {AlertTriangle,ArrowDownRight,ArrowRight,ArrowUpRight,Boxes,CalendarDays,CircleDollarSign,Clock3,PackageCheck,RefreshCw,ShoppingBag,Sparkles,Truck,UsersRound} from 'lucide-react'
+import {brl,integer} from '../lib/format'
+import {buildDashboardNarrative,DashboardPeriodKey,fetchIntelligentDashboard,IntelligentDashboard,percentChange} from '../lib/intelligent-dashboard'
+import {statusLabel} from '../lib/presentation'
 import './Dashboard.css'
 
-export function Dashboard({period,setPeriod}:{period:PeriodValue;setPeriod:(value:PeriodValue)=>void}) {
-  const [live,setLive]=useState<PeriodSummary|null>(null)
-  const [loadError,setLoadError]=useState('')
-  const [operations,setOperations]=useState<{activity:DashboardActivityItem[];attention:DashboardActivityItem[]}>({activity:[],attention:[]})
-  const [stockAlerts,setStockAlerts]=useState({repor:0,atencao:0})
-  const [blockedSalesCount,setBlockedSalesCount]=useState(0)
-  const [recoveryCount,setRecoveryCount]=useState(0)
-  useEffect(()=>{fetchPeriodSummary(period).then(setLive).catch(()=>setLoadError('Não foi possível consultar o Supabase.'))},[period])
-  useEffect(()=>{fetchDashboardActivity().then(setOperations).catch(()=>{})},[])
-  // Só sinais determinísticos do estoque (reposição inteligente) — nunca inventa números aqui.
-  useEffect(()=>{fetchReplenishmentSignals().then((signals)=>setStockAlerts({
-    repor:signals.filter((signal)=>signal.status==='critico'||signal.status==='repor').length,
-    atencao:signals.filter((signal)=>signal.status==='atencao').length,
-  })).catch(()=>{})},[])
-  // Fase 2 do roadmap operacional ("Qual venda está bloqueada?").
-  useEffect(()=>{fetchSalesValidationQueue().then((rows)=>setBlockedSalesCount(rows.length)).catch(()=>{})},[])
-  // Fase 7 do roadmap operacional ("Quem está deixando de comprar?").
-  useEffect(()=>{fetchClientRecoveryQueue().then((rows)=>setRecoveryCount(rows.length)).catch(()=>{})},[])
-  const hasData = Boolean(live?.sales)
-  const paid = Number(live?.paid ?? 0)
-  const pending = Number(live?.pending ?? 0)
-  const cancelled = Number(live?.cancelled ?? 0)
-  const total = paid + pending + cancelled
-  const paymentData = live?.payment_methods??[]
-  const colors = ['#bf9636', '#332f29', '#817768', '#ded6c8', '#9f7c2b']
-  return <div className="page dashboard-page">
-    <div className="page-lead dashboard-lead">
-      <div><span className="dashboard-eyebrow">HOJE NA RUAH</span><h2>Visão executiva</h2><p>Uma leitura precisa do comercial, dos recebimentos e da operação.</p></div>
-      <PeriodFilter value={period} onApply={setPeriod}/>
-    </div>
-    {loadError && <div className="notice"><AlertTriangle size={18} /><span>{loadError}</span></div>}
-    {(stockAlerts.repor > 0 || stockAlerts.atencao > 0 || blockedSalesCount > 0 || recoveryCount > 0) && <section className="card attention-card">
-      <span className="attention-eyebrow">O QUE PRECISA DA SUA ATENÇÃO</span>
-      {(stockAlerts.repor > 0 || stockAlerts.atencao > 0) && <div className="attention-row">
-        <div>
-          <strong>ESTOQUE</strong>
-          <p>
-            {stockAlerts.repor > 0 && <>{stockAlerts.repor} perfume{stockAlerts.repor === 1 ? '' : 's'} precisa{stockAlerts.repor === 1 ? '' : 'm'} de reposição</>}
-            {stockAlerts.repor > 0 && stockAlerts.atencao > 0 && <br />}
-            {stockAlerts.atencao > 0 && <>{stockAlerts.atencao} está{stockAlerts.atencao === 1 ? '' : 'ão'} em atenção</>}
-          </p>
-        </div>
-        <SecondaryButton onClick={goToReplenishment}>Ver reposições</SecondaryButton>
-      </div>}
-      {blockedSalesCount > 0 && <div className="attention-row">
-        <div>
-          <strong>VENDAS</strong>
-          <p>{blockedSalesCount} venda{blockedSalesCount === 1 ? '' : 's'} precisa{blockedSalesCount === 1 ? '' : 'm'} de dados para seguir para o envio</p>
-        </div>
-        <SecondaryButton onClick={goToSalesBlocked}>Ver vendas bloqueadas</SecondaryButton>
-      </div>}
-      {recoveryCount > 0 && <div className="attention-row">
-        <div>
-          <strong>CLIENTES</strong>
-          <p>{recoveryCount} cliente{recoveryCount === 1 ? '' : 's'} sem comprar há 90+ dias</p>
-        </div>
-        <SecondaryButton onClick={goToClientRecovery}>Ver recuperação</SecondaryButton>
-      </div>}
-    </section>}
-    <section className="executive-hero" aria-label="Resumo executivo"><div className="executive-primary"><span>VENDAS NO PERÍODO</span><strong>{hasData?brl(Number(live!.total)):'—'}</strong><small>{hasData?`${integer(Number(live!.sales))} relações comerciais`:'Aguardando dados reais'}</small></div><div className="executive-secondary"><div><span>RECEBIDO</span><strong>{hasData?brl(paid):'—'}</strong></div><div><span>PENDENTE</span><strong>{hasData?brl(pending):'—'}</strong></div><div><span>ATENÇÃO OPERACIONAL</span><strong>{hasData?integer(Number(live!.deliveries_pending)+Number(live!.deliveries_overdue)):'—'}</strong><small>entregas pendentes + atrasadas</small></div></div></section>
-    <section className="metrics">
-      <Metric label="Vendas realizadas" value={hasData ? integer(Number(live!.sales)) : '—'} detail={period.label} icon={ShoppingBag} />
-      <Metric label="Ticket médio" value={hasData ? brl(Number(live!.average_ticket)) : '—'} detail="Valor por relação" icon={TrendingUp} />
-      <Metric label="Cancelado" value={hasData ? brl(cancelled) : '—'} detail={hasData ? 'Fora do faturamento' : 'Aguardando dados'} icon={X} tone="cream" />
-      <Metric label="Em revisão" value={hasData ? brl(Number(live!.review)) : '—'} detail={hasData ? `${integer(Number(live!.review_count))} registros` : 'Aguardando dados'} icon={Clock3} tone="sand" />
-    </section>
-    {hasData && <section className="coverage card">
-      <div><span>Ticket médio</span><strong>{brl(Number(live!.average_ticket))}</strong></div>
-      <div><span>Clientes compradores</span><strong>{integer(Number(live!.buying_clients))}</strong></div>
-      <div><span>Novos clientes</span><strong>{integer(Number(live!.new_clients))}</strong></div>
-      <div><span>Clientes recorrentes</span><strong>{integer(Number(live!.recurring_clients))}</strong></div>
-      <div><span>Entregas pendentes</span><strong>{integer(Number(live!.deliveries_pending))}</strong></div>
-      <div><span>Entregas atrasadas</span><strong>{integer(Number(live!.deliveries_overdue))}</strong></div>
-    </section>}
-    <section className="operations-activity card" aria-labelledby="activity-title"><header><span>OPERAÇÃO</span><h3 id="activity-title">Atividade e atenção</h3></header><div className="operations-columns"><div><h4>ATENÇÃO</h4>{operations.attention.length?operations.attention.map(item=><a key={item.id} href={item.href}><AlertTriangle/><span>{item.message}</span><ArrowUpRight/></a>):<p>Nenhuma pendência operacional identificada.</p>}</div><div><h4>HOJE</h4>{operations.activity.length?operations.activity.map(item=><a key={item.id} href={item.href}><time>{item.created_at?new Date(item.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</time><span>{item.message}</span></a>):<p>Nenhuma atividade auditável registrada hoje.</p>}</div></div></section>
-    <section className="dashboard-grid">
-      <div className="card chart-card">
-        <div className="card-title"><div><h3>Evolução de faturamento</h3><p>Receita mensal da base validada</p></div><span className="live-dot">DADOS REAIS</span></div>
-        {hasData ? <ResponsiveContainer width="100%" height={260}><AreaChart data={live!.daily}>
-          <defs><linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#bf9636" stopOpacity={0.28}/><stop offset="100%" stopColor="#bf9636" stopOpacity={0}/></linearGradient></defs>
-          <CartesianGrid stroke="#eee9e1" vertical={false}/><XAxis dataKey="period_date" tickFormatter={(value)=>shortDate(value)} axisLine={false} tickLine={false}/><YAxis tickFormatter={(v) => `${Math.round(v/1000)}k`} axisLine={false} tickLine={false}/>
-          <Tooltip formatter={(v) => brl(Number(v))} labelFormatter={(value)=>shortDate(String(value))}/><Area type="monotone" dataKey="paid" stroke="#b68a25" strokeWidth={2.5} fill="url(#goldFill)"/>
-        </AreaChart></ResponsiveContainer> : <ChartPlaceholder />}
-      </div>
-      <div className="card chart-card">
-        <div className="card-title"><div><h3>Status dos pagamentos</h3><p>Distribuição do valor comercial</p></div></div>
-        {hasData && total ? <div className="payment-chart">
-          <ResponsiveContainer width="52%" height={220}><PieChart><Pie data={[{name:'Pago',value:paid},{name:'Aguardando',value:pending},{name:'Cancelado',value:cancelled}]} innerRadius={67} outerRadius={88} dataKey="value" stroke="none">
-            {[0,1,2].map((_, i)=><Cell key={i} fill={colors[i]}/>)}</Pie><Tooltip formatter={(v)=>brl(Number(v))}/></PieChart></ResponsiveContainer>
-          <div className="legend">{[['Pago',paid],['Aguardando',pending],['Cancelado',cancelled]].map((x,i)=><div key={String(x[0])}><i style={{background:colors[i]}}/><span>{x[0]}</span><strong>{brl(Number(x[1]))}</strong></div>)}</div>
-        </div> : <ChartPlaceholder />}
-      </div>
-      <div className="card chart-card payments">
-        <div className="card-title"><div><h3>Formas de pagamento</h3><p>Preferências na base comercial</p></div></div>
-        {hasData ? <ResponsiveContainer width="100%" height={235}><BarChart layout="vertical" data={paymentData.slice(0,5)} margin={{left: 15}}>
-          <CartesianGrid horizontal={false} stroke="#eee9e1"/><XAxis type="number" hide/><YAxis type="category" dataKey="name" width={125} axisLine={false} tickLine={false} tick={{fontSize:12}}/><Tooltip formatter={(v)=>integer(Number(v))}/>
-          <Bar dataKey="value" fill="#b68a25" radius={[0,5,5,0]} barSize={15}/></BarChart></ResponsiveContainer> : <ChartPlaceholder compact />}
-      </div>
-      <div className="card intelligence-card">
-        <div className="ai-orb"><Sparkles size={22}/></div><span>RUAH INTELLIGENCE</span>
-        <h3>Uma leitura inteligente da sua operação.</h3>
-        <p>{hasData ? `O período possui ${integer(Number(live!.sales))} vendas reais. A IA recebe apenas agregados autorizados.` : 'Quando houver dados no período, a IA encontrará tendências, riscos e oportunidades.'}</p>
-        <button>Conversar com a inteligência <ArrowUpRight size={16}/></button>
-      </div>
-    </section>
+const periodOptions:[DashboardPeriodKey,string][]=[['last_hour','Última hora'],['today','Hoje'],['24h','Últimas 24h'],['7d','7 dias'],['30d','30 dias'],['custom','Personalizado']]
+const profileTitle:Record<IntelligentDashboard['viewer']['profile'],string>={management:'Gestão',finance:'Financeiro',operations:'Operação',commercial:'Comercial',marketing:'Marketing',viewer:'Visão geral'}
+
+export function Dashboard(){
+  const [period,setPeriod]=useState<DashboardPeriodKey>('today'),[start,setStart]=useState(''),[end,setEnd]=useState('')
+  const [data,setData]=useState<IntelligentDashboard|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[reload,setReload]=useState(0)
+  useEffect(()=>{let active=true;if(period==='custom'&&(!start||!end))return;fetchIntelligentDashboard(period,start,end).then(x=>{if(active){setData(x);setError('')}}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Não foi possível carregar o painel.')}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[period,start,end,reload])
+  const metrics=data?.metrics,previous=data?.previous_metrics
+  const top=useMemo(()=>[...(data?.top_products??[])],[data])
+  return <div className="page intelligent-home">
+    <header className="home-header"><div><span className="home-kicker">HOME INTELIGENTE</span><h2>{data?`${profileTitle[data.viewer.profile]} em foco`:'Sua operação, agora'}</h2><p>O que aconteceu, o que exige atenção e qual é a próxima ação.</p></div><div className="home-period"><CalendarDays size={17}/><select aria-label="Período" value={period} onChange={e=>{setLoading(true);setPeriod(e.target.value as DashboardPeriodKey)}}>{periodOptions.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select>{period==='custom'&&<><input aria-label="Data inicial" type="date" value={start} onChange={e=>setStart(e.target.value)}/><input aria-label="Data final" type="date" value={end} min={start} onChange={e=>{setLoading(true);setEnd(e.target.value)}}/></>}<button aria-label="Atualizar painel" onClick={()=>{setLoading(true);setReload(x=>x+1)}}><RefreshCw size={16}/></button></div></header>
+    {error&&<div className="home-error"><AlertTriangle/><span>{error}</span><button onClick={()=>{setLoading(true);setReload(x=>x+1)}}>Tentar novamente</button></div>}
+    {loading&&!data?<DashboardSkeleton/>:data&&metrics&&previous&&<>
+      <section className="home-summary"><div><Sparkles/><span>LEITURA DO PERÍODO</span><p>{buildDashboardNarrative(data)}</p></div><small>Atualizado {new Date(data.generated_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:data.timezone})}</small></section>
+      <section className="home-metrics" aria-label="Indicadores do período">
+        <Metric icon={ShoppingBag} label="Vendas" value={integer(metrics.sales_count)} change={percentChange(metrics.sales_count,Number(previous.sales_count))}/>
+        {data.viewer.finance_allowed&&metrics.revenue!=null&&<Metric icon={CircleDollarSign} label="Receita" value={brl(metrics.revenue)} change={percentChange(metrics.revenue,Number(previous.revenue))}/>}
+        <Metric icon={Boxes} label="ML vendidos" value={`${integer(metrics.ml_sold)} ML`} change={percentChange(metrics.ml_sold,Number(previous.ml_sold))}/>
+        <Metric icon={PackageCheck} label="Perfumes únicos" value={integer(metrics.unique_perfumes)} detail={`${integer(metrics.items_sold)} itens`}/>
+        <Metric icon={UsersRound} label="Compradores" value={integer(metrics.buyers)} detail={`${integer(metrics.new_buyers)} novos · ${integer(metrics.returning_buyers)} recorrentes`}/>
+        {data.viewer.finance_allowed&&metrics.average_ticket!=null&&<Metric icon={ArrowUpRight} label="Ticket médio" value={brl(metrics.average_ticket)} change={percentChange(metrics.average_ticket,Number(previous.average_ticket))}/>}
+      </section>
+      <section className="home-day-strip"><Day label="Ontem" value={data.day_summary.yesterday} finance={data.viewer.finance_allowed}/><ArrowRight/><Day label="Hoje" value={data.day_summary.today} finance={data.viewer.finance_allowed}/><div className="home-pending"><span>Pendências agora</span><strong>{integer(data.operations.pending_collection)} cobranças · {integer(data.operations.shipments_open)} envios</strong></div></section>
+      {(data.viewer.operations_allowed||data.viewer.management_allowed)&&<section className="home-section"><SectionHead eyebrow="PRIORIDADES" title="O que precisa de ação"/><div className="priority-grid"><Priority icon={PackageCheck} value={data.operations.awaiting_separation} label="Pagas aguardando separação" href="/falta-splitar"/><Priority icon={Boxes} value={data.operations.missing_allocations} label="Pagas sem reserva de estoque" href="/vendas?filtro=bloqueadas" critical/><Priority icon={Truck} value={data.operations.labels_pending} label="Etiquetas para emitir" href="/entregas"/><Priority icon={Clock3} value={data.operations.awaiting_tracking} label="Envios sem rastreio" href="/entregas"/></div></section>}
+      <section className="home-two-columns"><div className="home-section"><SectionHead eyebrow="ALERTAS CENTRALIZADOS" title="Atenção operacional"/>{data.alerts.length?<div className="alert-list">{data.alerts.map((a,i)=><div className={`home-alert ${a.severity}`} key={`${a.type}-${i}`}><AlertTriangle/><div><strong>{a.title}</strong><p>{a.description}</p></div></div>)}</div>:<Empty text="Nenhum alerta operacional neste momento."/>}</div><div className="home-section"><SectionHead eyebrow="RANKING" title="Perfumes do período"/><ProductRanking rows={top} finance={data.viewer.finance_allowed}/></div></section>
+      <section className="home-section"><SectionHead eyebrow="MOVIMENTO RECENTE" title="Últimas vendas"/><div className="recent-table-wrap"><table className="recent-table"><thead><tr><th>Cliente</th><th>Perfume</th><th>ML</th>{data.viewer.finance_allowed&&<th>Valor</th>}<th>Pagamento</th><th>Operação</th></tr></thead><tbody>{data.recent_sales.map(s=><tr key={s.id}><td><strong>{s.client_name}</strong><small>{new Date(s.created_at).toLocaleString('pt-BR',{timeZone:data.timezone,dateStyle:'short',timeStyle:'short'})}</small></td><td>{s.perfume_name}{s.bottle_identifier&&<small>{s.bottle_identifier}</small>}</td><td>{s.volume_ml==null?'—':`${integer(s.volume_ml)} ML`}</td>{data.viewer.finance_allowed&&<td>{s.amount==null?'—':brl(s.amount)}</td>}<td><Status value={s.payment_status}/></td><td>{s.shipment_status?<Status value={s.shipment_status}/>:s.separation_status?<Status value={s.separation_status}/>:<span className="status-pill neutral">Sem envio</span>}</td></tr>)}</tbody></table>{!data.recent_sales.length&&<Empty text="Nenhuma venda registrada neste período."/>}</div></section>
+      {data.viewer.profile==='marketing'&&!data.recent_sales.length&&<section className="home-section"><Empty text="Ainda não há dados de campanha ou origem comercial suficientes para um painel de marketing confiável."/></section>}
+      <p className="home-definition">Vendas e itens representam linhas comerciais, pois o modelo atual não possui uma entidade agregadora de pedido. Janelas horárias usam o momento de cadastro; demais períodos usam a data comercial.</p>
+    </>}
   </div>
 }
 
-function ChartPlaceholder({ compact = false }: { compact?: boolean }) {
-  return <div className={`chart-placeholder ${compact ? 'compact' : ''}`}><ChartNoAxesCombined size={25}/><span>Aguardando dados reais</span></div>
-}
+function Metric({icon:Icon,label,value,detail,change}:{icon:typeof ShoppingBag;label:string;value:string;detail?:string;change?:number|null}){return <article className="home-metric"><div><Icon/><span>{label}</span></div><strong>{value}</strong>{change==null?<small>{detail??'Sem base comparável'}</small>:<small className={change>=0?'positive':'negative'}>{change>=0?<ArrowUpRight/>:<ArrowDownRight/>}{Math.abs(change).toFixed(1)}% vs. período anterior</small>}</article>}
+function Day({label,value,finance}:{label:string;value:{sales_count:number;revenue:number|null;ml:number};finance:boolean}){return <div><span>{label}</span><strong>{integer(value.sales_count)} vendas</strong><small>{finance&&value.revenue!=null?`${brl(value.revenue)} · `:''}{integer(value.ml)} ML</small></div>}
+function Priority({icon:Icon,value,label,href,critical=false}:{icon:typeof Truck;value:number;label:string;href:string;critical?:boolean}){return <a className={`priority-card ${critical&&value?'critical':''}`} href={href}><Icon/><strong>{integer(value)}</strong><span>{label}</span><ArrowUpRight className="priority-arrow"/></a>}
+function SectionHead({eyebrow,title}:{eyebrow:string;title:string}){return <header className="section-head"><span>{eyebrow}</span><h3>{title}</h3></header>}
+function ProductRanking({rows,finance}:{rows:IntelligentDashboard['top_products'];finance:boolean}){const[sort,setSort]=useState<'ml'|'items'|'revenue'>('ml'),effectiveSort=finance?sort:sort==='revenue'?'ml':sort,ordered=[...rows].sort((a,b)=>Number(b[effectiveSort])-Number(a[effectiveSort]));return <><div className="ranking-sort"><button className={effectiveSort==='ml'?'active':''} onClick={()=>setSort('ml')}>ML</button><button className={effectiveSort==='items'?'active':''} onClick={()=>setSort('items')}>Itens</button>{finance&&<button className={effectiveSort==='revenue'?'active':''} onClick={()=>setSort('revenue')}>Receita</button>}</div><ol className="product-ranking">{ordered.slice(0,8).map((p,i)=><li key={p.perfume_id??p.name}><b>{i+1}</b><div><strong>{p.name}</strong><small>{integer(p.buyers)} compradores</small></div><span>{effectiveSort==='revenue'&&p.revenue!=null?brl(p.revenue):effectiveSort==='ml'?`${integer(p.ml)} ML`:integer(p.items)}</span></li>)}</ol>{!rows.length&&<Empty text="Sem perfumes vendidos no período."/>}</>}
+function Status({value}:{value:string}){return <span className={`status-pill status-${value}`}>{statusLabel[value]??value.replaceAll('_',' ')}</span>}
+function Empty({text}:{text:string}){return <div className="home-empty">{text}</div>}
+function DashboardSkeleton(){return <div className="dashboard-skeleton" aria-label="Carregando painel">{Array.from({length:8},(_,i)=><i key={i}/>)}</div>}
