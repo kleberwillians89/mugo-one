@@ -52,7 +52,7 @@ describe('URL pública consistente entre os fluxos Minha RUAH',()=>{
     for(const source of [invite,registration,claim])expect(source).toContain('firstAccessRedirectUrl()')
     expect(publicUrl).toContain("DEPLOYED_PUBLIC_APP_URL='https://crm.ruahparfums.com.br'")
     expect(publicUrl).toContain("raw===LEGACY_INVALID_PUBLIC_APP_URL?DEPLOYED_PUBLIC_APP_URL:raw")
-    expect(publicUrl).toContain('[DEPLOYED_PUBLIC_APP_URL,VERCEL_PUBLIC_APP_URL].includes(url.origin)')
+    expect(publicUrl).toContain('[DEPLOYED_PUBLIC_APP_URL,VERCEL_PUBLIC_APP_URL,...additionalAllowedOrigins()].includes(url.origin)')
   })
   it('recovery permanece baseado na origem correta que abriu o frontend',()=>{
     expect(recovery).toContain('redirectTo:`${location.origin}/minha-ruah/redefinir-senha`')
