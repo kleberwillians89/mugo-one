@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { advanceBootPeriod, defaultPeriod, initialBootPeriodState, PeriodValue } from './lib/period'
-import { Page, routes, pageFromPath, pagePermission } from './routing'
+import { Page, routes, pageFromPath, pageFeature, pagePermission } from './routing'
 import { usePermissions } from './lib/PermissionsContext'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
@@ -35,7 +35,7 @@ export function App() {
   const [routePath,setRoutePath]=useState(location.pathname)
   const [bootPeriod,setBootPeriod]=useState(()=>initialBootPeriodState(defaultPeriod()))
   const [menuOpen, setMenuOpen] = useState(false)
-  const { loading: permissionsLoading, can, operationalSalesStartDate } = usePermissions()
+  const { loading: permissionsLoading, can, hasFeature, operationalSalesStartDate } = usePermissions()
   useEffect(()=>{const change=()=>{setPage(pageFromPath());setRoutePath(location.pathname)};addEventListener('popstate',change);return()=>removeEventListener('popstate',change)},[])
   // Ajuste durante a renderização (não em useEffect) é o padrão recomendado
   // pelo próprio React para "sincronizar estado local quando um valor
@@ -71,7 +71,8 @@ export function App() {
       if (!permissionsLoading && !allowed) return <AccessRestricted/>
       return wantsTeam ? <TeamSettingsPage/> : <ShippingSettingsPage/>
     }
-    if (!permissionsLoading && !pagePermission[page].some((code) => can(code))) return <AccessRestricted/>
+    const requiredFeature = pageFeature[page]
+    if (!permissionsLoading && (!pagePermission[page].some((code) => can(code)) || (requiredFeature !== undefined && !hasFeature(requiredFeature)))) return <AccessRestricted/>
     if (page === 'Visão Geral') return <Dashboard/>
     if (page === 'Torre de Controle') return <ControlTowerPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
@@ -91,6 +92,6 @@ export function App() {
     if (page === 'Radar') return routePath === '/radar/fornecedores' ? <RadarSuppliersPage/> : <RadarPage initialQuery={new URLSearchParams(location.search).get('q')??undefined} initialPerfumeId={new URLSearchParams(location.search).get('perfume')??undefined}/>
     if (page === 'Interessados') return <WaitlistPage/>
     return <GenericPage page={page}/>
-  }, [page,period,routePath,permissionsLoading,can,bootPeriod.ready])
+  }, [page,period,routePath,permissionsLoading,can,hasFeature,bootPeriod.ready])
   return <div className="app-shell"><Sidebar page={page} setPage={navigate} open={menuOpen} close={()=>setMenuOpen(false)}/><main><Header menu={()=>setMenuOpen(true)}/>{content}<footer className="internal-mugo-signature"><img src="/mugo-logo.png" alt="Mugô"/><span>Mugô One — desenvolvido pela Mugô</span></footer></main></div>
 }

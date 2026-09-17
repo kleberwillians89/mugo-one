@@ -1,6 +1,7 @@
 import {
   Boxes, CircleDollarSign, Compass, FileSpreadsheet, FileText, Home, Import, Lightbulb, Radar, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound,
 } from 'lucide-react'
+import { FeatureCode } from './core/features/featureCatalog'
 
 // 'Falta Splitar' (fila de fracionamento/split de frasco) foi isolada como
 // legado — não é um conceito do Core do Mugô One. O código ainda existe em
@@ -41,6 +42,17 @@ export const pagePermission:Record<Page,string[]>={
   'Estoque':['inventory.view'],'Relatórios':['reports.view'],'Importação':['ai_import.view'],
   'IA':['ai_import.view'],'Insights':['reports.view'],'Radar':['radar.view'],
   'Interessados':['waitlist.view'],'Configurações':['settings.view','team.view','team.manage'],
+}
+
+// Módulos ainda estruturalmente verticais (ver
+// docs/ACTIVE_PRODUCT_GENERALIZATION_AUDIT.md) — ocultos por padrão para
+// organizações novas via organization_features/has_organization_feature
+// (migration 202609200001). Uma página fora deste mapa nunca é escondida
+// por feature flag, só por permissão (pagePermission acima). Permissão
+// continua sendo checada sempre — isto só ADICIONA um segundo portão,
+// nunca substitui o primeiro.
+export const pageFeature:Partial<Record<Page,FeatureCode>>={
+  'Torre de Controle':'tasks','Estoque':'inventory','Entregas':'shipping','Radar':'radar','Interessados':'waitlist',
 }
 
 // '/configuracoes/equipe' (aba Equipe, ver TeamSettingsPage) não é uma rota

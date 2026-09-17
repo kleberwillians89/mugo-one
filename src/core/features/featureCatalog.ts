@@ -15,6 +15,8 @@ export type FeatureCode =
   | 'ai'
   | 'customer_portal'
   | 'fiscal'
+  | 'radar'
+  | 'waitlist'
 
 export type FeatureDefinition = {
   code: FeatureCode
@@ -25,7 +27,10 @@ export type FeatureDefinition = {
 
 export const FEATURE_CATALOG: FeatureDefinition[] = [
   { code: 'crm', label: 'CRM', isCore: true },
-  { code: 'tasks', label: 'Tarefas', isCore: true },
+  // 'tasks' passou a is_core=false na migration 202609200001: o Task
+  // Engine genérico ainda não existe (o conteúdo hoje é a Torre de
+  // Controle, vertical) — ver docs/ACTIVE_PRODUCT_GENERALIZATION_AUDIT.md §7.
+  { code: 'tasks', label: 'Tarefas', isCore: false },
   { code: 'sales', label: 'Vendas', isCore: true },
   { code: 'inventory', label: 'Estoque', isCore: false },
   { code: 'shipping', label: 'Entregas', isCore: false },
@@ -34,4 +39,6 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
   { code: 'ai', label: 'Inteligência artificial', isCore: false },
   { code: 'customer_portal', label: 'Portal do cliente', isCore: false },
   { code: 'fiscal', label: 'Fiscal', isCore: false },
+  { code: 'radar', label: 'Radar', isCore: false },
+  { code: 'waitlist', label: 'Lista de espera', isCore: false },
 ]

@@ -1,6 +1,8 @@
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react'
 import { authenticatedOrganization, fetchOperationalSalesStartDate } from './records'
 import { MembershipFlags, computeCan, fetchMyMembershipFlags, fetchMyPermissions } from './permissions'
+import { fetchEnabledFeatureCodes, isFeatureEnabled } from '../core/features/organizationFeatures'
+import { FeatureCode } from '../core/features/featureCatalog'
 
 type PermissionsState = {
   loading: boolean
@@ -9,12 +11,13 @@ type PermissionsState = {
   flags: MembershipFlags | null
   organizationId: string | null
   operationalSalesStartDate: string | null
+  features: Set<string>
 }
 
-const initialState: PermissionsState = { loading: true, error: '', permissions: new Set(), flags: null, organizationId: null, operationalSalesStartDate: null }
+const initialState: PermissionsState = { loading: true, error: '', permissions: new Set(), flags: null, organizationId: null, operationalSalesStartDate: null, features: new Set() }
 
-const PermissionsCtx = createContext<PermissionsState & { can: (code: string) => boolean; reload: () => void }>({
-  ...initialState, can: () => false, reload: () => {},
+const PermissionsCtx = createContext<PermissionsState & { can: (code: string) => boolean; hasFeature: (code: FeatureCode) => boolean; reload: () => void }>({
+  ...initialState, can: () => false, hasFeature: () => false, reload: () => {},
 })
 
 /**
@@ -38,17 +41,18 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
     authenticatedOrganization()
-      .then(({ organizationId }) => Promise.all([fetchMyPermissions(organizationId), fetchMyMembershipFlags(organizationId), fetchOperationalSalesStartDate(organizationId)])
-        .then(([permissions, flags, operationalSalesStartDate]) => {
-          if (!cancelled) setState({ loading: false, error: '', permissions, flags, organizationId, operationalSalesStartDate })
+      .then(({ organizationId }) => Promise.all([fetchMyPermissions(organizationId), fetchMyMembershipFlags(organizationId), fetchOperationalSalesStartDate(organizationId), fetchEnabledFeatureCodes(organizationId)])
+        .then(([permissions, flags, operationalSalesStartDate, features]) => {
+          if (!cancelled) setState({ loading: false, error: '', permissions, flags, organizationId, operationalSalesStartDate, features })
         }))
       .catch((reason) => {
-        if (!cancelled) setState({ loading: false, error: reason instanceof Error ? reason.message : 'Não foi possível carregar suas permissões.', permissions: new Set(), flags: null, organizationId: null, operationalSalesStartDate: null })
+        if (!cancelled) setState({ loading: false, error: reason instanceof Error ? reason.message : 'Não foi possível carregar suas permissões.', permissions: new Set(), flags: null, organizationId: null, operationalSalesStartDate: null, features: new Set() })
       })
     return () => { cancelled = true }
   }, [tick])
   const can = (code: string) => computeCan(code, state.flags, state.permissions)
-  return <PermissionsCtx.Provider value={{ ...state, can, reload: () => setTick((n) => n + 1) }}>{children}</PermissionsCtx.Provider>
+  const hasFeature = (code: FeatureCode) => isFeatureEnabled(state.features, code)
+  return <PermissionsCtx.Provider value={{ ...state, can, hasFeature, reload: () => setTick((n) => n + 1) }}>{children}</PermissionsCtx.Provider>
 }
 
 export function usePermissions() {
@@ -58,6 +62,11 @@ export function usePermissions() {
 /** access_total sempre vence, mesmo que o código específico não esteja no conjunto plano (ver computeCan). */
 export function useHasPermission(code: string) {
   return useContext(PermissionsCtx).can(code)
+}
+
+/** Módulo habilitado para a organização atual (features/organization_features) — ver fetchEnabledFeatureCodes. */
+export function useHasFeature(code: FeatureCode) {
+  return useContext(PermissionsCtx).hasFeature(code)
 }
 
 /** Data de início configurada; o domínio aplica o fallback seguro central quando vier null. */

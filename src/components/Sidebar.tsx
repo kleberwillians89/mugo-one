@@ -1,5 +1,5 @@
 import { MoreHorizontal } from 'lucide-react'
-import { Page, navigation, pagePermission } from '../routing'
+import { Page, navigation, pageFeature, pagePermission } from '../routing'
 import { usePermissions } from '../lib/PermissionsContext'
 import { useOrganization } from '../core/organizations/useOrganization'
 import { Drawer } from './ui/Drawer'
@@ -15,7 +15,7 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Page) => void; onNavigate?: () => void }) {
-  const { loading, can } = usePermissions()
+  const { loading, can, hasFeature } = usePermissions()
   const { currentOrganization } = useOrganization()
   const workspaceName = currentOrganization?.organizationName ?? 'Carregando…'
   const roleLabel = currentOrganization ? (ROLE_LABEL[currentOrganization.role] ?? currentOrganization.role) : ''
@@ -32,7 +32,7 @@ function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Pa
   // false, com sucesso ou erro) do que mostrar e depois sumir itens.
   // can() já concede tudo automaticamente quando access_total=true, sem
   // depender do código específico estar no conjunto plano.
-  const visible = loading ? [] : navigation.filter(({ label }) => pagePermission[label].some((code) => can(code)))
+  const visible = loading ? [] : navigation.filter(({ label }) => pagePermission[label].some((code) => can(code)) && (pageFeature[label] === undefined || hasFeature(pageFeature[label]!)))
   return (
     <>
       <div className="brand"><img src="/mugo-logo.png" alt="Mugô One" /><div><strong>MUGÔ</strong><span>ONE</span></div></div>
