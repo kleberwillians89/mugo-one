@@ -61,7 +61,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
   return <div className="page">
     {showCreate&&<InventoryCreate close={()=>setShowCreate(false)} saved={()=>{reload();push('Perfume recebido no estoque.',{tone:'success',duration:6000})}}/>}
     {downloadOffer&&<InventoryOfferDownload offer={downloadOffer} onDone={()=>setDownloadOffer(null)}/>}
-    <PageHeader eyebrow="ACERVO RUAH" title="Estoque" description="Saldo automático calculado pelas vendas validadas. Para corrigir ML, corrija a venda de origem." actions={<>
+    <PageHeader eyebrow="MUGÔ ONE" title="Estoque" description="Saldo automático calculado pelas vendas validadas. Para corrigir ML, corrija a venda de origem." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>
       <SecondaryButton onClick={()=>{history.pushState({},'','/estoque/fracionamento');dispatchEvent(new PopStateEvent('popstate'))}}>Fracionamento</SecondaryButton>
       <SecondaryButton onClick={goToReplenishment}>Reposição inteligente</SecondaryButton>

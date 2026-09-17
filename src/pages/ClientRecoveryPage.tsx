@@ -33,7 +33,7 @@ export function ClientRecoveryPage() {
   }
 
   return <div className="page">
-    <PageHeader eyebrow="RUAH INTELLIGENCE" title="Recuperação de clientes" description="Clientes que já compraram e pararam — sem alerta, ninguém liga." />
+    <PageHeader eyebrow="MUGÔ ONE" title="Recuperação de clientes" description="Clientes que já compraram e pararam — sem alerta, ninguém liga." />
     {error && <div className="notice"><span>{error}</span></div>}
     {loading ? <div className="empty card"><h3>Carregando clientes em risco…</h3></div> :
       entries.length === 0 ? <EmptyState icon={UserRound} title="Nenhum cliente em risco" description="Todo cliente com histórico de compras comprou novamente nos últimos 90 dias." /> :

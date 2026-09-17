@@ -27,7 +27,7 @@ export function WaitlistPage() {
 
   return <div className="page">
     {showAdd && <AddWaitlistEntry close={() => setShowAdd(false)} saved={() => { setShowAdd(false); reload() }} />}
-    <PageHeader eyebrow="RUAH INTELLIGENCE" title="Interessados" description="Clientes esperando um perfume voltar ao estoque." actions={
+    <PageHeader eyebrow="MUGÔ ONE" title="Interessados" description="Clientes esperando um perfume voltar ao estoque." actions={
       canManage ? <PrimaryButton icon={<Plus size={16} />} onClick={() => setShowAdd(true)}>Adicionar à lista</PrimaryButton> : undefined
     } />
     {error && <div className="notice"><span>{error}</span></div>}

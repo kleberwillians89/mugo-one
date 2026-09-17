@@ -46,7 +46,7 @@ export function TeamSettingsPage() {
         <button onClick={() => goToSettings('')}>Frete</button>
         <button className="active">Equipe e acessos</button>
       </div>
-      <PageHeader eyebrow="CONFIGURAÇÕES" title="Equipe e acessos" description="Quem entra no RUAH e o que cada pessoa pode ver, criar, editar e operar." actions={canManage ? <PrimaryButton icon={<Plus size={17} />} onClick={() => setEditing('new')}>Novo usuário</PrimaryButton> : undefined}/>
+      <PageHeader eyebrow="CONFIGURAÇÕES" title="Equipe e acessos" description="Quem entra no Mugô One e o que cada pessoa pode ver, criar, editar e operar." actions={canManage ? <PrimaryButton icon={<Plus size={17} />} onClick={() => setEditing('new')}>Novo usuário</PrimaryButton> : undefined}/>
 
       {editing && (
         <TeamMemberModal

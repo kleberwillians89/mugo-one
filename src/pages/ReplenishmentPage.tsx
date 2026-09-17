@@ -76,7 +76,7 @@ export function ReplenishmentPage() {
 
   return <div className="page replenishment-page">
     <button className="back-link" onClick={goToInventory}><ArrowLeft size={14} /> Voltar para o estoque</button>
-    <PageHeader eyebrow="RUAH INTELLIGENCE" title="Reposição Inteligente" description="Perfumes que merecem atenção com base no estoque e nas vendas recentes." />
+    <PageHeader eyebrow="MUGÔ ONE" title="Reposição Inteligente" description="Perfumes que merecem atenção com base no estoque e nas vendas recentes." />
 
     <div className="replenishment-tabs">
       <button className={tab === 'repor' ? 'active' : ''} onClick={() => setTab('repor')}>Precisa repor ({counts.repor})</button>
@@ -149,7 +149,7 @@ function ReplenishmentCard({ signal, watch, relatedOffers }:{ signal:Replenishme
       <PrimaryButton onClick={() => goToRadarWithQuery(buildRadarQuery(signal))}>Buscar reposição</PrimaryButton>
       {watch ? <StatusBadge tone="neutral">JÁ MONITORADO</StatusBadge> :
         <SecondaryButton icon={<RadarIcon size={14} />} onClick={() => goToRadarWithQuery(buildRadarQuery(signal))}>Acompanhar no Radar</SecondaryButton>}
-      <SecondaryButton icon={<Sparkles size={14} />} loading={summarizing} onClick={handleSearchIntelligence}>Gerar análise RUAH Intelligence</SecondaryButton>
+      <SecondaryButton icon={<Sparkles size={14} />} loading={summarizing} onClick={handleSearchIntelligence}>Gerar análise Mugô One</SecondaryButton>
     </footer>
   </article>
 }

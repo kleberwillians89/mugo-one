@@ -182,7 +182,7 @@ export function RadarPage({ initialQuery, initialPerfumeId }:{ initialQuery?:str
   return <div className="page radar-page">
     {showManualOffer && <RadarManualOfferModal watchItem={activeWatch} close={() => setShowManualOffer(false)} saved={() => { setShowManualOffer(false); reload() }} />}
     {activeWatch && <RadarComparator watch={activeWatch} close={() => setActiveWatch(null)} onAddOffer={() => setShowManualOffer(true)} />}
-    <PageHeader eyebrow="RUAH INTELLIGENCE" title="Radar Global" description="Radar mundial de abastecimento: pesquise um perfume e compare oportunidades por país e fornecedor." actions={
+    <PageHeader eyebrow="MUGÔ ONE" title="Radar Global" description="Radar mundial de abastecimento: pesquise um perfume e compare oportunidades por país e fornecedor." actions={
       <SecondaryButton onClick={goToSuppliers}>Ver fornecedores</SecondaryButton>
     } />
 
@@ -289,7 +289,7 @@ function RadarComparator({ watch, close, onAddOffer }:{ watch:RadarWatchItem; cl
         <option value="score">Confiabilidade</option><option value="price">Menor preço</option>
         <option value="country">País</option><option value="recent">Mais recente</option>
       </select>
-      <SecondaryButton icon={<Sparkles size={16} />} loading={summarizing} onClick={runSummary}>Gerar análise RUAH Intelligence</SecondaryButton>
+      <SecondaryButton icon={<Sparkles size={16} />} loading={summarizing} onClick={runSummary}>Gerar análise Mugô One</SecondaryButton>
     </div>
     {summaryError && <div className="notice"><AlertTriangle /><span>{summaryError}</span></div>}
     {summary && <div className="radar-summary">

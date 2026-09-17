@@ -174,7 +174,7 @@ export function CobrancasPage(){
   {downloadGroup&&<CollectionImageDownload group={downloadGroup} onDone={()=>setDownloadGroup(null)}/>}
   {whatsappGroup&&<CollectionWhatsAppDispatch group={whatsappGroup} onSuccess={()=>{setWhatsappSent(current=>new Set(current).add(whatsappGroup.client_id));toast.push('WHATSAPP ENVIADO',{tone:'success'})}} onError={reason=>toast.push(reason instanceof Error?reason.message:'Não foi possível enviar o WhatsApp.',{tone:'error'})} onDone={()=>{setWhatsappSending(null);setWhatsappGroup(null)}}/>}
   {paymentGroup&&<RegisterPaymentModal group={paymentGroup} onClose={()=>setPaymentGroup(null)} onPaid={reload}/>}
-  <PageHeader eyebrow="RUAH INTELLIGENCE" title="Cobranças" description="Clientes com vendas comercialmente pendentes de pagamento."/>
+  <PageHeader eyebrow="MUGÔ ONE" title="Cobranças" description="Clientes com vendas comercialmente pendentes de pagamento."/>
   <div className="collections-summary">
    <div className="collections-stat collections-stat--primary"><span>TOTAL EM ABERTO</span><strong>{brl(totals.open)}</strong></div>
    <div className="collections-stat"><span>CLIENTES COM PENDÊNCIAS</span><strong>{totals.clients}</strong></div>

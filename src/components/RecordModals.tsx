@@ -11,7 +11,7 @@ const maskCpf = (v:string)=>v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d)
 const maskCep = (v:string)=>v.replace(/\D/g,'').slice(0,8).replace(/(\d{5})(\d)/,'$1-$2')
 
 function Modal({ title, close, children }: { title:string; close:()=>void; children:React.ReactNode }) {
-  return <div className="modal-layer" role="dialog" aria-modal="true" aria-label={title}><button className="modal-scrim" onClick={close} aria-label="Fechar"/><div className="modal-panel"><div className="modal-title"><div><span>RUAH PARFUMS</span><h2>{title}</h2></div><button onClick={close}><X/></button></div>{children}</div></div>
+  return <div className="modal-layer" role="dialog" aria-modal="true" aria-label={title}><button className="modal-scrim" onClick={close} aria-label="Fechar"/><div className="modal-panel"><div className="modal-title"><div><span>MUGÔ ONE</span><h2>{title}</h2></div><button onClick={close}><X/></button></div>{children}</div></div>
 }
 
 export function ClientModal({ close, onSaved, clientId, initial }: { close:()=>void; onSaved?: (client:{id:string;name:string})=>void;clientId?:string;initial?:Partial<ClientInput> }) {

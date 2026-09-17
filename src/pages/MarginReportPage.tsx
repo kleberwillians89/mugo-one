@@ -19,7 +19,7 @@ export function MarginReportPage({ period, setPeriod }: { period: PeriodValue; s
   const marginPct = totals.revenue > 0 ? (totals.margin / totals.revenue) * 100 : null
 
   return <div className="page">
-    <PageHeader eyebrow="RUAH INTELLIGENCE" title="Custo e margem" description="Receita real contra custo de aquisição, perfume por perfume." actions={<PeriodFilter value={period} onApply={setPeriod} />} />
+    <PageHeader eyebrow="MUGÔ ONE" title="Custo e margem" description="Receita real contra custo de aquisição, perfume por perfume." actions={<PeriodFilter value={period} onApply={setPeriod} />} />
     {error && <div className="notice"><AlertTriangle size={18} /><span>{error}</span></div>}
     {loading ? <div className="empty card"><h3>Carregando margem…</h3></div> :
       rows.length === 0 ? <EmptyState icon={Scale} title="Nenhuma venda no período" description="Escolha outro período para ver custo e margem." /> : <>
