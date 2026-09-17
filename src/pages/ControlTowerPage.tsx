@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react'
-import { Compass, Scissors, ShoppingBag, Truck, UsersRound } from 'lucide-react'
+import { Compass, ShoppingBag, Truck, UsersRound } from 'lucide-react'
 import { ControlTowerSummary, fetchControlTowerSummary } from '../lib/control-tower'
 import { goToClientRecovery } from '../lib/client-recovery'
 import { goToSalesBlocked } from '../lib/sales-validation'
@@ -18,7 +18,6 @@ function goToDeliveriesTask(task:string) { history.pushState({}, '', `/entregas?
 function goToNewShipment(saleId:string|null) { history.pushState({}, '', saleId?`/entregas?novo=1&sale=${encodeURIComponent(saleId)}`:'/entregas?novo=1'); dispatchEvent(new PopStateEvent('popstate')) }
 function goToCollections() { history.pushState({}, '', '/cobrancas'); dispatchEvent(new PopStateEvent('popstate')) }
 function goToInventory() { history.pushState({}, '', '/estoque'); dispatchEvent(new PopStateEvent('popstate')) }
-function goToSplits() { history.pushState({}, '', '/falta-splitar'); dispatchEvent(new PopStateEvent('popstate')) }
 
 function Row({ label, value, tone, onClick }: { label: string; value: string; tone: Tone; onClick: () => void }) {
   return <button type="button" className="control-tower-row" onClick={onClick}>
@@ -37,12 +36,15 @@ function Column({ icon: Icon, title, subtitle, children }: { icon: typeof Compas
 /** Roadmap — Torre de Controle: a tela final. Cada linha responde UMA pergunta de uma das três pessoas da operação, com um único clique até a tela real onde a ação acontece — a Torre nunca é onde se resolve nada, só onde se enxerga o que precisa de atenção. "ATTENTION / ACTION / EXCEPTION over vanity metrics": por isso cada coluna tem só 3-4 linhas, nunca uma parede de métricas. */
 export function ControlTowerPage() {
   const {can}=usePermissions()
-  const sales=can('tasks.sales'),split=can('tasks.split'),shipping=can('tasks.shipping'),management=can('tasks.management')
+  // split/fracionamento de frasco (coluna "Gabriel") foi isolado como
+  // legado — ver src/legacy/operations/. split:false sempre, para não
+  // buscar nem exibir essa fila de novo.
+  const sales=can('tasks.sales'),shipping=can('tasks.shipping'),management=can('tasks.management')
   const [summary, setSummary] = useState<ControlTowerSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => { fetchControlTowerSummary({sales,split,shipping,management}).then(setSummary).catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar as tarefas.')).finally(() => setLoading(false)) }, [sales,split,shipping,management])
+  useEffect(() => { fetchControlTowerSummary({sales,split:false,shipping,management}).then(setSummary).catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar as tarefas.')).finally(() => setLoading(false)) }, [sales,shipping,management])
 
   return <div className="page control-tower-page">
     <PageHeader eyebrow="OPERAÇÃO" title="Tarefas" />
@@ -56,14 +58,6 @@ export function ControlTowerPage() {
           <Row label="Clientes em recuperação" value={String(summary.davi.recoveryCount)} tone={summary.davi.recoveryCount > 0 ? 'warning' : 'success'} onClick={goToClientRecovery} />
           <Row label="Prontos para avisar" value={String(summary.davi.waitlistReadyCount)} tone={summary.davi.waitlistReadyCount > 0 ? 'success' : 'neutral'} onClick={goToWaitlist} />
           <Row label="Esperando perfume" value={String(summary.davi.waitlistWaitingCount)} tone="neutral" onClick={goToWaitlist} />
-        </Column>}
-
-        {summary.gabriel&&<Column icon={Scissors} title="Gabriel" subtitle="Splitar">
-          <Row label="Splits a separar" value={String(summary.gabriel.split_pending)} tone={summary.gabriel.split_pending>0?'danger':'success'} onClick={goToSplits}/>
-          <Row label="APC a separar" value={String(summary.gabriel.apc_pending)} tone={summary.gabriel.apc_pending>0?'warning':'success'} onClick={goToSplits}/>
-          <Row label="Clientes pendentes" value={String(summary.gabriel.clients_pending)} tone={summary.gabriel.clients_pending>0?'warning':'success'} onClick={goToSplits}/>
-          <Row label="Perfumes pendentes" value={String(summary.gabriel.perfumes_pending)} tone={summary.gabriel.perfumes_pending>0?'warning':'success'} onClick={goToSplits}/>
-          <Row label="ML pendentes" value={`${Number(summary.gabriel.ml_pending).toLocaleString('pt-BR')} ML`} tone={summary.gabriel.ml_pending>0?'neutral':'success'} onClick={goToSplits}/>
         </Column>}
 
         {summary.entregas&&<Column icon={Truck} title="Emily e Ilde" subtitle="Entregas">

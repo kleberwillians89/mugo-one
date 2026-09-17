@@ -93,4 +93,26 @@ describe('zero split guard — split/perfume/frasco/ml não podem ser conceitos 
       expect(content, `${file} não pode usar "_ml" como sufixo de campo (unidade de mililitros)`).not.toMatch(/_ml\b/i)
     }
   })
+
+  // Achado real ao validar o bundle publicado: Dashboard/ControlTowerPage/
+  // ShipmentOperations (páginas ATIVAS, não legado) linkavam ou citavam
+  // "Falta Splitar"/"Gabriel"/"Splitar" mesmo depois da página em si ser
+  // isolada. A varredura acima (src/core, src/modules/crm) não cobre
+  // src/pages nem src/components de propósito — são módulos operacionais
+  // amplos que ainda citam perfume/ml legitimamente (ex: InventoryPage).
+  // Este bloco cobre só os pontos específicos que vazavam split/Gabriel.
+  it('Dashboard/ControlTowerPage/ShipmentOperations não linkam nem citam a fila de split isolada', () => {
+    const dashboard = readAll('src/pages/Dashboard.tsx')
+    expect(dashboard).not.toContain('/falta-splitar')
+
+    const controlTower = readAll('src/pages/ControlTowerPage.tsx')
+    expect(controlTower).not.toContain('/falta-splitar')
+    expect(controlTower).not.toContain('title="Gabriel"')
+    expect(controlTower).not.toContain('goToSplits')
+
+    const shipmentOps = readAll('src/components/ShipmentOperations.tsx')
+    expect(shipmentOps).not.toContain('/falta-splitar')
+    expect(shipmentOps).not.toContain('Gabriel')
+    expect(shipmentOps).not.toContain('Falta Splitar')
+  })
 })
