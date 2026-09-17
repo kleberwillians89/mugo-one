@@ -118,6 +118,28 @@ INSERT para `authenticated` diretamente, o mesmo desenho já usado para
 `audit_logs` no núcleo (`feat/core-foundation`). Isto evita qualquer
 cliente inserir uma entrada de timeline arbitrária/falsa.
 
+## Camada comercial (Sprint 3)
+
+`leads` representa uma oportunidade ainda não qualificada e pode existir
+sem customer, company ou contact. A conversão transacional pode reaproveitar
+ou criar essas entidades e, opcionalmente, criar um `deal`; uma segunda
+chamada para o mesmo lead devolve o resultado anterior sem duplicar dados.
+
+`pipelines` e `pipeline_stages` pertencem à organização. Não existem nomes
+globais de etapas: apenas `stage_type` (`open`, `won`, `lost`) tem semântica
+de sistema. Um índice parcial garante no máximo um pipeline default ativo por
+organização.
+
+`deals` sempre pertence a um pipeline e uma stage do mesmo tenant. Todos os
+vínculos opcionais (lead, customer, company e contact) são validados no banco.
+A RPC `move_deal_stage` aceita somente stages ativas do pipeline atual e toda
+mudança gera uma linha imutável em `deal_stage_history`, além dos eventos de
+timeline correspondentes.
+
+Tags, custom fields, notes e activities passam a aceitar `lead` e `deal`
+reutilizando a mesma validação polimórfica endurecida na Sprint 2. Os helpers
+internos continuam sem `EXECUTE` para `PUBLIC`, `anon` ou `authenticated`.
+
 ## Origem/atribuição (preparo para Mugô Dados)
 
 `clients`, `companies` e `contacts` ganharam campos de atribuição

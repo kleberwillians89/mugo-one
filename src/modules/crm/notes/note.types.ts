@@ -1,4 +1,4 @@
-export type NoteEntityType = 'customer' | 'company' | 'contact'
+export type NoteEntityType = 'customer' | 'company' | 'contact' | 'lead' | 'deal'
 
 export type Note = {
   id: string

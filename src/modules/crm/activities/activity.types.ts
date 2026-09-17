@@ -1,4 +1,4 @@
-export type ActivityEntityType = 'customer' | 'company' | 'contact'
+export type ActivityEntityType = 'customer' | 'company' | 'contact' | 'lead' | 'deal'
 
 export type Activity = {
   id: string

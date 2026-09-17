@@ -1,4 +1,4 @@
-export type CustomFieldEntityType = 'customer' | 'company' | 'contact'
+export type CustomFieldEntityType = 'customer' | 'company' | 'contact' | 'lead' | 'deal'
 
 export type CustomFieldType =
   | 'text'

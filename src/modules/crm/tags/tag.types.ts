@@ -1,5 +1,5 @@
 /** Tipos de entidade suportados hoje pelo sistema de tags — ver docs/CRM_DOMAIN_MODEL.md sobre por que a lista é restrita ao que já existe e é validável. */
-export type TaggableEntityType = 'customer' | 'company' | 'contact'
+export type TaggableEntityType = 'customer' | 'company' | 'contact' | 'lead' | 'deal'
 
 export type Tag = {
   id: string
