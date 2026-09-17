@@ -82,7 +82,9 @@ describe('G — /configuracoes/equipe abre corretamente em navegação direta (r
   it('dentro de Configurações, App.tsx decide a aba pela URL exata (routePath), então /configuracoes/equipe abre TeamSettingsPage e access_total nunca é bloqueado', () => {
     const appTsx = read('App.tsx')
     expect(appTsx).toContain("const wantsTeam = routePath === '/configuracoes/equipe'")
-    expect(appTsx).toContain("const allowed = wantsTeam ? can('team.view') || can('team.manage') : wantsLeadIntake ? can('lead_intake.view') : can('settings.view')")
+    expect(appTsx).toContain("const allowed = wantsTeam ? can('team.view') || can('team.manage')")
+    expect(appTsx).toContain(": wantsLeadIntake ? can('lead_intake.view')")
+    expect(appTsx).toContain(": wantsCommunications ? can('communications.manage')")
   })
 })
 

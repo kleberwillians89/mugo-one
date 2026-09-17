@@ -85,6 +85,10 @@ export type NewTaskInput = {
   dueAt?: string | null
   entityType?: TaskEntityType | null
   entityId?: string | null
+  // Uso atual: { conversation_id } quando a task nasce de uma
+  // conversa (Communication Hub) — sem abrir entityType='conversation'
+  // em tasks, ver docs/COMMUNICATION_HUB_MIGRATION_PLAN.md §7.
+  metadata?: Record<string, unknown>
 }
 
 export async function createTask(input: NewTaskInput): Promise<{ taskId: string }> {
@@ -99,6 +103,7 @@ export async function createTask(input: NewTaskInput): Promise<{ taskId: string 
     p_due_at: input.dueAt || null,
     p_entity_type: input.entityType || null,
     p_entity_id: input.entityId || null,
+    p_metadata: input.metadata ?? {},
   })
   if (error) throw new Error(error.message)
   return { taskId: (data as { task_id: string }).task_id }

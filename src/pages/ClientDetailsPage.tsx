@@ -14,6 +14,7 @@ import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Drawer, EmptyState, Modal, PrimaryButton, SecondaryButton, SectionHeader, Stepper } from '../components/ui'
 import { EntityTasksBlock } from '../components/EntityTasksBlock'
 import { EntityTouchpointsBlock } from '../components/EntityTouchpointsBlock'
+import { EntityConversationsBlock } from '../components/EntityConversationsBlock'
 import './ClientDetailsPage.css'
 
 /** Coarse status → step index for the compact client-card journey. Only
@@ -181,6 +182,8 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     <EntityTasksBlock entityType="customer" entityId={clientId} entityLabel={client.name}/>
 
     <EntityTouchpointsBlock entityType="customer" entityId={clientId}/>
+
+    <EntityConversationsBlock customerId={clientId}/>
 
     <Divider label="Brinde"/>
     <ClientGiftCard clientId={clientId} hasGift={client.has_gift} giftNotes={client.gift_notes} updatedAt={client.updated_at} canEdit={canEditClient} onSaved={()=>fetchClient360(clientId).then(setData)}/>

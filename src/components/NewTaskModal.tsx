@@ -7,12 +7,13 @@ import { Modal, EntityCombobox, EntityOption, FormField, PrimaryButton, Secondar
 
 const RELATABLE_TYPES: TaskEntityType[] = ['customer', 'company', 'contact', 'lead', 'deal']
 
-export function NewTaskModal({ close, onCreated, defaultEntityType, defaultEntityId, defaultEntityLabel }: {
+export function NewTaskModal({ close, onCreated, defaultEntityType, defaultEntityId, defaultEntityLabel, defaultMetadata }: {
   close: () => void
   onCreated?: (taskId: string) => void
   defaultEntityType?: TaskEntityType
   defaultEntityId?: string
   defaultEntityLabel?: string
+  defaultMetadata?: Record<string, unknown>
 }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -41,6 +42,7 @@ export function NewTaskModal({ close, onCreated, defaultEntityType, defaultEntit
       title, description: description || null, priority, assigneeUserId: assigneeUserId || null,
       dueAt: dueAt ? `${dueAt}T23:59:59` : null,
       entityType: relatedType || null, entityId: relatedType ? relatedOption?.id ?? null : null,
+      metadata: defaultMetadata,
     }
     if (relatedType && !relatedOption) return setError('Selecione o registro para relacionar, ou volte "Relacionar a" para Nenhum.')
     setSaving(true)

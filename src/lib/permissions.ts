@@ -129,7 +129,7 @@ export const LEGACY_ONLY_PERMISSION_CODES = new Set(['tasks.split', 'inventory.s
 export const PERMISSION_MODULE_LABEL: Record<string, string> = {
   dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', catalog: 'Catálogo', inventory: 'Estoque', shipping: 'Envios',
   radar: 'Radar', waitlist: 'Lista de espera', recovery: 'Recuperação de clientes', cost_margin: 'Custo e margem',
-  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', task_engine: 'Tarefas (Task Engine)', lead_intake: 'Entradas de Leads', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
+  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', task_engine: 'Tarefas (Task Engine)', lead_intake: 'Entradas de Leads', communications: 'Comunicações', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
 }
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
@@ -184,6 +184,10 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: 'tasks.manage', module: 'task_engine', label: 'Gerenciar tarefas (excluir/cancelar de terceiros)' },
   { code: 'lead_intake.view', module: 'lead_intake', label: 'Visualizar entradas de leads' },
   { code: 'lead_intake.manage', module: 'lead_intake', label: 'Gerenciar endpoints de entrada de leads' },
+  { code: 'communications.view', module: 'communications', label: 'Visualizar conversas' },
+  { code: 'communications.send', module: 'communications', label: 'Enviar mensagens' },
+  { code: 'communications.assign', module: 'communications', label: 'Atribuir conversas' },
+  { code: 'communications.manage', module: 'communications', label: 'Gerenciar conexões de comunicação' },
   { code: 'audit.view', module: 'audit', label: 'Visualizar auditoria' },
   { code: 'settings.view', module: 'settings', label: 'Visualizar configurações' },
   { code: 'team.view', module: 'team', label: 'Visualizar equipe' },

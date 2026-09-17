@@ -12,7 +12,7 @@ import './EntityTasksBlock.css'
  * por entidade: a única coisa que muda é entityType/entityId passados
  * para fetchTasksForEntity/NewTaskModal.
  */
-export function EntityTasksBlock({ entityType, entityId, entityLabel }: { entityType: TaskEntityType; entityId: string; entityLabel?: string }) {
+export function EntityTasksBlock({ entityType, entityId, entityLabel, defaultMetadata }: { entityType: TaskEntityType; entityId: string; entityLabel?: string; defaultMetadata?: Record<string, unknown> }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [newTaskOpen, setNewTaskOpen] = useState(false)
@@ -25,7 +25,7 @@ export function EntityTasksBlock({ entityType, entityId, entityLabel }: { entity
   const recentlyDone = tasks.filter((t) => t.status === 'done').slice(0, 5)
 
   return <section className="entity-tasks-block">
-    {newTaskOpen && <NewTaskModal close={() => setNewTaskOpen(false)} onCreated={load} defaultEntityType={entityType} defaultEntityId={entityId} defaultEntityLabel={entityLabel} />}
+    {newTaskOpen && <NewTaskModal close={() => setNewTaskOpen(false)} onCreated={load} defaultEntityType={entityType} defaultEntityId={entityId} defaultEntityLabel={entityLabel} defaultMetadata={defaultMetadata} />}
     <TaskDetailDrawer taskId={openTaskId} open={openTaskId !== null} onClose={() => setOpenTaskId(null)} onChanged={load} />
     <header><strong>Tarefas</strong><SecondaryButton icon={<Plus size={14} />} onClick={() => setNewTaskOpen(true)}>Nova tarefa</SecondaryButton></header>
     {loading ? <p className="entity-tasks-empty">Carregando…</p> : tasks.length === 0 ? <p className="entity-tasks-empty">Nenhuma tarefa ainda.</p> : <>
