@@ -28,10 +28,13 @@ export type FeatureDefinition = {
 
 export const FEATURE_CATALOG: FeatureDefinition[] = [
   { code: 'crm', label: 'CRM', isCore: true },
-  // 'tasks' passou a is_core=false na migration 202609200001: o Task
-  // Engine genérico ainda não existe (o conteúdo hoje é a Torre de
-  // Controle, vertical) — ver docs/ACTIVE_PRODUCT_GENERALIZATION_AUDIT.md §7.
-  { code: 'tasks', label: 'Tarefas', isCore: false },
+  // 'tasks' voltou a is_core=true na migration 202609220005: o Task
+  // Engine universal existe agora (Sprint K/L) — a demoção em
+  // 202609200001 era só porque o conteúdo de então era a Torre de
+  // Controle vertical, que nunca foi o Task Engine (ver
+  // docs/TASK_ENGINE_MIGRATION_PLAN.md). Automações futuras dependem
+  // de tasks existir sempre, por isso core sem exceção.
+  { code: 'tasks', label: 'Tarefas', isCore: true },
   { code: 'sales', label: 'Vendas', isCore: true },
   // Sem catálogo não existe "Nova venda" — core, sem exceção por organização.
   { code: 'catalog', label: 'Catálogo', isCore: true },

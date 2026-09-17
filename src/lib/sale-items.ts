@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { authenticatedOrganization } from './records'
+import { EntityActivity, fetchEntityActivities } from './activities'
 
 export type SaleItemLine = {
   id: string | null
@@ -147,17 +148,9 @@ export function itemsQuantityLabel(summary: SaleItemsSummary | undefined, legacy
   return `${summary.quantity.toLocaleString('pt-BR')} ${summary.unit}`
 }
 
-export type SaleActivity = { id: string; activityType: string; title: string; description: string | null; createdAt: string }
+export type SaleActivity = EntityActivity
 
-/**
- * Timeline mínima da venda (Venda 360, §18/§10 da sprint de catálogo).
- * Lê direto de `activities` (já existe desde a Sprint 2 do CRM) — não é
- * um Event Engine novo, é o mecanismo de evento já disponível hoje,
- * reaproveitado (ver docs/SALES_CATALOG_MIGRATION_PLAN.md §6).
- */
+/** Timeline da venda (Venda 360) — ver fetchEntityActivities em src/lib/activities.ts (compartilhado com o Task Engine). */
 export async function fetchSaleActivities(saleId: string): Promise<SaleActivity[]> {
-  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
-  const { data, error } = await supabase.from('activities').select('id,activity_type,title,description,created_at').eq('entity_type', 'sale').eq('entity_id', saleId).order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => ({ id: row.id as string, activityType: row.activity_type as string, title: row.title as string, description: row.description as string | null, createdAt: row.created_at as string }))
+  return fetchEntityActivities('sale', saleId)
 }

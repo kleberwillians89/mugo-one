@@ -129,7 +129,7 @@ export const LEGACY_ONLY_PERMISSION_CODES = new Set(['tasks.split', 'inventory.s
 export const PERMISSION_MODULE_LABEL: Record<string, string> = {
   dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', catalog: 'Catálogo', inventory: 'Estoque', shipping: 'Envios',
   radar: 'Radar', waitlist: 'Lista de espera', recovery: 'Recuperação de clientes', cost_margin: 'Custo e margem',
-  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
+  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', task_engine: 'Tarefas (Task Engine)', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
 }
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
@@ -177,6 +177,11 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: 'tasks.split', module: 'tasks', label: 'Tarefas de split' },
   { code: 'tasks.shipping', module: 'tasks', label: 'Tarefas de entregas' },
   { code: 'tasks.management', module: 'tasks', label: 'Tarefas de gestão' },
+  { code: 'tasks.view', module: 'task_engine', label: 'Visualizar tarefas' },
+  { code: 'tasks.create', module: 'task_engine', label: 'Criar tarefas' },
+  { code: 'tasks.edit', module: 'task_engine', label: 'Editar tarefas' },
+  { code: 'tasks.assign', module: 'task_engine', label: 'Atribuir tarefas' },
+  { code: 'tasks.manage', module: 'task_engine', label: 'Gerenciar tarefas (excluir/cancelar de terceiros)' },
   { code: 'audit.view', module: 'audit', label: 'Visualizar auditoria' },
   { code: 'settings.view', module: 'settings', label: 'Visualizar configurações' },
   { code: 'team.view', module: 'team', label: 'Visualizar equipe' },

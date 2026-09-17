@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { countPendingPhysicalConference } from './control-tower'
+import { countPendingPhysicalConference } from '../legacy/control-tower/control-tower'
 import { OperationalShipment } from './records'
 
 /**

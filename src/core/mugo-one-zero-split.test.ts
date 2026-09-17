@@ -105,7 +105,7 @@ describe('zero split guard — split/perfume/frasco/ml não podem ser conceitos 
     const dashboard = readAll('src/pages/Dashboard.tsx')
     expect(dashboard).not.toContain('/falta-splitar')
 
-    const controlTower = readAll('src/pages/ControlTowerPage.tsx')
+    const controlTower = readAll('src/legacy/control-tower/ControlTowerPage.tsx')
     expect(controlTower).not.toContain('/falta-splitar')
     expect(controlTower).not.toContain('title="Gabriel"')
     expect(controlTower).not.toContain('goToSplits')

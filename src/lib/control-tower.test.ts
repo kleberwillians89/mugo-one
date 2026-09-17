@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PerfumeMarginRow } from './cost-margin'
 import { RadarOffer } from './radar'
 import { ReplenishmentSignal } from './replenishment'
-import { countStrongOpportunities } from './control-tower'
+import { countStrongOpportunities } from '../legacy/control-tower/control-tower'
 
 function signal(overrides: Partial<ReplenishmentSignal> & { perfume_id: string }): ReplenishmentSignal {
   return {

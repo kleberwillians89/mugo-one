@@ -38,7 +38,7 @@ function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Pa
       <div className="brand"><img src="/mugo-logo.png" alt="Mugô One" /><div><strong>MUGÔ</strong><span>ONE</span></div></div>
       <nav>
         {visible.map(({ label, icon: Icon }) => {
-          const displayLabel = label === 'Visão Geral' ? 'Visão 360' : label === 'Torre de Controle' ? 'Tarefas' : label
+          const displayLabel = label === 'Visão Geral' ? 'Visão 360' : label
           return (
           <button
             key={label}

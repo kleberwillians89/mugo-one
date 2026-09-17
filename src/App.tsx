@@ -26,7 +26,7 @@ import { RadarPage } from './pages/RadarPage'
 import { RadarSuppliersPage } from './pages/RadarSuppliersPage'
 import { WaitlistPage } from './pages/WaitlistPage'
 import { ClientRecoveryPage } from './pages/ClientRecoveryPage'
-import { ControlTowerPage } from './pages/ControlTowerPage'
+import { TasksPage } from './pages/TasksPage'
 import { GenericPage } from './pages/GenericPage'
 import { TeamSettingsPage } from './pages/TeamSettingsPage'
 import { CustomerIdentityReviewsPage } from './pages/CustomerIdentityReviewsPage'
@@ -75,7 +75,7 @@ export function App() {
     const requiredFeature = pageFeature[page]
     if (!permissionsLoading && (!pagePermission[page].some((code) => can(code)) || (requiredFeature !== undefined && !hasFeature(requiredFeature)))) return <AccessRestricted/>
     if (page === 'Visão Geral') return <Dashboard/>
-    if (page === 'Torre de Controle') return <ControlTowerPage/>
+    if (page === 'Tarefas') return <TasksPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
     if (page === 'Produtos') return <ProductsServicesPage/>

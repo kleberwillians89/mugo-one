@@ -18,7 +18,7 @@ const fn = migration.slice(migration.indexOf('create or replace function public.
 const reuseBranch = fn.slice(fn.indexOf('if v_item.id is null then'), fn.indexOf('if p_opening_ml>0 then'))
 
 const dashboard = readFileSync(new URL('../pages/Dashboard.tsx', import.meta.url), 'utf8')
-const controlTowerPage = readFileSync(new URL('../pages/ControlTowerPage.tsx', import.meta.url), 'utf8')
+const controlTowerPage = readFileSync(new URL('../legacy/control-tower/ControlTowerPage.tsx', import.meta.url), 'utf8')
 
 describe('inventory_create_item is idempotent (test A/B — canonical 1 org+perfume=1 pooled row)', () => {
   it('A: a perfume with no inventory_item still creates one, with opening_ml applied', () => {
