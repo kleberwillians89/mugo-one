@@ -12,6 +12,7 @@ import type { LegacyShippingStatusResult } from '../lib/records'
 import { useHasPermission } from '../lib/PermissionsContext'
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { Alert, DefinitionGroup, Divider, Drawer, EmptyState, Modal, PrimaryButton, SecondaryButton, SectionHeader, Stepper } from '../components/ui'
+import { EntityTasksBlock } from '../components/EntityTasksBlock'
 import './ClientDetailsPage.css'
 
 /** Coarse status → step index for the compact client-card journey. Only
@@ -174,6 +175,9 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     {missingFields.length>0&&<Alert tone="warning" title="CADASTRO DE ENVIO INCOMPLETO">
       Antes de preparar um envio para este cliente, complete os dados abaixo: {missingFields.map(field=>`• ${field}`).join('  ')}. <SecondaryButton onClick={()=>setEditing(true)}>Completar cadastro</SecondaryButton>
     </Alert>}
+
+    <Divider label="Tarefas"/>
+    <EntityTasksBlock entityType="customer" entityId={clientId} entityLabel={client.name}/>
 
     <Divider label="Brinde"/>
     <ClientGiftCard clientId={clientId} hasGift={client.has_gift} giftNotes={client.gift_notes} updatedAt={client.updated_at} canEdit={canEditClient} onSaved={()=>fetchClient360(clientId).then(setData)}/>

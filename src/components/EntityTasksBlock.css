@@ -1,0 +1,13 @@
+.entity-tasks-block{display:grid;gap:8px;padding:14px;border:1px solid var(--line);background:#fff;border-radius:8px}
+.entity-tasks-block>header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.entity-tasks-block>header strong{font-size:13px}
+.entity-tasks-empty{margin:0;font-size:12px;color:var(--muted)}
+.entity-tasks-list{display:grid;gap:6px}
+.entity-task-row{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;padding:8px 10px;font-size:12px;text-align:left}
+.entity-task-row.done{opacity:.65}
+.entity-task-row-meta{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted);white-space:nowrap}
+.entity-task-row-meta em{font-style:normal}
+.entity-task-row-meta em.overdue{color:#a02f24;font-weight:700}
+.entity-tasks-done{font-size:11px}
+.entity-tasks-done summary{cursor:pointer;color:var(--muted);margin-bottom:6px}
+.entity-tasks-done .entity-task-row{margin-top:4px}

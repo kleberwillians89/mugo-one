@@ -11,6 +11,7 @@ import { SaleActivity, SaleItemLine, fetchSaleActivities, fetchSaleItems, legacy
 import { missingShippingClientFields } from '../lib/client-completeness'
 import { useHasFeature } from '../lib/PermissionsContext'
 import { Alert, DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton, Table } from '../components/ui'
+import { EntityTasksBlock } from '../components/EntityTasksBlock'
 import './SaleDetailsPage.css'
 
 const money = (value: number) => brl(value)
@@ -128,6 +129,9 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
       {label:'Origem',value:sale.source==='spreadsheet'?'Importação':'Manual'},
       {label:'Observações',value:sale.notes||'—'},
     ]}/>
+
+    <Divider label="Tarefas"/>
+    <EntityTasksBlock entityType="sale" entityId={sale.id} entityLabel={clientName}/>
 
     {hasInventoryFeature&&<>
       <Divider label="Custódia e estoque"/>

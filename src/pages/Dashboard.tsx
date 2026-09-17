@@ -1,9 +1,28 @@
 import {useEffect,useMemo,useState} from 'react'
-import {AlertTriangle,ArrowDownRight,ArrowRight,ArrowUpRight,Boxes,CalendarDays,CircleDollarSign,Clock3,PackageCheck,RefreshCw,ShoppingBag,Sparkles,Truck,UsersRound} from 'lucide-react'
+import {AlertTriangle,ArrowDownRight,ArrowRight,ArrowUpRight,Boxes,CalendarDays,CircleDollarSign,Clock3,ListChecks,PackageCheck,RefreshCw,ShoppingBag,Sparkles,Truck,UsersRound} from 'lucide-react'
 import {brl,integer} from '../lib/format'
 import {buildDashboardNarrative,DashboardPeriodKey,fetchIntelligentDashboard,IntelligentDashboard,percentChange} from '../lib/intelligent-dashboard'
 import {statusLabel} from '../lib/presentation'
+import {dueLabel,fetchTasks} from '../lib/tasks'
 import './Dashboard.css'
+
+/**
+ * Bloco mínimo (briefing §25: "não reconstruir Dashboard inteiro") —
+ * busca independente do resto da Visão 360, que continua sendo o
+ * painel de métricas de vendas (fora de escopo generalizar agora).
+ */
+function TasksSummary(){
+  const [counts,setCounts]=useState<{today:number;overdue:number;open:number}|null>(null)
+  useEffect(()=>{fetchTasks({assigneeUserId:'me'}).then(mine=>{const today=mine.filter(t=>dueLabel(t.dueAt)?.text==='Hoje').length,overdue=mine.filter(t=>dueLabel(t.dueAt)?.overdue).length;setCounts({today,overdue,open:mine.length})}).catch(()=>setCounts({today:0,overdue:0,open:0}))},[])
+  if(!counts)return null
+  return <section className="home-section"><SectionHead eyebrow="TAREFAS" title="O que está com você"/>
+    <div className="priority-grid">
+      <Priority icon={ListChecks} value={counts.open} label="Minhas tarefas abertas" href="/tarefas"/>
+      <Priority icon={Clock3} value={counts.today} label="Com prazo hoje" href="/tarefas"/>
+      <Priority icon={AlertTriangle} value={counts.overdue} label="Atrasadas" href="/tarefas" critical/>
+    </div>
+  </section>
+}
 
 const periodOptions:[DashboardPeriodKey,string][]=[['last_hour','Última hora'],['today','Hoje'],['24h','Últimas 24h'],['7d','7 dias'],['30d','30 dias'],['custom','Personalizado']]
 const profileTitle:Record<IntelligentDashboard['viewer']['profile'],string>={management:'Gestão',finance:'Financeiro',operations:'Operação',commercial:'Comercial',marketing:'Marketing',viewer:'Visão geral'}
@@ -30,6 +49,7 @@ export function Dashboard(){
       <section className="home-day-strip"><Day label="Ontem" value={data.day_summary.yesterday} finance={data.viewer.finance_allowed}/><ArrowRight/><Day label="Hoje" value={data.day_summary.today} finance={data.viewer.finance_allowed}/><div className="home-pending"><span>Pendências agora</span><strong>{integer(data.operations.pending_collection)} cobranças · {integer(data.operations.shipments_open)} envios</strong></div></section>
       {/* "Pagas aguardando separação" removida desta grade — linkava para a fila de split, isolada como legado (ver src/legacy/operations/). */}
       {(data.viewer.operations_allowed||data.viewer.management_allowed)&&<section className="home-section"><SectionHead eyebrow="PRIORIDADES" title="O que precisa de ação"/><div className="priority-grid"><Priority icon={Boxes} value={data.operations.missing_allocations} label="Pagas sem reserva de estoque" href="/vendas?filtro=bloqueadas" critical/><Priority icon={Truck} value={data.operations.labels_pending} label="Etiquetas para emitir" href="/entregas"/><Priority icon={Clock3} value={data.operations.awaiting_tracking} label="Envios sem rastreio" href="/entregas"/></div></section>}
+      <TasksSummary/>
       <section className="home-two-columns"><div className="home-section"><SectionHead eyebrow="ALERTAS CENTRALIZADOS" title="Atenção operacional"/>{data.alerts.length?<div className="alert-list">{data.alerts.map((a,i)=><div className={`home-alert ${a.severity}`} key={`${a.type}-${i}`}><AlertTriangle/><div><strong>{a.title}</strong><p>{a.description}</p></div></div>)}</div>:<Empty text="Nenhum alerta operacional neste momento."/>}</div><div className="home-section"><SectionHead eyebrow="RANKING" title="Perfumes do período"/><ProductRanking rows={top} finance={data.viewer.finance_allowed}/></div></section>
       <section className="home-section"><SectionHead eyebrow="MOVIMENTO RECENTE" title="Últimas vendas"/><div className="recent-table-wrap"><table className="recent-table"><thead><tr><th>Cliente</th><th>Perfume</th><th>ML</th>{data.viewer.finance_allowed&&<th>Valor</th>}<th>Pagamento</th><th>Operação</th></tr></thead><tbody>{data.recent_sales.map(s=><tr key={s.id}><td><strong>{s.client_name}</strong><small>{new Date(s.created_at).toLocaleString('pt-BR',{timeZone:data.timezone,dateStyle:'short',timeStyle:'short'})}</small></td><td>{s.perfume_name}{s.bottle_identifier&&<small>{s.bottle_identifier}</small>}</td><td>{s.volume_ml==null?'—':`${integer(s.volume_ml)} ML`}</td>{data.viewer.finance_allowed&&<td>{s.amount==null?'—':brl(s.amount)}</td>}<td><Status value={s.payment_status}/></td><td>{s.shipment_status?<Status value={s.shipment_status}/>:s.separation_status?<Status value={s.separation_status}/>:<span className="status-pill neutral">Sem envio</span>}</td></tr>)}</tbody></table>{!data.recent_sales.length&&<Empty text="Nenhuma venda registrada neste período."/>}</div></section>
       {data.viewer.profile==='marketing'&&!data.recent_sales.length&&<section className="home-section"><Empty text="Ainda não há dados de campanha ou origem comercial suficientes para um painel de marketing confiável."/></section>}
