@@ -198,8 +198,8 @@ function TeamMemberModal({ member, allMembers, close, onSaved }: { member: TeamM
     }>
       <div className="team-modal">
         <div className="form-grid">
-          <label className="field"><span>Nome</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Davi" /></label>
-          <label className="field"><span>Usuário</span><input value={username} onChange={(event) => setUsername(event.target.value.toLowerCase())} placeholder="davi.vendas" disabled={!isNew} /></label>
+          <label className="field"><span>Nome</span><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Ex.: Ana Souza" /></label>
+          <label className="field"><span>Usuário</span><input value={username} onChange={(event) => setUsername(event.target.value.toLowerCase())} placeholder="ana.vendas" disabled={!isNew} /></label>
         </div>
 
         {isNew ? (
