@@ -242,11 +242,12 @@ begin
     coalesce(p_occurred_at, now()), v_clean_metadata
   );
 
-  perform public.log_activity(
-    v_organization_id, 'lead', v_lead_id, 'lead_created', null,
-    'Novo lead via ' || p_channel, null,
-    jsonb_build_object('provider', p_provider, 'channel', p_channel, 'intake_event_id', v_event_id)
-  );
+  -- NÃO loga 'lead_created' aqui: o trigger leads_log_activity (AFTER
+  -- INSERT on leads, já existente desde a Sprint 3) já faz isso
+  -- automaticamente para QUALQUER insert em leads, inclusive este.
+  -- Logar de novo aqui duplicaria a mesma activity na timeline — achado
+  -- ao vivo durante o smoke test desta sprint, não por revisão de
+  -- código (mesma classe de bug do activities.entity_type em E/F).
 
   -- Só loga na timeline do customer quando a identidade JÁ era
   -- conhecida (senão "lead_created" acima já cobre a novidade) — evita
