@@ -51,19 +51,26 @@ describe('B/C/D — a mesma condição de visibilidade da Sidebar concede Config
 })
 
 describe('F — clicar em Configurações permite chegar em "Equipe e acessos"', () => {
+  // A nav de abas (Frete/Equipe/Entradas de Leads) foi extraída para
+  // SettingsTabs.tsx (Sprint M) — antes duplicada em ShipmentOperations.tsx
+  // e TeamSettingsPage.tsx, uma cópia por página. As duas páginas agora só
+  // renderizam <SettingsTabs active="..."/>; a lógica mora em um só lugar.
+  const settingsTabs = read('components/SettingsTabs.tsx')
   const teamPage = read('pages/TeamSettingsPage.tsx')
   const shipmentOps = read('components/ShipmentOperations.tsx')
   it('a aba "Equipe e acessos" existe e navega para /configuracoes/equipe via pushState+popstate', () => {
-    expect(shipmentOps).toContain('Equipe e acessos')
-    expect(shipmentOps).toContain("history.pushState({},'','/configuracoes/equipe')")
-    expect(shipmentOps).toContain("dispatchEvent(new PopStateEvent('popstate'))")
+    expect(settingsTabs).toContain('Equipe e acessos')
+    expect(settingsTabs).toContain("history.pushState({}, '', path)")
+    expect(settingsTabs).toContain("dispatchEvent(new PopStateEvent('popstate'))")
   })
-  it('a aba só aparece para quem tem team.view OU team.manage (canSeeTeam)', () => {
-    expect(shipmentOps).toContain("const {can}=usePermissions()")
-    expect(shipmentOps).toContain("can('team.view')||can('team.manage')")
+  it('a aba só aparece para quem tem team.view OU team.manage (canTeam)', () => {
+    expect(settingsTabs).toContain("useHasPermission('team.view')")
+    expect(settingsTabs).toContain("useHasPermission('team.manage')")
+    expect(settingsTabs).toContain('canTeam = canViewTeam || canManageTeam')
   })
-  it('voltar de Equipe para Configurações usa o mesmo pushState, sem recarregar a página', () => {
-    expect(teamPage).toContain("history.pushState({}, '', sub ? `/configuracoes/${sub}` : '/configuracoes')")
+  it('as duas páginas de Configurações renderizam a mesma <SettingsTabs/>, sem barra de abas duplicada', () => {
+    expect(shipmentOps).toContain('<SettingsTabs active="frete"/>')
+    expect(teamPage).toContain('<SettingsTabs active="equipe"/>')
   })
 })
 
@@ -75,7 +82,7 @@ describe('G — /configuracoes/equipe abre corretamente em navegação direta (r
   it('dentro de Configurações, App.tsx decide a aba pela URL exata (routePath), então /configuracoes/equipe abre TeamSettingsPage e access_total nunca é bloqueado', () => {
     const appTsx = read('App.tsx')
     expect(appTsx).toContain("const wantsTeam = routePath === '/configuracoes/equipe'")
-    expect(appTsx).toContain("const allowed = wantsTeam ? can('team.view') || can('team.manage') : can('settings.view')")
+    expect(appTsx).toContain("const allowed = wantsTeam ? can('team.view') || can('team.manage') : wantsLeadIntake ? can('lead_intake.view') : can('settings.view')")
   })
 })
 

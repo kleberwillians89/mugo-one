@@ -29,6 +29,7 @@ import { ClientRecoveryPage } from './pages/ClientRecoveryPage'
 import { TasksPage } from './pages/TasksPage'
 import { GenericPage } from './pages/GenericPage'
 import { TeamSettingsPage } from './pages/TeamSettingsPage'
+import { LeadIntakeSettingsPage } from './pages/LeadIntakeSettingsPage'
 import { CustomerIdentityReviewsPage } from './pages/CustomerIdentityReviewsPage'
 
 export function App() {
@@ -65,12 +66,14 @@ export function App() {
     // específico não esteja no conjunto plano vindo do backend.
     if (page === 'Configurações') {
       const wantsTeam = routePath === '/configuracoes/equipe'
+      const wantsLeadIntake = routePath === '/configuracoes/entradas-de-leads'
       // Equipe: team.view OU team.manage (quem administra a equipe
       // precisa conseguir vê-la, mesmo numa combinação incomum onde só
-      // team.manage foi concedido). Frete: só settings.view mesmo.
-      const allowed = wantsTeam ? can('team.view') || can('team.manage') : can('settings.view')
+      // team.manage foi concedido). Entradas de Leads: lead_intake.view.
+      // Frete: só settings.view mesmo.
+      const allowed = wantsTeam ? can('team.view') || can('team.manage') : wantsLeadIntake ? can('lead_intake.view') : can('settings.view')
       if (!permissionsLoading && !allowed) return <AccessRestricted/>
-      return wantsTeam ? <TeamSettingsPage/> : <ShippingSettingsPage/>
+      return wantsTeam ? <TeamSettingsPage/> : wantsLeadIntake ? <LeadIntakeSettingsPage/> : <ShippingSettingsPage/>
     }
     const requiredFeature = pageFeature[page]
     if (!permissionsLoading && (!pagePermission[page].some((code) => can(code)) || (requiredFeature !== undefined && !hasFeature(requiredFeature)))) return <AccessRestricted/>

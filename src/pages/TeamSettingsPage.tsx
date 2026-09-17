@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, ShieldCheck, UserX } from 'lucide-react'
 import { Modal, PageHeader, PrimaryButton, SecondaryButton, Select, StatusBadge } from '../components/ui'
+import { SettingsTabs } from '../components/SettingsTabs'
 import { useHasPermission } from '../lib/PermissionsContext'
 import {
   LEGACY_ONLY_PERMISSION_CODES, PERMISSION_CATALOG, PERMISSION_MODULE_LABEL, PRESET_DEFAULT_FLAGS, PRESET_LABEL, Preset, isValidUsername,
@@ -10,11 +11,6 @@ import {
   resetTeamMemberPassword, setTeamMemberStatus, updateTeamMemberPermissions,
 } from '../lib/team'
 import './TeamSettingsPage.css'
-
-function goToSettings(sub: '' | 'equipe') {
-  history.pushState({}, '', sub ? `/configuracoes/${sub}` : '/configuracoes')
-  dispatchEvent(new PopStateEvent('popstate'))
-}
 
 // Split/fracionamento de frasco é legado isolado (src/legacy/operations/),
 // não um conceito do Core — nenhuma organização nova deve ver esses
@@ -47,10 +43,7 @@ export function TeamSettingsPage() {
 
   return (
     <div className="page">
-      <div className="team-tabs">
-        <button onClick={() => goToSettings('')}>Frete</button>
-        <button className="active">Equipe e acessos</button>
-      </div>
+      <SettingsTabs active="equipe"/>
       <PageHeader eyebrow="CONFIGURAÇÕES" title="Equipe e acessos" description="Quem entra no Mugô One e o que cada pessoa pode ver, criar, editar e operar." actions={canManage ? <PrimaryButton icon={<Plus size={17} />} onClick={() => setEditing('new')}>Novo usuário</PrimaryButton> : undefined}/>
 
       {editing && (
