@@ -17,6 +17,15 @@ import { ToastProvider } from './components/ui'
 import { OrganizationProvider } from './core/organizations/OrganizationProvider'
 
 const go = (path:string) => { window.history.pushState({},'',path); window.dispatchEvent(new PopStateEvent('popstate')) }
+// Migração de nome de chave de storage (ruah_* -> mugo_one_*): nunca mais
+// escrevemos a chave antiga, mas sessões abertas antes deste deploy ainda
+// têm ela gravada no navegador — ler a nova primeiro, cair para a antiga
+// só como compatibilidade temporária de leitura. Remover o fallback
+// quando não houver mais sessão antiga plausível em uso.
+const REMEMBER_KEY = 'mugo_one_remember'
+const SESSION_KEY = 'mugo_one_session'
+const readRemember = () => localStorage.getItem(REMEMBER_KEY) ?? localStorage.getItem('ruah_remember')
+const readSessionActive = () => sessionStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem('ruah_session')
 // Só aceita um "next" relativo à própria origem (nunca "//host" nem uma URL
 // absoluta) — evita que um link de login vire redirecionamento aberto.
 const safeNext = (raw:string|null) => raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
@@ -47,7 +56,7 @@ export function LoginPage() {
     // USUÁRIO"). E-mail de verdade (contém "@") passa direto, preservando
     // o login de contas antigas sem qualquer mudança de comportamento.
     const {error}=await supabase.auth.signInWithPassword({email:normalizeLoginIdentifier(email),password})
-    if(error)setError(message(error));else{localStorage.setItem('ruah_remember',String(remember));sessionStorage.setItem('ruah_session','active');go(safeNext(new URLSearchParams(location.search).get('next')))}setLoading(false)}
+    if(error)setError(message(error));else{localStorage.setItem(REMEMBER_KEY,String(remember));sessionStorage.setItem(SESSION_KEY,'active');go(safeNext(new URLSearchParams(location.search).get('next')))}setLoading(false)}
   return <AuthLayout title="Bem-vinda de volta" subtitle="Entre para acessar o CRM e a inteligência comercial."><form className="auth-form" onSubmit={submit}>
     <label><span>Usuário ou e-mail</span><div><Mail/><input type="text" autoComplete="username" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="usuario ou seu@email.com"/></div></label>
     <label><span>Senha</span><div><LockKeyhole/><input type={show?'text':'password'} autoComplete="current-password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Sua senha"/><button type="button" onClick={()=>setShow(!show)} aria-label={show?'Ocultar senha':'Mostrar senha'}>{show?<EyeOff/>:<Eye/>}</button></div></label>
@@ -89,14 +98,18 @@ export function AuthRoot() {
     if(!supabase)return()=>removeEventListener('popstate',change)
     const initialPath=location.pathname
     supabase.auth.getSession().then(async({data})=>{const trustedPrintPopup=(()=>{try{return initialPath.startsWith('/print/')&&window.opener?.location.origin===location.origin}catch{return false}})()
-      if(data.session&&localStorage.getItem('ruah_remember')==='false'&&!sessionStorage.getItem('ruah_session')&&!trustedPrintPopup)await supabase!.auth.signOut();else{if(data.session&&trustedPrintPopup)sessionStorage.setItem('ruah_session','active');setSession(data.session)}setReady(true)})
+      if(data.session&&readRemember()==='false'&&!readSessionActive()&&!trustedPrintPopup)await supabase!.auth.signOut();else{if(data.session&&trustedPrintPopup)sessionStorage.setItem(SESSION_KEY,'active');setSession(data.session)}setReady(true)})
     const {data}=supabase.auth.onAuthStateChange((_event,next)=>setSession(next));return()=>{removeEventListener('popstate',change);data.subscription.unsubscribe()}},[])
   if(!ready)return <div className="app-loading"><LoaderCircle className="spin"/></div>
-  // Portal da cliente ("Minha RUAH"): gerencia a própria sessão do zero,
-  // nunca passa pelo gate de sessão STAFF abaixo (cliente final não é
+  // Customer Portal do Mugô One: gerencia a própria sessão do zero, nunca
+  // passa pelo gate de sessão STAFF abaixo (cliente final não é
   // organization_member — nunca teria uma "sessão válida" nesse sentido —
   // e não deve, de jeito nenhum, cair no shell administrativo <App/>).
-  if(path.startsWith('/minha-ruah'))return <CustomerPortalRoot/>
+  // /portal é a rota canônica do produto; /minha-ruah continua funcionando
+  // como alias de compatibilidade (a navegação interna do portal ainda usa
+  // /minha-ruah/* nesta sprint — generalizar essas sub-rotas é trabalho de
+  // uma sprint dedicada ao Customer Portal, não deste hotfix de branding).
+  if(path.startsWith('/minha-ruah')||path.startsWith('/portal'))return <CustomerPortalRoot/>
   const publicRoute=['/login','/recuperar-senha','/auth/callback','/definir-senha','/atualizar-senha'].includes(path)
   // Ler um QR sem sessão ativa deve voltar para o MESMO frasco depois do
   // login (briefing "Modo Ilde", seção 3) — nunca perder o destino original.

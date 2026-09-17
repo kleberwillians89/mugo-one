@@ -1,12 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { context, json } from '../_shared/security.ts'
 
-// Convenção de login por usuário (briefing "LOGIN POR USUÁRIO"): Dona Ilde
-// nunca inventa um e-mail real para funcionário. "davi.vendas" vira, só
-// internamente, davi.vendas@acesso.ruahparfums.com.br — a pessoa nunca
+// Convenção de login por usuário (briefing "LOGIN POR USUÁRIO"): a empresa
+// nunca precisa inventar um e-mail real para cada funcionário. "davi.vendas"
+// vira, só internamente, davi.vendas@acesso.mugo.one — a pessoa nunca
 // precisa saber disso. Se o valor digitado já tem "@", é tratado como
-// e-mail de verdade (compatibilidade com contas antigas).
-const INTERNAL_DOMAIN = 'acesso.ruahparfums.com.br'
+// e-mail de verdade (compatibilidade com contas antigas). Fallback
+// genérico do produto — nenhum tenant específico é hardcoded aqui;
+// domínio próprio por organização é objetivo futuro (organization_settings).
+const INTERNAL_DOMAIN = 'acesso.mugo.one'
 const USERNAME_RE = /^[a-z0-9._-]{3,32}$/
 
 function normalizeUsername(raw: unknown): string | null {
@@ -54,7 +56,7 @@ Deno.serve(async (req) => {
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email, password, email_confirm: true,
-    user_metadata: { full_name: displayName, ruah_username: username },
+    user_metadata: { full_name: displayName, mugo_one_username: username },
   })
   if (createError || !created.user) {
     const duplicate = /already registered|already exists/i.test(createError?.message ?? '')

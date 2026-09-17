@@ -1,14 +1,20 @@
 import { supabase } from './supabase'
 
 /**
- * Login por usuário (briefing "LOGIN POR USUÁRIO"): Dona Ilde nunca
- * inventa um e-mail real para funcionário. "davi.vendas" vira, só
- * internamente, davi.vendas@acesso.ruahparfums.com.br — a pessoa nunca
+ * Login por usuário (briefing "LOGIN POR USUÁRIO"): a empresa nunca
+ * precisa inventar um e-mail real para cada funcionário. "davi.vendas"
+ * vira, só internamente, davi.vendas@acesso.mugo.one — a pessoa nunca
  * precisa saber disso. Mesma constante/regra usada na Edge Function
  * admin-create-user (duplicada de propósito: um é Deno, outro é browser,
  * sem módulo compartilhado entre os dois runtimes neste projeto).
+ *
+ * Este é o fallback genérico do PRODUTO, não de um tenant específico —
+ * nenhuma organização deve ser hardcoded aqui. Domínio próprio por
+ * organização (ex: acesso.empresaa.com) é objetivo futuro, a ser lido de
+ * organization_settings.settings quando existir; até lá, contas
+ * internas de qualquer organização usam este mesmo domínio genérico.
  */
-export const INTERNAL_LOGIN_DOMAIN = 'acesso.ruahparfums.com.br'
+export const INTERNAL_LOGIN_DOMAIN = 'acesso.mugo.one'
 const USERNAME_RE = /^[a-z0-9._-]{3,32}$/
 
 /** "davi.vendas" → e-mail interno. "alguem@dominio.com" passa direto — preserva login de contas antigas por e-mail real. */

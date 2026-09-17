@@ -3,7 +3,7 @@ import { isValidUsername, normalizeLoginIdentifier, usernameFromEmail } from './
 
 describe('B — normaliza username corretamente', () => {
   it('minúsculas, com trim', () => {
-    expect(normalizeLoginIdentifier('  Davi.Vendas  ')).toBe('davi.vendas@acesso.ruahparfums.com.br')
+    expect(normalizeLoginIdentifier('  Davi.Vendas  ')).toBe('davi.vendas@acesso.mugo.one')
   })
   it('aceita a-z, números, ponto, underline, hífen', () => {
     expect(isValidUsername('davi.vendas')).toBe(true)
@@ -27,7 +27,7 @@ describe('B — normaliza username corretamente', () => {
 
 describe('C — e-mail antigo continua logando sem alteração', () => {
   it('um valor com "@" passa direto, nunca vira e-mail interno', () => {
-    expect(normalizeLoginIdentifier('kleber@ruahparfums.com.br')).toBe('kleber@ruahparfums.com.br')
+    expect(normalizeLoginIdentifier('kleber@empresa.com.br')).toBe('kleber@empresa.com.br')
   })
   it('preserva e-mails de domínios externos quaisquer', () => {
     expect(normalizeLoginIdentifier('Alguem@Gmail.com')).toBe('alguem@gmail.com')
@@ -35,11 +35,11 @@ describe('C — e-mail antigo continua logando sem alteração', () => {
 })
 
 describe('username transforma em e-mail interno de forma determinística (sem consulta ao banco)', () => {
-  it('"davi.vendas" → davi.vendas@acesso.ruahparfums.com.br', () => {
-    expect(normalizeLoginIdentifier('davi.vendas')).toBe('davi.vendas@acesso.ruahparfums.com.br')
+  it('"davi.vendas" → davi.vendas@acesso.mugo.one', () => {
+    expect(normalizeLoginIdentifier('davi.vendas')).toBe('davi.vendas@acesso.mugo.one')
   })
   it('nunca expõe o domínio interno de volta à UI — usernameFromEmail desfaz a transformação só para exibição', () => {
-    expect(usernameFromEmail('davi.vendas@acesso.ruahparfums.com.br')).toBe('davi.vendas')
-    expect(usernameFromEmail('kleber@ruahparfums.com.br')).toBe('kleber@ruahparfums.com.br')
+    expect(usernameFromEmail('davi.vendas@acesso.mugo.one')).toBe('davi.vendas')
+    expect(usernameFromEmail('kleber@empresa.com.br')).toBe('kleber@empresa.com.br')
   })
 })

@@ -17,7 +17,7 @@ const openSplitPrintWindow=(ids:string[])=>{
   // A sessão "não manter conectado" é deliberadamente restrita à aba.
   // Autoriza somente a nova aba criada pelo clique antes de navegar para o
   // documento isolado, evitando que o PDF acabe capturando a tela de login.
-  try{printWindow.sessionStorage.setItem('ruah_session','active')}catch{/* o gate também valida window.opener */}
+  try{printWindow.sessionStorage.setItem('mugo_one_session','active')}catch{/* o gate também valida window.opener */}
   printWindow.location.assign(href)
 }
 
