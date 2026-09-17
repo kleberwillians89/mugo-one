@@ -3,6 +3,7 @@ import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucid
 import type { Session } from '@supabase/supabase-js'
 import { App } from './App'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { publicEnv } from './lib/publicEnv'
 import { PermissionsProvider } from './lib/PermissionsContext'
 import { normalizeLoginIdentifier } from './lib/permissions'
 import { InventoryStationPage } from './pages/InventoryStationPage'
@@ -35,7 +36,7 @@ const message = (error:unknown) => {
 
 function AuthLayout({title,subtitle,children}:{title:string;subtitle:string;children:ReactNode}) {
   return <main className="auth-page"><section className="auth-brand-panel"><div className="auth-brand"><img src="/mugo-logo.png" alt="Mugô One"/><span>MUGÔ ONE</span></div><div><span>CRM E INTELIGÊNCIA COMERCIAL</span><h1>Inteligência que<br/>transforma relações.</h1><p>Dados comerciais protegidos para decisões mais precisas.</p></div><small><ShieldCheck/> Ambiente seguro Mugô One</small></section>
-    <section className="auth-form-panel"><div className="auth-mobile-brand"><img src="/mugo-logo.png" alt="Mugô One"/></div><div className="auth-box"><span>MUGÔ ONE</span><h2>{title}</h2><p>{subtitle}</p>{!isSupabaseConfigured&&<div className="auth-error">Configure as variáveis públicas do Supabase para autenticar.</div>}{children}</div>
+    <section className="auth-form-panel"><div className="auth-mobile-brand"><img src="/mugo-logo.png" alt="Mugô One"/></div><div className="auth-box"><span>MUGÔ ONE</span><h2>{title}</h2><p>{subtitle}</p>{!isSupabaseConfigured&&<div className="auth-error">{publicEnv.backendConfigError??'Configure as variáveis públicas do Supabase para autenticar.'}</div>}{children}</div>
       <div className="mugo-signature" aria-label="Sistema desenvolvido pela Mugô">
         <video className="mugo-3d" autoPlay muted loop playsInline preload="metadata" aria-label="Símbolo tridimensional oficial da Mugô"><source src="/mugo-3d.mp4" type="video/mp4"/></video>
         <div><img src="/mugo-logo.png" alt="Logo oficial da Mugô"/><p>Sistema desenvolvido pela <strong>Mugô</strong></p><span>Tecnologia e inteligência</span></div>

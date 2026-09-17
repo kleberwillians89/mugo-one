@@ -44,14 +44,14 @@ describe('decoupling guard — RUAH não pode vazar para as áreas globais/core 
     }
   })
 
-  it('nenhum arquivo em src/core ou src/modules referencia ruahparfums, RUAH_ORGANIZATION_ID ou RUAH como marca', () => {
-    // Exclui este próprio arquivo — ele PRECISA mencionar essas palavras
-    // nas descrições dos testes e nas mensagens de asserção para
-    // documentar o que está proibido, o que geraria um falso positivo
-    // contra si mesmo.
-    const self = 'src/core/mugo-one-decoupling.test.ts'
+  it('nenhum arquivo de produção em src/core ou src/modules referencia ruahparfums, RUAH_ORGANIZATION_ID ou RUAH como marca', () => {
+    // Exclui QUALQUER arquivo .test.ts (não só este) — guardas de
+    // regressão (este, mugo-one-zero-split, mugo-one-supabase-host-guard)
+    // precisam CITAR essas palavras nas próprias mensagens de asserção
+    // para verificar a ausência delas em outro lugar; isso não é uma
+    // reintrodução do conceito, é a própria proteção.
     const files = [...listFilesRecursive('src/core'), ...listFilesRecursive('src/modules')].filter(
-      (file) => !file.replace(/\\/g, '/').endsWith(self),
+      (file) => !file.replace(/\\/g, '/').endsWith('.test.ts'),
     )
     expect(files.length).toBeGreaterThan(10)
     for (const file of files) {
