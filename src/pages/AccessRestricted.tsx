@@ -13,7 +13,7 @@ export function AccessRestricted() {
       <div className="empty card">
         <div className="empty-icon"><ShieldAlert /></div>
         <h3>ACESSO RESTRITO</h3>
-        <p>Seu perfil não tem permissão para ver esta área. Fale com quem administra sua conta no RUAH se precisar de acesso.</p>
+        <p>Seu perfil não tem permissão para ver esta área. Fale com quem administra sua conta no Mugô One se precisar de acesso.</p>
       </div>
     </div>
   )
