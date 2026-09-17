@@ -1,7 +1,7 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
 
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
 const combo=readFileSync('src/components/ui/EntityCombobox.tsx','utf8')
 const rpc=readFileSync('supabase/migrations/202608230008_davi_excel_safe_existing_sale_update.sql','utf8')
 

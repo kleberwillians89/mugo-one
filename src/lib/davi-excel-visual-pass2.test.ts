@@ -1,8 +1,8 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
-const css=readFileSync('src/pages/DaviExcelPage.css','utf8')
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
-const drafts=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const css=readFileSync('src/legacy/spreadsheet/DaviExcelPage.css','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
+const drafts=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 describe('Davi Excel visual pass 2',()=>{
  it('libera a página ao lado da sidebar e faz a tabela dominar a área',()=>{
   expect(css).toContain('.app-shell>main:has(.davi-excel) .page.davi-excel{width:100%;max-width:none')

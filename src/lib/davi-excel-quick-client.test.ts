@@ -1,8 +1,8 @@
 import {describe,expect,it} from 'vitest'
 import {readFileSync} from 'node:fs'
 
-const grid=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
-const modal=readFileSync('src/components/DaviQuickClientModal.tsx','utf8')
+const grid=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
+const modal=readFileSync('src/legacy/spreadsheet/DaviQuickClientModal.tsx','utf8')
 const records=readFileSync('src/lib/records.ts','utf8')
 const combo=readFileSync('src/components/ui/EntityCombobox.tsx','utf8')
 const sql=readFileSync('supabase/migrations/202608220008_davi_excel_quick_client.sql','utf8')

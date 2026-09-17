@@ -2,8 +2,8 @@ import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
 const records=readFileSync(new URL('./records.ts',import.meta.url),'utf8')
-const davi=readFileSync(new URL('../pages/DaviExcelPage.tsx',import.meta.url),'utf8')
-const newRows=readFileSync(new URL('../components/DaviExcelNewRows.tsx',import.meta.url),'utf8')
+const davi=readFileSync(new URL('../legacy/spreadsheet/DaviExcelPage.tsx',import.meta.url),'utf8')
+const newRows=readFileSync(new URL('../legacy/spreadsheet/DaviExcelNewRows.tsx',import.meta.url),'utf8')
 const migration=readFileSync(new URL('../../supabase/migrations/202609110002_sale_bottle_number.sql',import.meta.url),'utf8')
 
 describe('número do frasco por venda',()=>{

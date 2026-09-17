@@ -1,6 +1,6 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
-const ui=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const ui=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const combo=readFileSync('src/components/ui/EntityCombobox.tsx','utf8')
 
 describe('blockers finais do Davi Excel',()=>{

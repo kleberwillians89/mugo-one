@@ -2,10 +2,10 @@ import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
 const migration=readFileSync('supabase/migrations/202609040004_davi_sale_soft_delete.sql','utf8')
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
-const drafts=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
+const drafts=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const records=readFileSync('src/lib/records.ts','utf8')
-const css=readFileSync('src/pages/DaviExcelPage.css','utf8')
+const css=readFileSync('src/legacy/spreadsheet/DaviExcelPage.css','utf8')
 
 describe('Davi Excel soft delete',()=>{
  it('usa RPC autenticada, tenant, lock, concorrência e soft delete',()=>{

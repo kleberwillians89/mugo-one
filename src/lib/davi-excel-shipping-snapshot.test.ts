@@ -4,12 +4,12 @@ import{describe,expect,it}from'vitest'
 const migration=readFileSync('supabase/migrations/202608220005_davi_excel_shipping_snapshot.sql','utf8')
 const safeUpdate=readFileSync('supabase/migrations/202608230008_davi_excel_safe_existing_sale_update.sql','utf8')
 const filtersMigration=readFileSync('supabase/migrations/202608220006_davi_excel_column_filters.sql','utf8')
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
 const portal=readFileSync('src/portal/CustomerPortalApp.tsx','utf8')
 const routing=readFileSync('src/routing.ts','utf8')
 
 describe('Davi Excel canônico',()=>{
- it('expõe a rota ao preset comercial pela permissão já existente',()=>{expect(routing).toContain("'Davi Excel':'/davi-excel'");expect(routing).toContain("'Davi Excel':['sales.view']")})
+ it('expõe a rota ao preset comercial pela permissão já existente (Davi Excel virou Planilha na Fase C da generalização, mesma permissão)',()=>{expect(routing).toContain("'Planilha':'/planilha'");expect(routing).toContain("'Planilha':['sales.view']")})
  it('preserva a ordem exata das treze colunas',()=>{const labels=['CLIENTE','DATA','PRAZO DE ENVIO','DATA DE ENVIO','TIPO','ML','PERFUME','VALOR','PAGAMENTO','FORMA DE PAGAMENTO','DATA PAGMT','CRÉDITO','OBSERVAÇÃO'];let position=-1;for(const label of labels){const next=page.indexOf(`label:'${label}'`);expect(next).toBeGreaterThan(position);position=next}})
  it('lê vendas, clientes, perfumes, preparação e snapshot numa única RPC paginada',()=>{for(const source of ['public.sales','public.clients','public.perfumes','public.preparation_batch_items','public.customer_shipment_request_items'])expect(filtersMigration).toContain(source);expect(filtersMigration).toContain('limit least(greatest(p_page_size,1),500)');expect(filtersMigration).toContain('offset greatest(p_page,0)')})
  it('aplica os treze filtros e ordenações no servidor',()=>{for(const field of ['client','sale_date','deadline','shipped_at','type','volume','perfume','amount','payment','method','paid_at','credit','notes'])expect(filtersMigration).toContain(`{columns,${field}}`);for(const sort of ['client_asc','sale_date_desc','shipped_at_desc','perfume_asc','amount_desc','paid_at_desc'])expect(filtersMigration).toContain(`p_sort='${sort}'`)})

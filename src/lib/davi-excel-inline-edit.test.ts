@@ -1,7 +1,7 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
 
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
 const migration=readFileSync('supabase/migrations/202609150002_fix_vanilla_baby_client.sql','utf8')
 
 describe('edição direta no Davi Excel',()=>{

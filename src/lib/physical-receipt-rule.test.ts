@@ -4,7 +4,7 @@ import{describe,expect,it}from'vitest'
 const sql=readFileSync('supabase/migrations/202608230005_preparation_sale_type.sql','utf8')
 const records=readFileSync('src/lib/records.ts','utf8')
 const inventory=readFileSync('src/pages/InventoryPage.tsx','utf8')
-const davi=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const davi=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const label=readFileSync('src/legacy/operations/pages/PerfumePrintLabelPage.tsx','utf8')
 
 describe('perfume comercial versus recebimento físico',()=>{

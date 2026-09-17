@@ -1,8 +1,8 @@
 import{useMemo,useRef,useState}from'react'
 import{AlertTriangle,CheckCircle2,ChevronRight,Database,FileSpreadsheet,Info,LoaderCircle,RefreshCw,ShieldCheck,Upload,XCircle}from'lucide-react'
-import{analyzeCurrentCrmState,analyzeDaviFile,applySafeDaviDiagnostic,CrmFinding,CurrentCrmDiagnostic,DataWarning,DaviDiagnosticReport,DaviDiagnosticRow,DaviRowDivergence,incompleteDaviRows,safeDaviRows}from'../lib/davi-import-diagnostics'
-import{dateTime,shortDate}from'../lib/format'
-import{useToast}from'./ui'
+import{analyzeCurrentCrmState,analyzeDaviFile,applySafeDaviDiagnostic,CrmFinding,CurrentCrmDiagnostic,DataWarning,DaviDiagnosticReport,DaviDiagnosticRow,DaviRowDivergence,incompleteDaviRows,safeDaviRows}from'../../lib/davi-import-diagnostics'
+import{dateTime,shortDate}from'../../lib/format'
+import{useToast}from'../../components/ui'
 import'./DaviImportDiagnostics.css'
 
 const money=(value:number|null)=>value==null?'—':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value)

@@ -5,8 +5,8 @@ import{clientNumber}from'./format'
 const m1=readFileSync('supabase/migrations/202608280001_client_number_split_completed_at.sql','utf8')
 const m2=readFileSync('supabase/migrations/202608280002_client_gift.sql','utf8')
 const records=readFileSync('src/lib/records.ts','utf8')
-const davi=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
-const drafts=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const davi=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
+const drafts=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const clients=readFileSync('src/pages/ClientsPage.tsx','utf8')
 const details=readFileSync('src/pages/ClientDetailsPage.tsx','utf8')
 

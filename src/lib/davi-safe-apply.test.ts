@@ -3,8 +3,8 @@ import{describe,expect,it}from'vitest'
 import{canonicalDaviSafeCandidates,daviSafeApplyCandidates,fingerprintDaviSafeCandidates,incompleteDaviRows,safeDaviRows,type DaviDiagnosticReport,type DaviDiagnosticRow,type DaviSafeApplyCandidate,validateDaviSafeDiagnosticRow}from'./davi-import-diagnostics'
 
 const migration=readFileSync('supabase/migrations/202609040003_davi_safe_diagnostic_apply.sql','utf8')
-const component=readFileSync('src/components/DaviImportDiagnostics.tsx','utf8')
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
+const component=readFileSync('src/legacy/spreadsheet/DaviImportDiagnostics.tsx','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
 const baseRow: DaviDiagnosticRow={source_row:2,client:'Cliente',perfume:'Perfume',type:'split',ml:5,amount:50,date:'2026-09-01',identity_classification:'NEW_SALE',sale_id:null,candidate_sale_ids:[],reason:'Sem correspondência.',confidence:.95,action:'criar_apos_aprovacao',stock_classification:'STOCK_NOT_REQUIRED',stock_reason:'Sem estoque necessário.',inventory:null,proposed_changes:{},organization_id:'00000000-0000-4000-8000-000000000001',source_signature:'sig-2',normalized_client:'cliente',normalized_perfume:'perfume',payment_status:'pending'}
 const report=(rows:DaviDiagnosticRow[],patch:Partial<DaviDiagnosticReport>={})=>({organization_id:'00000000-0000-4000-8000-000000000001',source_sha256:'a'.repeat(64),file_name:'davi.csv',snapshot_complete:true,snapshot_signature:'sig',snapshot_created_at:'2026-09-04T12:00:00Z',rows,...patch}as unknown as DaviDiagnosticReport)
 const candidate=(patch:Partial<DaviSafeApplyCandidate>={}):DaviSafeApplyCandidate=>({...daviSafeApplyCandidates(report([baseRow]))[0],...patch})

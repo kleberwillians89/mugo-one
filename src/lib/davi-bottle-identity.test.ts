@@ -2,7 +2,7 @@ import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
 const ai=readFileSync('src/components/AiSalesBatchImport.tsx','utf8')
-const davi=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const davi=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const inventory=readFileSync('src/pages/InventoryPage.tsx','utf8')
 const summary=readFileSync('src/lib/ai-import-preview-summary.ts','utf8')
 const migration=readFileSync('supabase/migrations/202609140003_required_sale_bottle_identity.sql','utf8')

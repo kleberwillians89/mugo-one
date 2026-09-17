@@ -8,7 +8,7 @@ const label=readFileSync('src/legacy/operations/pages/PerfumePrintLabelPage.tsx'
 const labelCss=readFileSync('src/legacy/operations/pages/PerfumePrintLabelPage.css','utf8')
 const preparation=readFileSync('src/lib/preparation.ts','utf8')
 const station=readFileSync('src/pages/InventoryStationPage.tsx','utf8')
-const davi=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const davi=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const physical=readFileSync('supabase/migrations/202608230005_preparation_sale_type.sql','utf8')
 const stationFlow=readFileSync('supabase/migrations/202608230010_inventory_station_preparation.sql','utf8')
 

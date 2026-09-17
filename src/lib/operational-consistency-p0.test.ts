@@ -1,8 +1,8 @@
 import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
-const davi=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
-const drafts=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const davi=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
+const drafts=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const print=readFileSync('src/pages/ShipmentPrintPage.tsx','utf8')
 const migration=readFileSync('supabase/migrations/202608230004_operational_consistency.sql','utf8')
 

@@ -1,8 +1,8 @@
 import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
-const polishCss=readFileSync('src/components/DaviExcelPolish.css','utf8')
-const pageCss=readFileSync('src/pages/DaviExcelPage.css','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
+const polishCss=readFileSync('src/legacy/spreadsheet/DaviExcelPolish.css','utf8')
+const pageCss=readFileSync('src/legacy/spreadsheet/DaviExcelPage.css','utf8')
 
 describe('expandir/recolher planilha do Davi Excel',()=>{
  it('usa um único estado de expansão, sem estado independente duplicado',()=>{

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, LoaderCircle } from 'lucide-react'
-import { createDaviExcelClient, DaviClientCandidate } from '../lib/records'
-import { Modal, useToast } from './ui'
+import { createDaviExcelClient, DaviClientCandidate } from '../../lib/records'
+import { Modal, useToast } from '../../components/ui'
 import './DaviQuickClientModal.css'
 
 const phoneMask=(value:string)=>value.replace(/\D/g,'').slice(0,11).replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2')

@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs'
 
 const migration=readFileSync('supabase/migrations/202608230001_davi_excel_quick_client_optional_fields.sql','utf8')
 const original=readFileSync('supabase/migrations/202608220008_davi_excel_quick_client.sql','utf8')
-const modal=readFileSync('src/components/DaviQuickClientModal.tsx','utf8')
-const grid=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const modal=readFileSync('src/legacy/spreadsheet/DaviQuickClientModal.tsx','utf8')
+const grid=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 
 describe('hotfix da RPC de cliente rápido do Davi Excel',()=>{
   it('não altera a migration 220008 e substitui a mesma assinatura em migration nova',()=>{

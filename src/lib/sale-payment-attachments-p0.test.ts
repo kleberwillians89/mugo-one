@@ -1,6 +1,6 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
-const migration=readFileSync('supabase/migrations/202608230009_sale_payment_attachments.sql','utf8'),page=readFileSync('src/pages/DaviExcelPage.tsx','utf8'),drafts=readFileSync('src/components/DaviExcelNewRows.tsx','utf8'),panel=readFileSync('src/components/SalePaymentAttachmentsModal.tsx','utf8'),client=readFileSync('src/lib/sale-payment-attachments.ts','utf8'),edge=readFileSync('supabase/functions/sale-payment-attachment-upload/index.ts','utf8')
+const migration=readFileSync('supabase/migrations/202608230009_sale_payment_attachments.sql','utf8'),page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8'),drafts=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8'),panel=readFileSync('src/components/SalePaymentAttachmentsModal.tsx','utf8'),client=readFileSync('src/lib/sale-payment-attachments.ts','utf8'),edge=readFileSync('supabase/functions/sale-payment-attachment-upload/index.ts','utf8')
 describe('P0 comprovantes canônicos por venda',()=>{
  it('cria migration 230009 sem alterar a responsabilidade da 230008',()=>{expect(migration).toContain('create table public.sale_payment_attachments');expect(migration).toContain('sale_id uuid not null references public.sales(id)')})
  it('usa bucket privado, limite e MIME allowlist',()=>{expect(migration).toContain("'sale-payment-attachments','sale-payment-attachments',false,10485760");for(const mime of['application/pdf','image/jpeg','image/png','image/webp'])expect(migration).toContain(`'${mime}'`)})

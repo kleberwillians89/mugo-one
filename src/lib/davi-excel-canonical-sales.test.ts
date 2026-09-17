@@ -1,9 +1,9 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
 
-const ui=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
+const ui=readFileSync('src/legacy/spreadsheet/DaviExcelNewRows.tsx','utf8')
 const records=readFileSync('src/lib/records.ts','utf8')
-const page=readFileSync('src/pages/DaviExcelPage.tsx','utf8')
+const page=readFileSync('src/legacy/spreadsheet/DaviExcelPage.tsx','utf8')
 const sales=readFileSync('src/pages/SalesPage.tsx','utf8')
 const client=readFileSync('src/pages/ClientDetailsPage.tsx','utf8')
 const sql=readFileSync('supabase/migrations/202608220007_davi_excel_sale_input.sql','utf8')

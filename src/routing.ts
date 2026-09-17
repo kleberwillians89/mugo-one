@@ -7,11 +7,17 @@ import { FeatureCode } from './core/features/featureCatalog'
 // legado — não é um conceito do Core do Mugô One. O código ainda existe em
 // src/legacy/operations/pages/FaltaSplitarPage.tsx, mas não faz parte da
 // navegação/roteamento ativos (ver src/legacy/operations/README.md).
-export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Davi Excel'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
+//
+// 'Davi Excel' (nome de pessoa, colunas nascidas de perfume) virou
+// 'Planilha' — genérica, tecnologia de grade preservada (ver
+// docs/ACTIVE_PRODUCT_GENERALIZATION_AUDIT.md §2-4). Código antigo em
+// src/legacy/spreadsheet/. Um bookmark para /davi-excel não quebra: cai
+// no fallback 'Visão Geral' de pageFromPath, não em 404.
+export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Planilha'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
 
 export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Visão Geral', icon: Home }, { label: 'Torre de Controle', icon: Compass },
-  { label: 'Davi Excel', icon: FileSpreadsheet }, { label: 'Vendas', icon: ShoppingBag },
+  { label: 'Planilha', icon: FileSpreadsheet }, { label: 'Vendas', icon: ShoppingBag },
   { label: 'Cobranças', icon: CircleDollarSign },
   { label: 'Entregas', icon: Truck }, { label: 'Estoque', icon: Boxes },
   { label: 'Clientes', icon: UsersRound },
@@ -22,7 +28,7 @@ export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Configurações', icon: Settings },
 ]
 
-export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':'/torre-de-controle','Clientes':'/clientes','Vendas':'/vendas','Davi Excel':'/davi-excel','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
+export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':'/torre-de-controle','Clientes':'/clientes','Vendas':'/vendas','Planilha':'/planilha','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
 
 // Permissão mínima para VER cada módulo no menu/rota (briefing "ROTAS E
 // MENU"). Configurações tem três códigos alternativos porque a página tem
@@ -38,7 +44,7 @@ export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':
 export const pagePermission:Record<Page,string[]>={
   'Visão Geral':['dashboard.view'],'Torre de Controle':['tasks.sales','tasks.shipping','tasks.management'],
   'Clientes':['clients.view'],'Vendas':['sales.view'],'Entregas':['shipping.view'],
-  'Davi Excel':['sales.view'],'Cobranças':['sales.view'],
+  'Planilha':['sales.view'],'Cobranças':['sales.view'],
   'Estoque':['inventory.view'],'Relatórios':['reports.view'],'Importação':['ai_import.view'],
   'IA':['ai_import.view'],'Insights':['reports.view'],'Radar':['radar.view'],
   'Interessados':['waitlist.view'],'Configurações':['settings.view','team.view','team.manage'],
