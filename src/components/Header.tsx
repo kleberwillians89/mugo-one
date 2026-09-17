@@ -21,7 +21,7 @@ export function Header({ menu }: Props) {
   return (
     <header className="app-header">
       <IconButton className="header-menu-btn" icon={Menu} aria-label="Abrir menu" onClick={menu} />
-      <div className="header-brand-mobile" aria-hidden="true"><strong>RUAH</strong><span>INTELLIGENCE</span></div>
+      <div className="header-brand-mobile" aria-hidden="true"><strong>MUGÔ</strong><span>ONE</span></div>
       <div className="header-actions">
         <button type="button" onClick={logout} className="header-logout"><LogOut size={16}/><span>Sair</span></button>
       </div>

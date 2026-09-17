@@ -91,5 +91,5 @@ export function App() {
     if (page === 'Interessados') return <WaitlistPage/>
     return <GenericPage page={page}/>
   }, [page,period,routePath,permissionsLoading,can,bootPeriod.ready])
-  return <div className="app-shell"><Sidebar page={page} setPage={navigate} open={menuOpen} close={()=>setMenuOpen(false)}/><main><Header menu={()=>setMenuOpen(true)}/>{content}<footer className="internal-mugo-signature"><img src="/mugo-logo.png" alt="Mugô"/><span>RUAH Intelligence — desenvolvido pela Mugô</span></footer></main></div>
+  return <div className="app-shell"><Sidebar page={page} setPage={navigate} open={menuOpen} close={()=>setMenuOpen(false)}/><main><Header menu={()=>setMenuOpen(true)}/>{content}<footer className="internal-mugo-signature"><img src="/mugo-logo.png" alt="Mugô"/><span>Mugô One — desenvolvido pela Mugô</span></footer></main></div>
 }

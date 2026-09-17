@@ -29,8 +29,8 @@ const message = (error:unknown) => {
 }
 
 function AuthLayout({title,subtitle,children}:{title:string;subtitle:string;children:ReactNode}) {
-  return <main className="auth-page"><section className="auth-brand-panel"><div className="auth-brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums"/><span>RUAH PARFUMS</span></div><div><span>CRM E INTELIGÊNCIA COMERCIAL</span><h1>Inteligência que<br/>transforma relações.</h1><p>Dados comerciais protegidos para decisões mais precisas.</p></div><small><ShieldCheck/> Ambiente seguro RUAH</small></section>
-    <section className="auth-form-panel"><div className="auth-mobile-brand"><img src="/ruah-logo.jpg" alt="RUAH"/></div><div className="auth-box"><span>RUAH INTELLIGENCE</span><h2>{title}</h2><p>{subtitle}</p>{!isSupabaseConfigured&&<div className="auth-error">Configure as variáveis públicas do Supabase para autenticar.</div>}{children}</div>
+  return <main className="auth-page"><section className="auth-brand-panel"><div className="auth-brand"><img src="/mugo-logo.png" alt="Mugô One"/><span>MUGÔ ONE</span></div><div><span>CRM E INTELIGÊNCIA COMERCIAL</span><h1>Inteligência que<br/>transforma relações.</h1><p>Dados comerciais protegidos para decisões mais precisas.</p></div><small><ShieldCheck/> Ambiente seguro Mugô One</small></section>
+    <section className="auth-form-panel"><div className="auth-mobile-brand"><img src="/mugo-logo.png" alt="Mugô One"/></div><div className="auth-box"><span>MUGÔ ONE</span><h2>{title}</h2><p>{subtitle}</p>{!isSupabaseConfigured&&<div className="auth-error">Configure as variáveis públicas do Supabase para autenticar.</div>}{children}</div>
       <div className="mugo-signature" aria-label="Sistema desenvolvido pela Mugô">
         <video className="mugo-3d" autoPlay muted loop playsInline preload="metadata" aria-label="Símbolo tridimensional oficial da Mugô"><source src="/mugo-3d.mp4" type="video/mp4"/></video>
         <div><img src="/mugo-logo.png" alt="Logo oficial da Mugô"/><p>Sistema desenvolvido pela <strong>Mugô</strong></p><span>Tecnologia e inteligência</span></div>
@@ -68,7 +68,7 @@ function PasswordPage({first=false}:{first?:boolean}) {
   const [password,setPassword]=useState(''),[confirm,setConfirm]=useState(''),[show,setShow]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState('')
   const submit=async(e:FormEvent)=>{e.preventDefault();if(!supabase)return;if(password.length<10)return setError('Use pelo menos 10 caracteres.');if(password!==confirm)return setError('As senhas não coincidem.')
     setLoading(true);const {error}=await supabase.auth.updateUser({password});if(error)setError(message(error));else go('/');setLoading(false)}
-  return <AuthLayout title={first?'Defina sua senha':'Atualize sua senha'} subtitle="Crie uma senha forte e exclusiva para o RUAH Intelligence."><form className="auth-form" onSubmit={submit}>
+  return <AuthLayout title={first?'Defina sua senha':'Atualize sua senha'} subtitle="Crie uma senha forte e exclusiva para o Mugô One."><form className="auth-form" onSubmit={submit}>
     {[['Nova senha',password,setPassword],['Confirmar senha',confirm,setConfirm]].map(([label,value,setter])=><label key={label as string}><span>{label as string}</span><div><LockKeyhole/><input type={show?'text':'password'} autoComplete="new-password" required value={value as string} onChange={(e)=>(setter as (x:string)=>void)(e.target.value)}/><button type="button" onClick={()=>setShow(!show)}>{show?<EyeOff/>:<Eye/>}</button></div></label>)}
     {error&&<div className="auth-error">{error}</div>}<button className="auth-submit" disabled={loading}>{loading?<LoaderCircle className="spin"/>:'Salvar nova senha'}</button></form></AuthLayout>
 }

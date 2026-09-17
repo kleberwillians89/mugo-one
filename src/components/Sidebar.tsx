@@ -18,7 +18,7 @@ function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Pa
   const visible = loading ? [] : navigation.filter(({ label }) => pagePermission[label].some((code) => can(code)))
   return (
     <>
-      <div className="brand"><img src="/ruah-logo.jpg" alt="RUAH Parfums" /><div><strong>RUAH</strong><span>INTELLIGENCE</span></div></div>
+      <div className="brand"><img src="/mugo-logo.png" alt="Mugô One" /><div><strong>MUGÔ</strong><span>ONE</span></div></div>
       <nav>
         {visible.map(({ label, icon: Icon }) => {
           const displayLabel = label === 'Visão Geral' ? 'Visão 360' : label === 'Torre de Controle' ? 'Tarefas' : label
@@ -35,8 +35,8 @@ function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Pa
         )})}
       </nav>
       <div className="sidebar-foot">
-        <div className="workspace-mark">RP</div>
-        <div><strong>RUAH Parfums</strong><span>Administrador</span></div>
+        <div className="workspace-mark">MO</div>
+        <div><strong>Mugô One</strong><span>Administrador</span></div>
         <MoreHorizontal size={18} />
       </div>
     </>
