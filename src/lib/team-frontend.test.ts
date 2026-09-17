@@ -105,8 +105,8 @@ describe('Z — mobile 390px sem overflow', () => {
 })
 
 describe('atalhos MARCAR TUDO / SOMENTE VISUALIZAÇÃO / LIMPAR existem e usam o catálogo real, não uma lista inventada', () => {
-  it('markAll usa todos os códigos do catálogo, onlyView filtra por sufixo .view, clearAll esvazia', () => {
-    expect(teamPage).toContain('const markAll = () => setChecked(new Set(PERMISSION_CATALOG.map((entry) => entry.code)))')
+  it('markAll usa todos os códigos ativos do catálogo (split/frasco legado excluído), onlyView filtra por sufixo .view, clearAll esvazia', () => {
+    expect(teamPage).toContain('const markAll = () => setChecked(new Set(ACTIVE_PERMISSION_CATALOG.map((entry) => entry.code)))')
     expect(teamPage).toContain("entry.code.endsWith('.view')")
     expect(teamPage).toContain('const clearAll = () => setChecked(new Set())')
   })

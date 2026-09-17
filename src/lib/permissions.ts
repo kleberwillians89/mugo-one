@@ -116,6 +116,16 @@ export const PRESET_DEFAULT_FLAGS: Record<Preset, { viewAll: boolean; accessTota
  */
 export type PermissionCatalogEntry = { code: string; module: string; label: string }
 
+/**
+ * Códigos que só fazem sentido para a operação de fracionamento/split de
+ * frasco (legado, isolado em src/legacy/operations/ — não é conceito do
+ * Core do Mugô One). Continuam no PERMISSION_CATALOG (não podemos remover
+ * uma linha de uma migration histórica já aplicada), mas não devem
+ * aparecer na UI de configuração de permissões para nenhuma organização
+ * nova — ver uso em TeamSettingsPage.
+ */
+export const LEGACY_ONLY_PERMISSION_CODES = new Set(['tasks.split', 'inventory.split'])
+
 export const PERMISSION_MODULE_LABEL: Record<string, string> = {
   dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', inventory: 'Estoque', shipping: 'Envios',
   radar: 'Radar', waitlist: 'Lista de espera', recovery: 'Recuperação de clientes', cost_margin: 'Custo e margem',

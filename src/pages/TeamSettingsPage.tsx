@@ -3,7 +3,7 @@ import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, ShieldCheck, UserX } from 'l
 import { Modal, PageHeader, PrimaryButton, SecondaryButton, Select, StatusBadge } from '../components/ui'
 import { useHasPermission } from '../lib/PermissionsContext'
 import {
-  PERMISSION_CATALOG, PERMISSION_MODULE_LABEL, PRESET_DEFAULT_FLAGS, PRESET_LABEL, Preset, isValidUsername,
+  LEGACY_ONLY_PERMISSION_CODES, PERMISSION_CATALOG, PERMISSION_MODULE_LABEL, PRESET_DEFAULT_FLAGS, PRESET_LABEL, Preset, isValidUsername,
 } from '../lib/permissions'
 import {
   TeamMember, createTeamMember, fetchTeamMemberPermissions, fetchTeamMembers, generatePassword,
@@ -16,10 +16,15 @@ function goToSettings(sub: '' | 'equipe') {
   dispatchEvent(new PopStateEvent('popstate'))
 }
 
-const MODULE_ORDER = Array.from(new Set(PERMISSION_CATALOG.map((entry) => entry.module)))
+// Split/fracionamento de frasco é legado isolado (src/legacy/operations/),
+// não um conceito do Core — nenhuma organização nova deve ver esses
+// códigos na configuração de permissões. PERMISSION_CATALOG continua
+// completo (espelho de uma migration histórica); só a exibição filtra.
+const ACTIVE_PERMISSION_CATALOG = PERMISSION_CATALOG.filter((entry) => !LEGACY_ONLY_PERMISSION_CODES.has(entry.code))
+const MODULE_ORDER = Array.from(new Set(ACTIVE_PERMISSION_CATALOG.map((entry) => entry.module)))
 
 function moduleGroups() {
-  return MODULE_ORDER.map((module) => ({ module, label: PERMISSION_MODULE_LABEL[module] ?? module, items: PERMISSION_CATALOG.filter((entry) => entry.module === module) }))
+  return MODULE_ORDER.map((module) => ({ module, label: PERMISSION_MODULE_LABEL[module] ?? module, items: ACTIVE_PERMISSION_CATALOG.filter((entry) => entry.module === module) }))
 }
 
 /**
@@ -134,8 +139,8 @@ function TeamMemberModal({ member, allMembers, close, onSaved }: { member: TeamM
     if (next.has(code)) next.delete(code); else next.add(code)
     return next
   })
-  const markAll = () => setChecked(new Set(PERMISSION_CATALOG.map((entry) => entry.code)))
-  const onlyView = () => setChecked(new Set(PERMISSION_CATALOG.filter((entry) => entry.code.endsWith('.view')).map((entry) => entry.code)))
+  const markAll = () => setChecked(new Set(ACTIVE_PERMISSION_CATALOG.map((entry) => entry.code)))
+  const onlyView = () => setChecked(new Set(ACTIVE_PERMISSION_CATALOG.filter((entry) => entry.code.endsWith('.view')).map((entry) => entry.code)))
   const clearAll = () => setChecked(new Set())
 
   const applyCopyFrom = async (userId: string) => {
