@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Download, Filter, Plus, Sparkles } from 'lucide-react'
 import { brl, integer, shortDate } from '../lib/format'
-import { SaleModal } from '../components/RecordModals'
+import { NewSaleModal } from '../components/NewSaleModal'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { PeriodValue } from '../lib/period'
 import { statusLabel } from '../lib/presentation'
@@ -43,7 +43,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const total=sales.reduce((sum,sale)=>sum+Number(sale.amount),0)
 
   return <div className="page">
-    {modal&&<SaleModal close={()=>setModal(false)}/>} 
+    {modal&&<NewSaleModal close={()=>setModal(false)} onCreated={()=>refresh()}/>} 
     {aiImport&&<AiSalesBatchImport close={()=>setAiImport(false)} completed={()=>{setLoading(true);refresh()}}/>}
     <PageHeader title="Vendas" description="Consulta, edição e exportação dos registros reais." actions={<>
       <PeriodFilter value={period} onApply={setPeriod}/>

@@ -127,7 +127,7 @@ export type PermissionCatalogEntry = { code: string; module: string; label: stri
 export const LEGACY_ONLY_PERMISSION_CODES = new Set(['tasks.split', 'inventory.split'])
 
 export const PERMISSION_MODULE_LABEL: Record<string, string> = {
-  dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', inventory: 'Estoque', shipping: 'Envios',
+  dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', catalog: 'Catálogo', inventory: 'Estoque', shipping: 'Envios',
   radar: 'Radar', waitlist: 'Lista de espera', recovery: 'Recuperação de clientes', cost_margin: 'Custo e margem',
   reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
 }
@@ -143,6 +143,8 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: 'sales.edit', module: 'sales', label: 'Editar vendas' },
   { code: 'sales.validate', module: 'sales', label: 'Validar vendas' },
   { code: 'sales.cancel', module: 'sales', label: 'Cancelar vendas' },
+  { code: 'catalog.view', module: 'catalog', label: 'Visualizar catálogo' },
+  { code: 'catalog.manage', module: 'catalog', label: 'Gerenciar catálogo' },
   { code: 'inventory.view', module: 'inventory', label: 'Visualizar estoque' },
   { code: 'inventory.create', module: 'inventory', label: 'Cadastrar estoque' },
   { code: 'inventory.adjust', module: 'inventory', label: 'Ajustar saldo físico' },

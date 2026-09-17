@@ -8,6 +8,7 @@ export type FeatureCode =
   | 'crm'
   | 'tasks'
   | 'sales'
+  | 'catalog'
   | 'inventory'
   | 'shipping'
   | 'communications'
@@ -32,6 +33,8 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
   // Controle, vertical) — ver docs/ACTIVE_PRODUCT_GENERALIZATION_AUDIT.md §7.
   { code: 'tasks', label: 'Tarefas', isCore: false },
   { code: 'sales', label: 'Vendas', isCore: true },
+  // Sem catálogo não existe "Nova venda" — core, sem exceção por organização.
+  { code: 'catalog', label: 'Catálogo', isCore: true },
   { code: 'inventory', label: 'Estoque', isCore: false },
   { code: 'shipping', label: 'Entregas', isCore: false },
   { code: 'communications', label: 'Comunicação', isCore: false },
