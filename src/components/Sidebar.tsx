@@ -1,13 +1,30 @@
 import { MoreHorizontal } from 'lucide-react'
 import { Page, navigation, pagePermission } from '../routing'
 import { usePermissions } from '../lib/PermissionsContext'
+import { useOrganization } from '../core/organizations/useOrganization'
 import { Drawer } from './ui/Drawer'
 import './Sidebar.css'
 
 type Props = { page: Page; setPage: (p: Page) => void; open: boolean; close: () => void }
 
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Administrador',
+  manager: 'Gerente',
+  operator: 'Operador',
+  viewer: 'Visualizador',
+}
+
 function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Page) => void; onNavigate?: () => void }) {
   const { loading, can } = usePermissions()
+  const { currentOrganization } = useOrganization()
+  const workspaceName = currentOrganization?.organizationName ?? 'Carregando…'
+  const roleLabel = currentOrganization ? (ROLE_LABEL[currentOrganization.role] ?? currentOrganization.role) : ''
+  const workspaceInitials = workspaceName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('') || 'MO'
   // Esconder o item, não só desabilitar — mas nunca a única linha de
   // defesa (has_org_permission no backend continua negando de qualquer
   // forma). Enquanto carrega, nada extra aparece: melhor um menu quase
@@ -35,8 +52,8 @@ function SidebarNav({ page, setPage, onNavigate }: { page: Page; setPage: (p: Pa
         )})}
       </nav>
       <div className="sidebar-foot">
-        <div className="workspace-mark">MO</div>
-        <div><strong>Mugô One</strong><span>Administrador</span></div>
+        <div className="workspace-mark">{workspaceInitials}</div>
+        <div><strong>{workspaceName}</strong><span>{roleLabel}</span></div>
         <MoreHorizontal size={18} />
       </div>
     </>
