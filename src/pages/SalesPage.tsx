@@ -9,6 +9,7 @@ import { exportCsv } from '../lib/csv'
 import { deliveryLabel } from '../lib/delivery'
 import { CommercialSale, SaleFilters, fetchSalesPage } from '../lib/records'
 import { BlockedSale, assignBlockedSale, blockingReasonLabels, fetchSalesValidationQueue } from '../lib/sales-validation'
+import { SaleItemsSummary, fetchSaleItemsSummaries, itemsQuantityLabel, itemsSummaryLabel } from '../lib/sale-items'
 import { Drawer, PageHeader, PrimaryButton, SearchInput, SecondaryButton, StatusBadge, Table } from '../components/ui'
 import { AiSalesBatchImport } from '../components/AiSalesBatchImport'
 import './SalesPage.css'
@@ -17,6 +18,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const [modal,setModal]=useState(false)
   const [aiImport,setAiImport]=useState(false)
   const [sales,setSales]=useState<CommercialSale[]>([])
+  const [itemSummaries,setItemSummaries]=useState<Map<string,SaleItemsSummary>>(new Map())
   const [count,setCount]=useState(0)
   const [page,setPage]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState('')
   const [filters,setFilters]=useState<SaleFilters>({period,sort:'sale_date_desc'})
@@ -28,7 +30,7 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
   const setFilter=(key:keyof SaleFilters,value:string)=>{setPage(0);setFilters((current)=>({...current,[key]:value||undefined}))}
   const activeFilterCount=Object.entries(filters).filter(([key,value])=>key!=='period'&&key!=='sort'&&key!=='search'&&value!==undefined&&value!=='').length
   const clearFilters=()=>{setPage(0);setFilters({period,sort:'sale_date_desc'})}
-  const refresh=useCallback(()=>fetchSalesPage({...filters,period},page,50).then((result)=>{setSales(result.rows);setCount(result.count)}).catch(()=>setError('Não foi possível consultar as vendas.')).finally(()=>setLoading(false)),[filters,page,period])
+  const refresh=useCallback(()=>fetchSalesPage({...filters,period},page,50).then((result)=>{setSales(result.rows);setCount(result.count);fetchSaleItemsSummaries(result.rows.map((sale)=>sale.id)).then(setItemSummaries).catch(()=>setItemSummaries(new Map()))}).catch(()=>setError('Não foi possível consultar as vendas.')).finally(()=>setLoading(false)),[filters,page,period])
   useEffect(()=>{refresh()},[refresh])
   // Fase 2 do roadmap operacional ("Qual venda está bloqueada?"): a contagem
   // carrega sempre, independente da aba ativa, para o rótulo "Bloqueadas (N)"
@@ -103,8 +105,8 @@ export function SalesPage({period,setPeriod}:{period:PeriodValue;setPeriod:(valu
         columns={[
           {key:'sale_date',label:'Data',render:(sale)=>sale.sale_date?shortDate(sale.sale_date):'—'},
           {key:'client',label:'Cliente',render:(sale)=><strong>{sale.clients?.name??sale.original_client??'—'}</strong>},
-          {key:'items',label:'Itens',render:(sale)=>sale.perfume_name_raw??'—'},
-          {key:'quantity',label:'Quantidade',render:(sale)=>sale.volume_ml===null?'—':`${Number(sale.volume_ml).toLocaleString('pt-BR')} ml`},
+          {key:'items',label:'Itens',render:(sale)=>itemsSummaryLabel(itemSummaries.get(sale.id),sale.perfume_name_raw??'—')},
+          {key:'quantity',label:'Quantidade',render:(sale)=>itemsQuantityLabel(itemSummaries.get(sale.id),sale.volume_ml===null?'—':`${Number(sale.volume_ml).toLocaleString('pt-BR')} ml`)},
           {key:'amount',label:'Valor',render:(sale)=>brl(Number(sale.amount))},
           {key:'payment_status',label:'Pagamento',render:(sale)=><span className={`badge ${sale.payment_status}`}>{statusLabel[sale.payment_status]}</span>},
           {key:'payment_method',label:'Forma',render:(sale)=>sale.payment_method??'—'},

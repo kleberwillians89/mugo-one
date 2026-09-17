@@ -86,3 +86,9 @@
   .ficha-actions{display:grid;grid-template-columns:1fr}
   .ficha-actions>*{width:100%}
 }
+
+.sale-activity-timeline{display:grid;gap:10px}
+.sale-activity-timeline article{padding:10px 14px;border:1px solid var(--line);background:#fff}
+.sale-activity-timeline strong{display:block;font-size:13px}
+.sale-activity-timeline p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.sale-activity-timeline time{display:block;margin-top:4px;font-size:10px;color:var(--muted)}

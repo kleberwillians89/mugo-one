@@ -280,7 +280,7 @@ export async function registerCollectionPayment(saleIds:string[],paidAt:string,p
     const message=String(error.message)
     if(message.includes('forbidden'))throw new Error('Você não tem permissão para registrar pagamentos.')
     if(message.includes('sale_cancelled'))throw new Error('Uma das vendas selecionadas está cancelada e não pode ser quitada.')
-    if(message.includes('sale_already_paid'))throw new Error('Uma das vendas selecionadas já está paga com outra data/forma. Corrija-a no Davi Excel.')
+    if(message.includes('sale_already_paid'))throw new Error('Uma das vendas selecionadas já está paga com outra data/forma. Corrija-a na Planilha.')
     if(message.includes('sale_not_found'))throw new Error('Uma das vendas selecionadas não foi encontrada nesta organização.')
     if(message.includes('no_sales_selected'))throw new Error('Selecione ao menos uma venda para registrar o pagamento.')
     if(message.includes('payment_method_required'))throw new Error('Informe a forma de pagamento.')

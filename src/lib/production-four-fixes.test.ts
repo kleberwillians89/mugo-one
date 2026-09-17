@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 const read=(path:string)=>readFileSync(path,'utf8')
-const modal=read('src/components/RecordModals.tsx')
 const legacySaleModal=read('src/legacy/sales/LegacySaleModal.tsx')
 const records=read('src/lib/records.ts')
 const comboboxCss=read('src/components/ui/EntityCombobox.css')

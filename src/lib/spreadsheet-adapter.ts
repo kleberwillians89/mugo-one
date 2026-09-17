@@ -2,6 +2,7 @@ import {
   DaviColumnFilter, DaviExcelFilters, DaviExcelRow, DaviFilterKind, DaviSortLevel,
   fetchDaviExcel, fetchDaviExcelDistinct, fetchDaviExcelSaleEdit, softDeleteDaviSale, updateDaviExcelSale,
 } from './records'
+import { fetchSaleItemsSummaries, itemsSummaryLabel } from './sale-items'
 
 /**
  * Adapter (padrão LegacySaleAdapter — ver
@@ -11,11 +12,11 @@ import {
  * pela Fase C. Nenhum nome "Davi" cruza esta fronteira para fora deste
  * arquivo — o resto do Core só conhece `SpreadsheetRow`.
  *
- * Hoje o único "item" real de uma venda é um perfume — por isso `item`
- * e `unit` vêm preenchidos com esse dado real (não é dado inventado).
- * Quando o modelo genérico SALE + SALE_ITEMS existir (Fase E), este
- * adapter passa a ler dali, e `unit` deixa de ser sempre 'ml' — nada no
- * tipo abaixo assume isso como regra.
+ * Uma venda antiga (perfume_id preenchido) tem `item`/`quantity`/`unit`
+ * vindos do legado (perfume/ml); uma venda nova (Fase F,
+ * create_sale_with_items) não tem perfume_id, então esses três campos
+ * vêm de sale_items em vez disso — ver fetchSpreadsheetPage. Nenhum dos
+ * dois casos é regra estrutural do tipo abaixo; `unit` nunca é só 'ml'.
  */
 export type SpreadsheetRow = {
   id: string
@@ -84,9 +85,33 @@ function toLegacySorts(sorts: SpreadsheetSortLevel[]): DaviSortLevel[] {
   return sorts.map((level) => ({ ...level, column: toLegacyColumn(level.column) }))
 }
 
+/**
+ * Vendas criadas pela Fase F (create_sale_with_items) não têm
+ * perfume_id — chegam de `fetchDaviExcel` com item/quantity/unit nulos
+ * (join à esquerda com perfumes, ver docs/SALES_CATALOG_MIGRATION_PLAN.md).
+ * Para essas linhas (e só essas — uma query em lote, não N+1), busca o
+ * resumo real em sale_items e preenche por cima, para que "novas vendas
+ * aparecem na Planilha" signifique aparecer com o item certo, não em branco.
+ */
 export async function fetchSpreadsheetPage(filters: SpreadsheetFilters, page = 0, pageSize = 100, sorts: SpreadsheetSortLevel[] = SPREADSHEET_DEFAULT_SORT) {
   const result = await fetchDaviExcel(toLegacyFilters(filters), page, pageSize, toLegacySorts(sorts))
-  return { rows: result.rows.map(toSpreadsheetRow), total: result.total }
+  const rows = result.rows.map(toSpreadsheetRow)
+  const missingItemIds = rows.filter((row) => row.item === null).map((row) => row.id)
+  if (missingItemIds.length > 0) {
+    const summaries = await fetchSaleItemsSummaries(missingItemIds)
+    for (const row of rows) {
+      const summary = summaries.get(row.id)
+      if (summary) {
+        row.item = itemsSummaryLabel(summary, row.item ?? '—')
+        // unit === null quer dizer "itens com unidades incompatíveis" —
+        // mostra a contagem de itens em vez de somar quantidades que não
+        // podem ser somadas (ver itemsQuantityLabel/briefing Fase F §24).
+        row.quantity = summary.unit === null ? summary.count : summary.quantity
+        row.unit = summary.unit ?? 'itens'
+      }
+    }
+  }
+  return { rows, total: result.total }
 }
 
 export async function fetchSpreadsheetDistinct(column: string, filters: SpreadsheetFilters, search = ''): Promise<{ values: SpreadsheetDistinctValue[]; total: number; has_more: boolean }> {

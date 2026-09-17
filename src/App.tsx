@@ -11,6 +11,7 @@ import { ClientsPage } from './pages/ClientsPage'
 import { ClientDetailsPage } from './pages/ClientDetailsPage'
 import { SalesPage } from './pages/SalesPage'
 import { SpreadsheetPage } from './pages/SpreadsheetPage'
+import { ProductsServicesPage } from './pages/ProductsServicesPage'
 import { CobrancasPage } from './pages/CobrancasPage'
 import { SaleDetailsPage } from './pages/SaleDetailsPage'
 import { DeliveriesPage } from './pages/DeliveriesPage'
@@ -77,6 +78,7 @@ export function App() {
     if (page === 'Torre de Controle') return <ControlTowerPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
+    if (page === 'Produtos') return <ProductsServicesPage/>
     if (page === 'Planilha') return <SpreadsheetPage/>
     if (page === 'Cobranças') return <CobrancasPage/>
     if (page === 'Entregas') {const shipmentId=routePath.match(/^\/entregas\/([0-9a-f-]{36})$/i)?.[1];return shipmentId?<ShipmentDetailsPage shipmentId={shipmentId}/>:<DeliveriesPage period={period} setPeriod={setPeriod}/>}

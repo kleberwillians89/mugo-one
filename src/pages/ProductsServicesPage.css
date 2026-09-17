@@ -1,0 +1,2 @@
+.products-services-actions{display:flex;gap:8px}
+.products-services-actions button{border:1px solid var(--line);background:#fff;padding:5px 9px;font-size:11px}
