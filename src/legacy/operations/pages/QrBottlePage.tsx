@@ -1,10 +1,12 @@
+// LEGADO ISOLADO — não faz parte do Core do Mugô One (ver ../README.md).
+// Fora da navegação/roteamento ativos desde o hotfix "zero split".
 import { useEffect, useState } from 'react'
 import { LoaderCircle, PackageX, Radar } from 'lucide-react'
-import { authenticatedOrganization } from '../lib/records'
-import { BottleResolution, resolveBottleByToken } from '../lib/inventory-bottles'
-import { parseScannedValue } from '../lib/bottle-scan'
-import { BottleConferencePanel } from '../components/bottles/BottleConferencePanel'
-import { QrCameraScanner } from '../components/bottles/QrCameraScanner'
+import { authenticatedOrganization } from '../../../lib/records'
+import { BottleResolution, resolveBottleByToken } from '../../../lib/inventory-bottles'
+import { parseScannedValue } from '../../../lib/bottle-scan'
+import { BottleConferencePanel } from '../../../components/bottles/BottleConferencePanel'
+import { QrCameraScanner } from '../../../components/bottles/QrCameraScanner'
 import './QrBottlePage.css'
 
 /**

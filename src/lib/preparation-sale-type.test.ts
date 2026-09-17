@@ -2,7 +2,7 @@ import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
 const sql=readFileSync('supabase/migrations/202608230005_preparation_sale_type.sql','utf8')
-const page=readFileSync('src/pages/PreparationPage.tsx','utf8')
+const page=readFileSync('src/legacy/operations/pages/PreparationPage.tsx','utf8')
 const station=readFileSync('src/pages/InventoryStationPage.tsx','utf8')
 
 describe('preparação canônica por tipo de venda',()=>{

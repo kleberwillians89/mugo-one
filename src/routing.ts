@@ -1,13 +1,17 @@
 import {
-  Boxes, CircleDollarSign, Compass, FileSpreadsheet, FileText, Home, Import, Lightbulb, Radar, Scissors, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound,
+  Boxes, CircleDollarSign, Compass, FileSpreadsheet, FileText, Home, Import, Lightbulb, Radar, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound,
 } from 'lucide-react'
 
-export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Davi Excel'|'Falta Splitar'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
+// 'Falta Splitar' (fila de fracionamento/split de frasco) foi isolada como
+// legado — não é um conceito do Core do Mugô One. O código ainda existe em
+// src/legacy/operations/pages/FaltaSplitarPage.tsx, mas não faz parte da
+// navegação/roteamento ativos (ver src/legacy/operations/README.md).
+export type Page = 'Visão Geral'|'Torre de Controle'|'Clientes'|'Vendas'|'Davi Excel'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
 
 export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Visão Geral', icon: Home }, { label: 'Torre de Controle', icon: Compass },
   { label: 'Davi Excel', icon: FileSpreadsheet }, { label: 'Vendas', icon: ShoppingBag },
-  { label: 'Cobranças', icon: CircleDollarSign }, { label: 'Falta Splitar', icon: Scissors },
+  { label: 'Cobranças', icon: CircleDollarSign },
   { label: 'Entregas', icon: Truck }, { label: 'Estoque', icon: Boxes },
   { label: 'Clientes', icon: UsersRound },
   { label: 'Relatórios', icon: FileText }, { label: 'Importação', icon: Import },
@@ -17,7 +21,7 @@ export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Configurações', icon: Settings },
 ]
 
-export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':'/torre-de-controle','Clientes':'/clientes','Vendas':'/vendas','Davi Excel':'/davi-excel','Falta Splitar':'/falta-splitar','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
+export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':'/torre-de-controle','Clientes':'/clientes','Vendas':'/vendas','Davi Excel':'/davi-excel','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
 
 // Permissão mínima para VER cada módulo no menu/rota (briefing "ROTAS E
 // MENU"). Configurações tem três códigos alternativos porque a página tem
@@ -33,7 +37,7 @@ export const routes:Record<Page,string>={'Visão Geral':'/','Torre de Controle':
 export const pagePermission:Record<Page,string[]>={
   'Visão Geral':['dashboard.view'],'Torre de Controle':['tasks.sales','tasks.split','tasks.shipping','tasks.management'],
   'Clientes':['clients.view'],'Vendas':['sales.view'],'Entregas':['shipping.view'],
-  'Davi Excel':['sales.view'],'Falta Splitar':['sales.view'],'Cobranças':['sales.view'],
+  'Davi Excel':['sales.view'],'Cobranças':['sales.view'],
   'Estoque':['inventory.view'],'Relatórios':['reports.view'],'Importação':['ai_import.view'],
   'IA':['ai_import.view'],'Insights':['reports.view'],'Radar':['radar.view'],
   'Interessados':['waitlist.view'],'Configurações':['settings.view','team.view','team.manage'],

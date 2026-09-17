@@ -1,9 +1,11 @@
+// LEGADO ISOLADO — não faz parte do Core do Mugô One (ver ../README.md).
+// Fora da navegação/roteamento ativos desde o hotfix "zero split".
 import{useCallback,useEffect,useMemo,useState}from'react'
 import{ChevronDown,ChevronRight,PackageCheck,Printer,Scissors,Search}from'lucide-react'
-import{completeSplitStatusForFilter,fetchAllSplitStatusItems,fetchSplitStatusCards,fetchSplitStatusItems,fetchSplitStatusPerfumeSummary,setSplitStatus,setSplitStatusBulk,SplitStatusCards,SplitStatusFilter,SplitStatusFilters,SplitStatusItem,SplitStatusPerfumeGroup}from'../lib/records'
-import{groupSplitItemsByClient}from'../lib/split-status-print'
-import{useHasPermission}from'../lib/PermissionsContext'
-import{useToast}from'../components/ui'
+import{completeSplitStatusForFilter,fetchAllSplitStatusItems,fetchSplitStatusCards,fetchSplitStatusItems,fetchSplitStatusPerfumeSummary,setSplitStatus,setSplitStatusBulk,SplitStatusCards,SplitStatusFilter,SplitStatusFilters,SplitStatusItem,SplitStatusPerfumeGroup}from'../../../lib/records'
+import{groupSplitItemsByClient}from'../../../lib/split-status-print'
+import{useHasPermission}from'../../../lib/PermissionsContext'
+import{useToast}from'../../../components/ui'
 import'./FaltaSplitarPage.css'
 
 const QUICK_FILTERS:{value:SplitStatusFilter;label:string}[]=[{value:'not_split',label:'A SEPARAR'},{value:'split',label:'SEPARADOS'},{value:'split_today',label:'SEPARADOS HOJE'},{value:'all',label:'TODOS'}]

@@ -1,8 +1,8 @@
 import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
-const page=readFileSync(new URL('../pages/FaltaSplitarPage.tsx',import.meta.url),'utf8')
-const print=readFileSync(new URL('../pages/SplitsDoDiaPrintPage.tsx',import.meta.url),'utf8')
+const page=readFileSync(new URL('../legacy/operations/pages/FaltaSplitarPage.tsx',import.meta.url),'utf8')
+const print=readFileSync(new URL('../legacy/operations/pages/SplitsDoDiaPrintPage.tsx',import.meta.url),'utf8')
 const records=readFileSync(new URL('./records.ts',import.meta.url),'utf8')
 
 describe('Fila do Gabriel por pessoa',()=>{

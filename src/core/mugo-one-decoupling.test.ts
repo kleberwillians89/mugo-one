@@ -86,7 +86,7 @@ describe('decoupling guard — RUAH não pode vazar para as áreas globais/core 
     expect(auth).not.toMatch(/setItem\(\s*['"]ruah_remember['"]/)
     expect(auth).not.toMatch(/setItem\(\s*['"]ruah_session['"]/)
 
-    const queue = readAll('src/pages/FaltaSplitarPage.tsx')
+    const queue = readAll('src/legacy/operations/pages/FaltaSplitarPage.tsx')
     expect(queue).toContain("sessionStorage.setItem('mugo_one_session','active')")
     expect(queue).not.toContain('ruah_session')
   })

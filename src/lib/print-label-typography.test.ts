@@ -10,8 +10,8 @@ import { describe, expect, it } from 'vitest'
  * print of a real 28x10mm label remains PENDING HUMAN VALIDATION.
  */
 
-const printLabelCss = readFileSync(new URL('../pages/PrintLabelPage.css', import.meta.url), 'utf8')
-const printLabelPage = readFileSync(new URL('../pages/PrintLabelPage.tsx', import.meta.url), 'utf8')
+const printLabelCss = readFileSync(new URL('../legacy/operations/pages/PrintLabelPage.css', import.meta.url), 'utf8')
+const printLabelPage = readFileSync(new URL('../legacy/operations/pages/PrintLabelPage.tsx', import.meta.url), 'utf8')
 const barcodeImage = readFileSync(new URL('../components/bottles/BarcodeImage.tsx', import.meta.url), 'utf8')
 
 const labelRule = printLabelCss.slice(printLabelCss.indexOf('.print-label {'), printLabelCss.indexOf('\n}\n', printLabelCss.indexOf('.print-label {')) + 2)
@@ -130,7 +130,7 @@ describe('11 — PrintLabelPage continua isolado do AppShell (não regrediu com 
     const imports = printLabelPage.match(/^import .+$/gm) ?? []
     expect(imports).toEqual([
       "import { useEffect } from 'react'",
-      "import { BarcodeImage } from '../components/bottles/BarcodeImage'",
+      "import { BarcodeImage } from '../../../components/bottles/BarcodeImage'",
       "import './PrintLabelPage.css'",
     ])
   })

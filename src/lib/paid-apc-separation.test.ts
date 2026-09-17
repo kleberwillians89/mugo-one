@@ -3,7 +3,7 @@ import{describe,expect,it}from'vitest'
 
 const migration=readFileSync('supabase/migrations/202609120006_paid_split_and_apc_separation.sql','utf8')
 const unlock=readFileSync('supabase/migrations/202609120007_unlock_split_queue_before_payment.sql','utf8')
-const page=readFileSync('src/pages/FaltaSplitarPage.tsx','utf8')
+const page=readFileSync('src/legacy/operations/pages/FaltaSplitarPage.tsx','utf8')
 
 describe('fila de separação do Gabriel',()=>{
   it('202609120006 introduziu a fila exigindo venda paga (comportamento histórico, substituído por 202609120007)',()=>{

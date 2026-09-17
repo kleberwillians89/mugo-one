@@ -2,8 +2,8 @@ import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
 
 const auth=readFileSync('src/Auth.tsx','utf8')
-const queue=readFileSync('src/pages/FaltaSplitarPage.tsx','utf8')
-const print=readFileSync('src/pages/SplitsDoDiaPrintPage.tsx','utf8')
+const queue=readFileSync('src/legacy/operations/pages/FaltaSplitarPage.tsx','utf8')
+const print=readFileSync('src/legacy/operations/pages/SplitsDoDiaPrintPage.tsx','utf8')
 
 describe('sessão da folha de splits',()=>{
  it('transfere a sessão temporária antes de navegar a nova aba',()=>{

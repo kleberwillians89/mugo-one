@@ -1,7 +1,9 @@
+// LEGADO ISOLADO — não faz parte do Core do Mugô One (ver ../README.md).
+// Fora da navegação/roteamento ativos desde o hotfix "zero split".
 import { useEffect, useState } from 'react'
-import { BarcodeImage } from '../components/bottles/BarcodeImage'
-import { QrCodeImage } from '../components/bottles/QrCodeImage'
-import { supabase } from '../lib/supabase'
+import { BarcodeImage } from '../../../components/bottles/BarcodeImage'
+import { QrCodeImage } from '../../../components/bottles/QrCodeImage'
+import { supabase } from '../../../lib/supabase'
 import './PerfumePrintLabelPage.css'
 
 // A regra global existe somente no documento isolado /print/perfume.

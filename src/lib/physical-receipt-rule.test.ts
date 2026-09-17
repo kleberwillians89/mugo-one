@@ -5,7 +5,7 @@ const sql=readFileSync('supabase/migrations/202608230005_preparation_sale_type.s
 const records=readFileSync('src/lib/records.ts','utf8')
 const inventory=readFileSync('src/pages/InventoryPage.tsx','utf8')
 const davi=readFileSync('src/components/DaviExcelNewRows.tsx','utf8')
-const label=readFileSync('src/pages/PerfumePrintLabelPage.tsx','utf8')
+const label=readFileSync('src/legacy/operations/pages/PerfumePrintLabelPage.tsx','utf8')
 
 describe('perfume comercial versus recebimento físico',()=>{
  it('catálogo aceita perfume sem estoque e sem RUAH-P',()=>{expect(sql).toContain('operational_code drop not null');expect(records).not.toContain('O perfume foi criado, mas o código operacional não foi retornado');expect(davi).toContain('Nenhum estoque foi criado.')})

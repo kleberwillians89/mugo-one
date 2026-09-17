@@ -1,8 +1,8 @@
 import{describe,expect,it}from'vitest'
 import{readFileSync}from'node:fs'
 
-const page=readFileSync('src/pages/SplitsDoDiaPrintPage.tsx','utf8')
-const css=readFileSync('src/pages/SplitsDoDiaPrintPage.css','utf8')
+const page=readFileSync('src/legacy/operations/pages/SplitsDoDiaPrintPage.tsx','utf8')
+const css=readFileSync('src/legacy/operations/pages/SplitsDoDiaPrintPage.css','utf8')
 
 describe('layout paginável da folha de splits',()=>{
  it('imprime os itens em tabela agrupada por cliente',()=>{

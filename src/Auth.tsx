@@ -5,13 +5,9 @@ import { App } from './App'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { PermissionsProvider } from './lib/PermissionsContext'
 import { normalizeLoginIdentifier } from './lib/permissions'
-import { QrBottlePage } from './pages/QrBottlePage'
 import { InventoryStationPage } from './pages/InventoryStationPage'
 import { InventoryCountPage } from './pages/InventoryCountPage'
-import { PrintLabelPage } from './pages/PrintLabelPage'
-import {PerfumePrintLabelPage} from './pages/PerfumePrintLabelPage'
 import { ShipmentPrintPage } from './pages/ShipmentPrintPage'
-import { SplitsDoDiaPrintPage } from './pages/SplitsDoDiaPrintPage'
 import { CustomerPortalRoot } from './portal/CustomerPortalRoot'
 import { ToastProvider } from './components/ui'
 import { OrganizationProvider } from './core/organizations/OrganizationProvider'
@@ -120,17 +116,14 @@ export function AuthRoot() {
   if(path==='/auth/callback')return <CallbackPage/>
   if(path==='/definir-senha')return <PasswordPage first/>
   if(path==='/atualizar-senha')return <PasswordPage/>
-  // Telas de operação física ("Modo Ilde"): renderizadas fora do shell
-  // (sem sidebar/header do CRM) — "deve parecer aplicativo".
-  const qrMatch=path.match(/^\/q\/([^/]+)$/)
-  if(qrMatch)return <QrBottlePage token={decodeURIComponent(qrMatch[1])}/>
+  // /q/:token (QrBottlePage), /print/perfume, /print/splits-do-dia e
+  // /print/(bottle|split) foram isolados como legado — identidade física
+  // de frasco/split não é conceito do Core do Mugô One (ver
+  // src/legacy/operations/README.md). Uma URL antiga para essas rotas cai
+  // no shell administrativo normal, não em 404.
   // Documento de impressão isolado (seção 4 do briefing "finalizar fluxo
-  // físico"): rota própria, sem AppShell — ver PrintLabelPage.tsx.
-  if(path==='/print/perfume')return <PerfumePrintLabelPage/>
+  // físico"): rota própria, sem AppShell.
   if(path==='/print/shipment')return <ShipmentPrintPage/>
-  if(path==='/print/splits-do-dia')return <SplitsDoDiaPrintPage/>
-  const printMatch=path.match(/^\/print\/(bottle|split)$/)
-  if(printMatch)return <PrintLabelPage kind={printMatch[1] as 'bottle'|'split'}/>
   if(path==='/estoque/leitor')return <InventoryStationPage/>
   const countMatch=path.match(/^\/estoque\/([0-9a-f-]{36})\/contagem$/i)
   if(countMatch)return <InventoryCountPage itemId={countMatch[1]}/>

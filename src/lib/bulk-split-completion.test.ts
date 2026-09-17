@@ -1,7 +1,7 @@
 import{readFileSync}from'node:fs'
 import{describe,expect,it}from'vitest'
 
-const page=readFileSync('src/pages/FaltaSplitarPage.tsx','utf8')
+const page=readFileSync('src/legacy/operations/pages/FaltaSplitarPage.tsx','utf8')
 const records=readFileSync('src/lib/records.ts','utf8')
 const migration=readFileSync('supabase/migrations/202609050008_reset_deliveries_and_atomic_bulk_split.sql','utf8')
 

@@ -2,9 +2,9 @@ import {describe,expect,it} from 'vitest'
 import {readFileSync} from 'node:fs'
 import {parseScannedValue} from './bottle-scan'
 const sql=readFileSync(new URL('../../supabase/migrations/202608220003_perfume_preparation_batches.sql',import.meta.url),'utf8')
-const page=readFileSync(new URL('../pages/PreparationPage.tsx',import.meta.url),'utf8')
-const label=readFileSync(new URL('../pages/PerfumePrintLabelPage.css',import.meta.url),'utf8')
-const labelPage=readFileSync(new URL('../pages/PerfumePrintLabelPage.tsx',import.meta.url),'utf8')
+const page=readFileSync(new URL('../legacy/operations/pages/PreparationPage.tsx',import.meta.url),'utf8')
+const label=readFileSync(new URL('../legacy/operations/pages/PerfumePrintLabelPage.css',import.meta.url),'utf8')
+const labelPage=readFileSync(new URL('../legacy/operations/pages/PerfumePrintLabelPage.tsx',import.meta.url),'utf8')
 const custody=sql.slice(sql.indexOf('create function public.customer_custody()'),sql.indexOf('create or replace function public.customer_shipment_request_create_prepared'))
 describe('um código por perfume e fracionamento em lote',()=>{
  it('gera código tenant-safe, atômico, único, imutável e somente no banco',()=>{expect(sql).toContain("'RUAH-P'||lpad(seq::text,6,'0')");expect(sql).toContain('perfumes_org_operational_code_uidx');expect(sql).toContain('operational_code_immutable');expect(sql).toContain('operational_code_generated_by_database')})
@@ -20,7 +20,7 @@ describe('um código por perfume e fracionamento em lote',()=>{
  it('mantém post_shipment como baixa final e compatibilidade split',()=>{expect(sql).toContain('create or replace function public.post_shipment');expect(sql).toContain("elsif r.split_unit_id is not null")})
  it('etiqueta canônica mede 70 por 30 mm sem escala física',()=>{expect(label).toMatch(/width:\s*70mm/);expect(label).toMatch(/height:\s*30mm/);expect(labelPage).toContain('size: 70mm 30mm');expect(label).not.toMatch(/transform:\s*scale/i)})
  it('QR, Code128 e código humano recebem o mesmo operational_code validado',()=>{expect(labelPage).toContain('BarcodeImage value={label.operational_code}');expect(labelPage).toContain('QrCodeImage value={label.operational_code}');expect(labelPage).toContain('<code>{label.operational_code}</code>');expect(labelPage).not.toMatch(/RUAH-[FS]/)})
- it('mobile evita tabela e oferece controles de 44px',()=>{expect(page).not.toContain('<table');expect(readFileSync(new URL('../pages/PreparationPage.css',import.meta.url),'utf8')).toContain('min-height:44px')})
+ it('mobile evita tabela e oferece controles de 44px',()=>{expect(page).not.toContain('<table');expect(readFileSync(new URL('../legacy/operations/pages/PreparationPage.css',import.meta.url),'utf8')).toContain('min-height:44px')})
 })
 
 describe('customer_custody preparado e solicitações ativas',()=>{

@@ -20,8 +20,8 @@ const read = (relPath: string) => readFileSync(new URL(`../${relPath}`, import.m
 const identityView = read('components/bottles/PhysicalIdentityView.tsx')
 const onboardingModal = read('components/bottles/BottleOnboardingModal.tsx')
 const splitModal = read('components/bottles/BottleSplitModal.tsx')
-const printLabelPage = read('pages/PrintLabelPage.tsx')
-const printLabelCss = read('pages/PrintLabelPage.css')
+const printLabelPage = read('legacy/operations/pages/PrintLabelPage.tsx')
+const printLabelCss = read('legacy/operations/pages/PrintLabelPage.css')
 const printLabelsLib = read('lib/print-labels.ts')
 const authRoot = read('Auth.tsx')
 const qrCameraScanner = read('components/bottles/QrCameraScanner.tsx')
@@ -29,7 +29,7 @@ const keyboardWedgeListener = read('components/bottles/useKeyboardWedgeListener.
 const inventoryStationPage = read('pages/InventoryStationPage.tsx')
 const inventoryStationCss = read('pages/InventoryStationPage.css')
 const inventoryCountPage = read('pages/InventoryCountPage.tsx')
-const qrBottlePage = read('pages/QrBottlePage.tsx')
+const qrBottlePage = read('legacy/operations/pages/QrBottlePage.tsx')
 const inventoryBottlesLib = read('lib/inventory-bottles.ts')
 const shipmentBottleScanLib = read('lib/shipment-bottle-scan.ts')
 const shipmentBottleScanComponent = read('components/bottles/ShipmentBottleScan.tsx')
@@ -92,16 +92,16 @@ describe('I/J — documento de impressão isolado (causa real do bug de A4)', ()
     const imports = printLabelPage.match(/^import .+$/gm) ?? []
     expect(imports).toEqual([
       "import { useEffect } from 'react'",
-      "import { BarcodeImage } from '../components/bottles/BarcodeImage'",
+      "import { BarcodeImage } from '../../../components/bottles/BarcodeImage'",
       "import './PrintLabelPage.css'",
     ])
     expect(printLabelCss).not.toContain('.sidebar')
     expect(printLabelCss).not.toContain('.app-shell')
     expect(printLabelCss).not.toContain('.ui-modal')
   })
-  it('a rota é montada direto pelo AuthRoot, fora do fluxo Modal > BottleOnboardingModal > PhysicalIdentityView', () => {
-    expect(authRoot).toContain("path.match(/^\\/print\\/(bottle|split)$/)")
-    expect(authRoot).toContain('<PrintLabelPage kind=')
+  it('a rota foi isolada como legado — não é mais montada pelo AuthRoot ativo (ver src/legacy/operations/)', () => {
+    expect(authRoot).not.toContain("path.match(/^\\/print\\/(bottle|split)$/)")
+    expect(authRoot).not.toContain('<PrintLabelPage kind=')
   })
   it('nenhum truque de visibility:hidden/body:has() sobrou — não há mais "resto do app" para esconder', () => {
     expect(printLabelCss).not.toContain('visibility: hidden')

@@ -1,8 +1,10 @@
+// LEGADO ISOLADO — não faz parte do Core do Mugô One (ver ../README.md).
+// Fora da navegação/roteamento ativos desde o hotfix "zero split".
 import{useEffect,useState}from'react'
 import{Barcode,CheckCircle2,Printer,ScanLine}from'lucide-react'
-import{QrCameraScanner}from'../components/bottles/QrCameraScanner'
-import{PrimaryButton,SecondaryButton}from'../components/ui'
-import{PreparationBottle,PreparationCandidate,PreparationPerfume,confirmPreparationBatch,createPreparationBatch,fetchPreparationBottles,fetchPreparationCandidates,fetchPreparationPerfumes,identifyPreparationBatch,printPerfumeLabel}from'../lib/preparation'
+import{QrCameraScanner}from'../../../components/bottles/QrCameraScanner'
+import{PrimaryButton,SecondaryButton}from'../../../components/ui'
+import{PreparationBottle,PreparationCandidate,PreparationPerfume,confirmPreparationBatch,createPreparationBatch,fetchPreparationBottles,fetchPreparationCandidates,fetchPreparationPerfumes,identifyPreparationBatch,printPerfumeLabel}from'../../../lib/preparation'
 import'./PreparationPage.css'
 
 type DraftItem=PreparationCandidate&{selected:boolean;prepare_ml:number;source_bottle_id:string}

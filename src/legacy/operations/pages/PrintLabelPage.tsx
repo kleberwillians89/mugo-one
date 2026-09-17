@@ -1,5 +1,7 @@
+// LEGADO ISOLADO — não faz parte do Core do Mugô One (ver ../README.md).
+// Fora da navegação/roteamento ativos desde o hotfix "zero split".
 import { useEffect } from 'react'
-import { BarcodeImage } from '../components/bottles/BarcodeImage'
+import { BarcodeImage } from '../../../components/bottles/BarcodeImage'
 import './PrintLabelPage.css'
 
 export type PrintLabelKind = 'bottle' | 'split'

@@ -1,7 +1,9 @@
+// LEGADO ISOLADO — não faz parte do Core do Mugô One (ver ../README.md).
+// Fora da navegação/roteamento ativos desde o hotfix "zero split".
 import{Fragment,useEffect,useMemo,useState}from'react'
 import{ArrowLeft,Printer}from'lucide-react'
-import{fetchSplitStatusItems,SplitStatusItem}from'../lib/records'
-import{groupSplitItemsByClient,groupSplitItemsByPerfume,splitPrintSummary}from'../lib/split-status-print'
+import{fetchSplitStatusItems,SplitStatusItem}from'../../../lib/records'
+import{groupSplitItemsByClient,groupSplitItemsByPerfume,splitPrintSummary}from'../../../lib/split-status-print'
 import'./SplitsDoDiaPrintPage.css'
 
 const PAGE_STYLE='@page { size: A4 portrait; margin: 12mm 14mm; }'

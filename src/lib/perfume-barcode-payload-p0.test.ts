@@ -3,7 +3,7 @@ import JsBarcode from 'jsbarcode'
 import { describe, expect, it } from 'vitest'
 
 const barcode = readFileSync('src/components/bottles/BarcodeImage.tsx', 'utf8')
-const label = readFileSync('src/pages/PerfumePrintLabelPage.tsx', 'utf8')
+const label = readFileSync('src/legacy/operations/pages/PerfumePrintLabelPage.tsx', 'utf8')
 const operationalCode = 'RUAH-P000007'
 
 describe('P0 payload físico da etiqueta RUAH-P', () => {
