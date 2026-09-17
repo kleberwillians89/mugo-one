@@ -124,3 +124,12 @@ describe('universal catalog guard — string legada corrigida', () => {
     expect(records).not.toContain('Corrija-a no Davi Excel')
   })
 })
+
+describe('universal catalog guard — bug real do smoke test: activities.entity_type precisa aceitar sale/catalog_item', () => {
+  it('a migration que amplia a constraint existe e inclui os dois entity_type novos (sem essa migration, log_activity para uma venda falha no INSERT, não na validação de tenant — descoberto só no smoke test ao vivo, não pela leitura de código)', () => {
+    const migration = readAll('supabase/migrations/202609210005_activities_entity_type_sale.sql')
+    expect(migration).toContain("'sale'")
+    expect(migration).toContain("'catalog_item'")
+    expect(migration).toContain('activities_entity_type_check')
+  })
+})
