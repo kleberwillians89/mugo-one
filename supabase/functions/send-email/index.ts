@@ -1,11 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { audit, context, json } from '../_shared/security.ts'
+import { sendViaResend } from '../_shared/email.ts'
 
 // ResendEmailAdapter — mesma mecânica HTTP já comprovada em
 // _shared/customer-invite.ts::sendInviteEmail (endpoint, header de
 // auth, extração de provider_message_id, mascaramento de erro), mas
 // genérico: sem assunto/HTML fixos, sem branding — o conteúdo vem de
-// quem chama (ver docs/COMMUNICATION_HUB_MIGRATION_PLAN.md §3).
+// quem chama (ver docs/COMMUNICATION_HUB_MIGRATION_PLAN.md §3). A
+// chamada HTTP em si mora em _shared/email.ts, reaproveitada pelo
+// automation-worker (briefing §18 — nunca uma segunda implementação).
 //
 // §41: nesta primeira versão, Mugô usa UMA conta Resend compartilhada
 // (RESEND_API_KEY do ambiente da função) — cada organização continua
@@ -18,14 +21,6 @@ import { audit, context, json } from '../_shared/security.ts'
 const maskedEmail = (value: string) => {
   const [local, domain] = String(value ?? '').split('@')
   return local && domain ? `${local[0]}***@${domain}` : 'e-mail inválido'
-}
-
-const safeProviderError = (raw: string) => {
-  try {
-    const parsed = JSON.parse(raw) as { message?: unknown; name?: unknown }
-    const value = typeof parsed.message === 'string' ? parsed.message : typeof parsed.name === 'string' ? parsed.name : ''
-    return value.replace(/[\r\n]/g, ' ').slice(0, 180) || 'provider_rejected_request'
-  } catch { return 'provider_rejected_request' }
 }
 
 Deno.serve(async (req) => {
@@ -88,29 +83,12 @@ Deno.serve(async (req) => {
 
   console.log({ event: 'communication_email_send_start', organization_id: ctx.organizationId, conversation_id: newConversationId, message_id: messageId, recipient: maskedEmail(recipient) })
 
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${resendKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: fromAddress, to: [recipient], subject, text: bodyText }),
-    })
-    const raw = await response.text()
-    if (!response.ok) {
-      const providerError = safeProviderError(raw)
-      console.error({ event: 'communication_email_send_failed', organization_id: ctx.organizationId, message_id: messageId, status: response.status, provider_error: providerError })
-      await admin.rpc('update_message_delivery_status', { p_message_id: messageId, p_status: 'failed', p_error_code: `email_${response.status}`, p_error_message: providerError })
-      return json({ error: { code: 'provider_rejected', message: 'O provedor de e-mail recusou o envio.' } }, 502, req)
-    }
-    let parsed: { id?: unknown } = {}
-    try { parsed = JSON.parse(raw) as { id?: unknown } } catch { /* resposta inesperada tratada abaixo */ }
-    const providerMessageId = typeof parsed.id === 'string' ? parsed.id : null
-    await admin.rpc('update_message_delivery_status', { p_message_id: messageId, p_status: 'sent', p_provider_message_id: providerMessageId })
-    await audit(ctx.client, ctx.organizationId, ctx.user.id, 'communication_email_sent', 'conversation', newConversationId, { message_id: messageId, provider: 'resend' })
-    console.log({ event: 'communication_email_sent', organization_id: ctx.organizationId, message_id: messageId, provider_message_id: providerMessageId })
-    return json({ data: { conversation_id: newConversationId, message_id: messageId, status: 'sent' } }, 200, req)
-  } catch {
-    console.error({ event: 'communication_email_send_failed', organization_id: ctx.organizationId, message_id: messageId, status: 0, provider_error: 'transport_error' })
-    await admin.rpc('update_message_delivery_status', { p_message_id: messageId, p_status: 'failed', p_error_code: 'email_transport_error' })
-    return json({ error: { code: 'transport_error', message: 'Não foi possível conectar ao provedor de e-mail agora.' } }, 502, req)
+  const result = await sendViaResend({ apiKey: resendKey, from: fromAddress, to: recipient, subject, text: bodyText })
+  if (!result.ok) {
+    await admin.rpc('update_message_delivery_status', { p_message_id: messageId, p_status: 'failed', p_error_code: result.errorCode, p_error_message: result.errorMessage })
+    return json({ error: { code: 'provider_rejected', message: 'O provedor de e-mail recusou o envio.' } }, 502, req)
   }
+  await admin.rpc('update_message_delivery_status', { p_message_id: messageId, p_status: 'sent', p_provider_message_id: result.providerMessageId })
+  await audit(ctx.client, ctx.organizationId, ctx.user.id, 'communication_email_sent', 'conversation', newConversationId, { message_id: messageId, provider: 'resend' })
+  return json({ data: { conversation_id: newConversationId, message_id: messageId, status: 'sent' } }, 200, req)
 })

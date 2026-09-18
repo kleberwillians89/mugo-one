@@ -155,5 +155,25 @@ Deno.serve(async (req) => {
     provider: body.provider, channel: body.channel, email_hint: maskedEmail(String(body.email ?? '')),
   })
 
+  // Um lead.created pode ter disparado uma automação com ação
+  // send_email, que só ENFILEIRA a message (nenhuma RPC faz HTTP —
+  // ver docs/AUTOMATION_ENGINE_MIGRATION_PLAN.md §5). Acorda o worker
+  // sem bloquear a resposta deste webhook (briefing §27 — "não
+  // bloquear... esperando e-mail"); se falhar (secret ausente,
+  // indisponibilidade), o e-mail continua 'queued', nunca some.
+  if (result.status === 'processed') {
+    const workerSecret = Deno.env.get('AUTOMATION_WORKER_SECRET')
+    if (workerSecret) {
+      const wake = fetch(`${supabaseUrl}/functions/v1/automation-worker`, {
+        method: 'POST', headers: { 'x-worker-secret': workerSecret },
+      }).catch((error) => console.error({ event: 'automation_worker_wake_failed', message: String(error) }))
+      // EdgeRuntime.waitUntil mantém a promise viva além da resposta
+      // deste request (Deno encerraria a isolate assim que a Response
+      // fosse enviada, sem isto) — disponível no runtime da Supabase.
+      const runtime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime
+      if (runtime) runtime.waitUntil(wake); else await wake
+    }
+  }
+
   return json({ data: result }, STATUS_HTTP[String(result.status)] ?? 200)
 })
