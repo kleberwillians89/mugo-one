@@ -1,0 +1,57 @@
+.payment-method-card{border:1px solid var(--line);border-radius:9px;padding:14px 16px;margin-bottom:10px}
+.payment-method-card:last-child{margin-bottom:0}
+.payment-method-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.payment-method-head>div{display:flex;align-items:center;gap:10px}
+.payment-method-head strong{font:600 13px 'Manrope';color:var(--ink)}
+.payment-method-summary{margin:8px 0 0;font-size:11px;color:var(--muted)}
+.payment-method-body{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+
+.collections-advanced{margin-bottom:var(--space-4,16px)}
+.collections-advanced summary{cursor:pointer;padding:14px 16px;font:600 12px 'Manrope';color:var(--ink);list-style:none}
+.collections-advanced summary::-webkit-details-marker{display:none}
+.collections-advanced summary:before{content:'▸ ';color:var(--gold)}
+.collections-advanced[open] summary:before{content:'▾ '}
+.collections-advanced>.form-grid,.collections-advanced>.field{padding:0 16px}
+.collections-advanced>.field{margin-bottom:12px}
+.collections-advanced>*:last-child{padding-bottom:16px}
+
+.template-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.template-card{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.template-card--inactive{opacity:.6}
+.template-card header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.template-card header>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.template-card header strong{font:600 13px 'Manrope';color:var(--ink)}
+.template-card-preview{margin:0;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.template-card footer{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap}
+.template-card-menu{position:relative}
+.template-card-menu-trigger{border:1px solid var(--line);background:#fff;width:28px;height:28px;border-radius:50%;font-size:14px;color:var(--muted);line-height:1}
+.template-card-menu-list{position:absolute;z-index:5;right:0;top:32px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 30px #0002;min-width:160px;overflow:hidden}
+.template-card-menu-list button{display:block;width:100%;border:0;background:#fff;text-align:left;padding:10px 12px;font-size:11px;color:#5e574e;border-bottom:1px solid #f1ede5}
+.template-card-menu-list button:last-child{border-bottom:0}
+.template-card-menu-list button:hover{background:#faf5e9}
+
+.template-editor{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:start}
+.template-editor-form{display:flex;flex-direction:column;gap:12px}
+.template-variables{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#fbfaf7}
+.template-variables>span{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.template-variable-group{display:flex;flex-direction:column;gap:5px}
+.template-variable-group small{font-size:9px;color:var(--muted)}
+.template-variable-group>div{display:flex;flex-wrap:wrap;gap:6px}
+.template-variable-group button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 9px;font-size:10px;font-weight:600;color:#5e574e}
+.template-variable-group button:hover{border-color:var(--gold);color:var(--gold)}
+.template-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
+.template-editor-preview{border:1px solid var(--line);border-radius:10px;padding:16px;background:#fdfcfa;position:sticky;top:16px;display:flex;flex-direction:column;gap:8px}
+.template-editor-preview>span{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.template-preview-empty{margin:0;font-size:11px;color:var(--muted);line-height:1.5}
+.template-preview-invalid{margin:0;font-size:11px;color:#a4341f}
+.template-preview-subject{margin:0;font:600 12px 'Manrope';color:var(--ink)}
+.template-preview-body{margin:0;white-space:pre-wrap;font:13px/1.6 'DM Sans',inherit;color:#3a352c}
+
+@media(max-width:900px){
+ .template-editor{grid-template-columns:1fr}
+ .template-editor-preview{position:static}
+}
+@media(max-width:600px){
+ .payment-method-head{flex-wrap:wrap;gap:8px}
+ .template-gallery{grid-template-columns:1fr}
+}

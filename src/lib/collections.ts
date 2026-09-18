@@ -185,6 +185,22 @@ export async function setCollectionTemplateSituation(id: string, situation: Coll
   return mapTemplate(data as TemplateRow)
 }
 
+/** "Restaurar padrão" — só para os 6 templates de fábrica (mesma chave de um preset); qualquer outro devolve um erro amigável, nunca apaga nada. */
+export async function restoreDefaultCollectionTemplate(id: string): Promise<CollectionMessageTemplate> {
+  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
+  const { data, error } = await supabase.rpc('restore_default_collection_template', { p_template_id: id })
+  if (error) throw new Error(error.message.includes('no_preset_for_this_template') ? 'Este template não tem um padrão de fábrica para restaurar.' : error.message)
+  return mapTemplate(data as TemplateRow)
+}
+
+/** Duplicar (briefing §1 — menu secundário do template gallery): nova chave derivada, nunca ativa como padrão/situação da organização automaticamente. */
+export async function duplicateCollectionMessageTemplate(template: CollectionMessageTemplate): Promise<CollectionMessageTemplate> {
+  return createCollectionMessageTemplate({
+    name: `${template.name} (cópia)`, key: `${template.key}_copia_${Date.now()}`, channel: template.channel,
+    subject: template.subject, body: template.body, active: true,
+  })
+}
+
 export type RenderedCollectionMessage = { subject: string; body: string; invalidVariables: string[] }
 
 function mapRendered(data: unknown): RenderedCollectionMessage {
