@@ -1,0 +1,18 @@
+.setup-wizard-step{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.setup-wizard-hint{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
+.setup-wizard-choice{display:flex;align-items:center;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;font:600 13px 'Manrope';cursor:pointer}
+.setup-wizard-choice:has(input:checked){border-color:var(--gold);background:#fbf7ec}
+.setup-wizard-group{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line);border-radius:10px}
+.setup-wizard-group h4{margin:0 0 2px;font:700 11px 'Manrope';letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+.setup-wizard-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
+.setup-wizard-template-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto}
+.setup-wizard-template-list li{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border:1px solid var(--line);border-radius:9px}
+.setup-wizard-template-list li strong{font:600 13px 'Manrope'}
+.setup-wizard-template-list li span{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.setup-wizard-done{align-items:center;text-align:center;padding:28px 0}
+.setup-wizard-done svg{color:#2f6b3f;margin-bottom:10px}
+.setup-wizard-done p{margin:0 0 6px;font:600 15px 'Manrope'}
+
+@media(max-width:600px){
+ .setup-wizard-choice{padding:16px}
+}

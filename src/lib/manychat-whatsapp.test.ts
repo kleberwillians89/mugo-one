@@ -155,17 +155,19 @@ describe('balance — mesma fonte canônica da CobrancasPage',()=>{
 })
 
 describe('UX mínima',()=>{
-  // Sprint de Limpeza (Cobrança Universal): CobrancasPage parou de chamar
-  // sendManychatMessage diretamente — Cobrança não sabe ManyChat (briefing
-  // §21-25). O envio agora é ENVIAR COBRANÇA via Communication Hub
-  // (sendCollectionMessage), com o mesmo espírito de UX (botão com estado
-  // de carregando, trava de clique enquanto envia).
-  it('Cobranças oferece ENVIAR COBRANÇA pelo Communication Hub, não mais um envio de WhatsApp direto via ManyChat',()=>{
-    expect(collections).toContain('ENVIAR COBRANÇA')
+  // Sprint de Limpeza (Cobrança Universal) + Sprint Final de Produto
+  // (Cobranças Simples): CobrancasPage parou de chamar sendManychatMessage
+  // diretamente — Cobrança não sabe ManyChat (briefing §21-25). O envio
+  // agora acontece dentro do fluxo único "Cobrar" (botão COBRAR no card
+  // abre direto a prévia; "Enviar cobrança" é a ação dentro do modal) via
+  // Communication Hub (sendCollectionMessage), nunca um WhatsApp direto.
+  it('Cobranças oferece COBRAR → Enviar cobrança pelo Communication Hub, não mais um envio de WhatsApp direto via ManyChat',()=>{
+    expect(collections).toContain('COBRAR')
+    expect(collections).toContain('Enviar cobrança')
     expect(collections).not.toContain('ENVIAR WHATSAPP')
     expect(collections).not.toContain('sendManychatMessage')
-    expect(collections).toContain("await sendCollectionMessage(group.client_id,group.sales.map(s=>s.id),templateId,'email')")
-    expect(collections).toContain('loading={sending} disabled={disabled||!templateId}')
+    expect(collections).toContain("const result=await sendCollectionMessage(group.client_id,saleIds,templateId,'email')")
+    expect(collections).toContain('loading={sending} disabled={loading||!templateId}')
   })
   it('Cliente 360 oferece ENVIAR ACESSO WHATSAPP com os mesmos estados',()=>{
     expect(clientDetails).toContain('ENVIAR ACESSO WHATSAPP')

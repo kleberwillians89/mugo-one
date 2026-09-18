@@ -87,16 +87,27 @@ export async function saveOrganizationCollectionSettings(input: OrganizationColl
 }
 
 export type CollectionMessageChannel = 'email' | 'whatsapp' | 'sms' | 'generic'
+export type CollectionTemplateSituation = 'initial' | 'due_today' | 'overdue' | 'second_reminder' | 'paid'
 
 export type CollectionMessageTemplate = {
-  id: string; name: string; key: string; channel: CollectionMessageChannel; subject: string; body: string; active: boolean; updatedAt: string
+  id: string; name: string; key: string; channel: CollectionMessageChannel; subject: string; body: string; active: boolean
+  isDefault: boolean; situation: CollectionTemplateSituation | null; updatedAt: string
 }
 
-type TemplateRow = { id: string; name: string; key: string; channel: CollectionMessageChannel; subject: string | null; body: string; active: boolean; updated_at: string }
-const TEMPLATE_COLUMNS = 'id,name,key,channel,subject,body,active,updated_at'
+type TemplateRow = {
+  id: string; name: string; key: string; channel: CollectionMessageChannel; subject: string | null; body: string; active: boolean
+  is_default: boolean; situation: CollectionTemplateSituation | null; updated_at: string
+}
+const TEMPLATE_COLUMNS = 'id,name,key,channel,subject,body,active,is_default,situation,updated_at'
 
 function mapTemplate(row: TemplateRow): CollectionMessageTemplate {
-  return { id: row.id, name: row.name, key: row.key, channel: row.channel, subject: row.subject ?? '', body: row.body, active: row.active, updatedAt: row.updated_at }
+  return { id: row.id, name: row.name, key: row.key, channel: row.channel, subject: row.subject ?? '', body: row.body, active: row.active, isDefault: row.is_default, situation: row.situation, updatedAt: row.updated_at }
+}
+
+/** Template usado quando "Cobrar" não precisa perguntar nada — o padrão da organização, associado à situação específica (ex.: vencida) quando existir, senão o padrão geral, senão o primeiro ativo. Nunca pergunta ao usuário se já existe uma resposta óbvia (princípio "menos decisões"). */
+export function defaultTemplateFor(templates: CollectionMessageTemplate[], situation?: CollectionTemplateSituation | null): CollectionMessageTemplate | null {
+  const active = templates.filter((t) => t.active)
+  return (situation && active.find((t) => t.situation === situation)) ?? active.find((t) => t.isDefault) ?? active[0] ?? null
 }
 
 export async function fetchCollectionMessageTemplates(): Promise<CollectionMessageTemplate[]> {
@@ -113,6 +124,19 @@ export async function seedDefaultCollectionTemplates(): Promise<CollectionMessag
   const { data, error } = await supabase.rpc('seed_default_collection_templates', { p_organization_id: organizationId })
   if (error) throw new Error(error.message)
   return ((data ?? []) as TemplateRow[]).map(mapTemplate)
+}
+
+/**
+ * O usuário NUNCA deve ver uma tela vazia de templates se ele tem como
+ * resolver isso sozinho — só popula silenciosamente quando a organização
+ * ainda não tem nenhum template E quem está olhando pode configurar
+ * (collections.configure); sem essa permissão, a ausência é só
+ * reportada (não há nada que a pessoa consiga fazer sobre isso aqui).
+ */
+export async function ensureCollectionTemplatesSeeded(canConfigure: boolean): Promise<CollectionMessageTemplate[]> {
+  const templates = await fetchCollectionMessageTemplates()
+  if (templates.length > 0 || !canConfigure) return templates
+  try { return await seedDefaultCollectionTemplates() } catch { return templates }
 }
 
 export type CollectionTemplateInput = { name: string; key: string; channel: CollectionMessageChannel; subject: string; body: string; active: boolean }
@@ -145,6 +169,22 @@ export async function deleteCollectionMessageTemplate(id: string): Promise<void>
   if (error) throw new Error(error.message)
 }
 
+/** Marca um template como o padrão da organização (nunca dois ao mesmo tempo — trocar desmarca o anterior atomicamente no servidor). */
+export async function setDefaultCollectionTemplate(id: string): Promise<CollectionMessageTemplate> {
+  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
+  const { data, error } = await supabase.rpc('set_default_collection_template', { p_template_id: id })
+  if (error) throw new Error(error.message)
+  return mapTemplate(data as TemplateRow)
+}
+
+/** Associa (ou remove, com situation=null) um template a uma situação — só configuração/leitura, nenhum disparo automático (briefing §4: "não criar Automation Scheduler agora"). */
+export async function setCollectionTemplateSituation(id: string, situation: CollectionTemplateSituation | null): Promise<CollectionMessageTemplate> {
+  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
+  const { data, error } = await supabase.rpc('set_collection_template_situation', { p_template_id: id, p_situation: situation })
+  if (error) throw new Error(error.message)
+  return mapTemplate(data as TemplateRow)
+}
+
 export type RenderedCollectionMessage = { subject: string; body: string; invalidVariables: string[] }
 
 function mapRendered(data: unknown): RenderedCollectionMessage {
@@ -168,6 +208,32 @@ export async function renderCollectionTemplate(clientId: string, saleIds: string
   const { data, error } = await supabase.rpc('render_collection_template', { p_organization_id: organizationId, p_template_id: templateId, p_client_id: clientId, p_sale_ids: saleIds })
   if (error) throw new Error(error.message)
   return mapRendered(data)
+}
+
+export type RecentlyPaidCollection = { id: string; clientId: string; clientName: string; clientNumber: number | null; amount: number; paidAt: string; paymentMethod: string | null }
+
+/** Últimos 30 dias de pagamentos — só para a aba "Pagas" da tela principal (confirmação/celebração, briefing §14); histórico completo continua em Vendas. */
+export async function fetchRecentlyPaidCollections(): Promise<RecentlyPaidCollection[]> {
+  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
+  await authenticatedOrganization()
+  const since = new Date(); since.setDate(since.getDate() - 30)
+  const { data, error } = await supabase.from('sales').select('id,client_id,amount,paid_at,payment_method,clients(name,client_number)').eq('payment_status', 'paid').gte('paid_at', since.toISOString().slice(0, 10)).is('deleted_at', null).order('paid_at', { ascending: false }).limit(200)
+  if (error) throw new Error(error.message)
+  type Row = { id: string; client_id: string; amount: number; paid_at: string; payment_method: string | null; clients: { name: string; client_number: number | null } | null }
+  return (data ?? []).map((row: unknown) => {
+    const r = row as Row
+    return { id: r.id, clientId: r.client_id, clientName: r.clients?.name ?? 'Cliente', clientNumber: r.clients?.client_number ?? null, amount: Number(r.amount), paidAt: r.paid_at, paymentMethod: r.payment_method }
+  })
+}
+
+/** Soma paga no mês corrente — para o card "Recebidas no mês" da tela principal (mesma tabela/RLS de sales, sem RPC nova). */
+export async function fetchCollectionsPaidThisMonth(): Promise<number> {
+  if (!supabase) throw new Error('Conecte o Supabase para continuar.')
+  await authenticatedOrganization()
+  const firstOfMonth = new Date(); firstOfMonth.setDate(1); firstOfMonth.setHours(0, 0, 0, 0)
+  const { data, error } = await supabase.from('sales').select('amount').eq('payment_status', 'paid').gte('paid_at', firstOfMonth.toISOString().slice(0, 10)).is('deleted_at', null)
+  if (error) throw new Error(error.message)
+  return (data ?? []).reduce((sum: number, row: { amount: number }) => sum + Number(row.amount), 0)
 }
 
 export type SendCollectionMessageResult = { attemptId: string; status: 'sent' | 'failed'; errorCode: string | null; errorMessage: string | null }

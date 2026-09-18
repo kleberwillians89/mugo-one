@@ -5,10 +5,15 @@
 .collections-stat--primary{background:var(--ink);border-color:var(--ink)}
 .collections-stat--primary span{color:#c4a354}
 .collections-stat--primary strong{color:#fff}
+.collections-stat--overdue strong{color:#a4341f}
+
+.collections-setup-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:18px 20px;border:1px solid #e8dcc0;border-radius:12px;background:#fbf7ec}
+.collections-setup-banner strong{display:block;font:600 14px 'Manrope';color:var(--ink)}
+.collections-setup-banner span{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
 
 .collections-settings-hint{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.collections-template-picker{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11px}
-.collections-template-picker select{height:32px;border:1px solid var(--line);border-radius:6px;padding:0 8px;font:inherit}
+.collections-template-picker select{height:34px;border:1px solid var(--line);border-radius:7px;padding:0 10px;font:600 12px 'Manrope'}
+.collections-template-name{font:600 12px 'Manrope';color:var(--ink)}
 
 .collections-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .collections-search{flex:1;min-width:240px;display:flex;border:1px solid var(--line);background:#fff;border-radius:7px}
@@ -33,9 +38,29 @@
 .collections-card-status{font-size:8px;font-weight:800;color:#906b19;text-align:right}
 .collections-card>footer{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
 .collections-open-client{margin-left:auto;border:1px solid var(--line);background:#fff;padding:0 10px;height:34px;border-radius:7px;display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#5e574e}
+.collections-card--overdue{border-color:#e3b5a4;background:#fff9f7}
+.collections-card--overdue .collections-card-total span{color:#a4341f}
+.collections-card--paid{opacity:.9}
 
 .collections-copy-hint{margin:0 0 10px;font-size:11px;color:var(--muted);line-height:1.5}
 .collections-copy-text{width:100%;box-sizing:border-box;border:1px solid var(--line);padding:10px;font:12px/1.6 inherit;resize:vertical}
+
+.collections-cobrar-meta{display:flex;gap:22px;margin-bottom:14px;flex-wrap:wrap}
+.collections-cobrar-meta>div{display:flex;flex-direction:column;gap:3px}
+.collections-cobrar-meta span{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.collections-cobrar-meta strong{font:600 13px 'Manrope';color:var(--ink)}
+
+.collections-provider-hint{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;border-radius:9px;background:#fff5e6;border:1px solid #e9cd9a}
+.collections-provider-hint p{margin:0;font-size:12px;color:#6b4d1f}
+.collections-provider-hint>div{display:flex;gap:8px;flex-wrap:wrap}
+
+.collections-preview{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fdfcfa}
+.collections-preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.collections-preview-head span{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.collections-edit-link{border:0;background:transparent;color:var(--gold,#9a7627);font:600 11px 'Manrope';cursor:pointer;padding:0}
+.collections-preview-subject{margin:0 0 8px;font:600 12px 'Manrope';color:var(--ink)}
+.collections-preview-body{white-space:pre-wrap;font:13px/1.6 'DM Sans',inherit;color:#3a352c;min-height:120px}
+.collections-edit-hint{margin:8px 0 0;font-size:10px;color:var(--muted)}
 
 .collections-image-offscreen{position:fixed;top:-10000px;left:-10000px}
 
@@ -58,4 +83,11 @@
  .collections-card-sales{overflow-x:auto}
  .collections-card-sales li{min-width:400px;font-size:9px}
  .collections-toolbar{flex-direction:column;align-items:stretch}
+ .collections-filter{overflow-x:auto}
+ .collections-setup-banner{flex-direction:column;align-items:stretch;text-align:left}
+ .collections-setup-banner button{width:100%}
+ .collections-card>footer{flex-direction:column;align-items:stretch}
+ .collections-card>footer button,.collections-card>footer a{width:100%;justify-content:center}
+ .collections-open-client{margin-left:0}
+ .collections-provider-hint{flex-direction:column;align-items:stretch}
 }

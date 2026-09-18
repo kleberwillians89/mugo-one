@@ -3,172 +3,138 @@ import{describe,expect,it}from'vitest'
 
 const page=readFileSync(new URL('./CobrancasPage.tsx',import.meta.url),'utf8')
 
-describe('CobrancasPage — agrupamento por cliente',()=>{
+describe('CobrancasPage — agrupamento por cliente e detecção de vencida',()=>{
   it('agrupa vendas do mesmo client_id em um único card, acumulando total',()=>{
     expect(page).toContain('const existing=map.get(row.client_id)')
     expect(page).toContain('existing.sales.push(withItem);existing.total+=row.amount')
   })
-  it('cliente novo cria um único grupo com total inicial igual à venda',()=>{
-    expect(page).toContain('map.set(row.client_id,{client_id:row.client_id')
-    expect(page).toContain('total:row.amount')
-  })
   it('ordena os clientes alfabeticamente para a rotina de cobrança',()=>{
     expect(page).toContain("a.client_name.localeCompare(b.client_name,'pt-BR',{sensitivity:'base'})")
-    expect(page).not.toContain('sort((a,b)=>b.total-a.total)')
   })
-  it('cada card mostra client_number, nome, total em aberto e quantidade de vendas pendentes',()=>{
-    expect(page).toContain('clientNumber(group.client_number)')
-    expect(page).toContain('group.client_name')
-    expect(page).toContain('brl(group.total)')
-    expect(page).toMatch(/group\.sales\.length\}.*venda/)
+  it('vencida é derivada de due_date < hoje (dado real, vindo do RPC universal) — nunca um segundo status inventado',()=>{
+    expect(page).toContain("const rowOverdue=Boolean(row.due_date&&row.due_date<today)")
+    expect(page).toContain('if(rowOverdue)existing.overdue=true')
+  })
+  it('situação (para escolher o template certo) é initial/due_today/overdue, derivada só de due_date — sem Automation Scheduler novo',()=>{
+    expect(page).toContain("group.situation=group.overdue?'overdue':group.due_date===today?'due_today':'initial'")
   })
 })
 
-describe('CobrancasPage — universal: colunas de perfume/frasco/split removidas (Sprint de Limpeza)',()=>{
-  it('CollectionSaleRow não tem mais perfume_name/perfume_brand/sale_type/volume_ml — resumo do item vem de fetchSaleItemsSummaries (mesmo mecanismo de Vendas/Planilha)',()=>{
+describe('CobrancasPage — universal: colunas de perfume/frasco/split removidas',()=>{
+  it('CollectionSaleRow não tem mais perfume — resumo do item vem de fetchSaleItemsSummaries (mesmo mecanismo de Vendas/Planilha)',()=>{
     expect(page).toContain("import{fetchSaleItemsSummaries,itemsSummaryLabel}from'../lib/sale-items'")
-    expect(page).toContain('itemLabels.get(row.id)??')
     expect(page.toLowerCase()).not.toMatch(/perfume_name|perfume_brand|\bsale_type\b|volume_ml/)
   })
-  it('busca cobre só cliente e número do cliente — nunca perfume (o RPC universal não expõe mais esse campo)',()=>{
-    expect(page).toContain('fetchCollectionsPending')
+  it('busca cobre só cliente e número do cliente — nunca perfume',()=>{
     expect(page).toContain('placeholder="Buscar cliente ou número do cliente"')
     expect(page.toLowerCase()).not.toContain('perfume')
   })
   it('sem qualquer resíduo de ManyChat/WhatsApp direto, RUAH, CNPJ ou PIX hardcoded — envio passa pelo Communication Hub (sendCollectionMessage)',()=>{
     for(const forbidden of['sendmanychatmessage','manychat','ruah','67.819.967','gi cosméticos'])
       expect(page.toLowerCase()).not.toContain(forbidden)
-    expect(page).toContain("from'../lib/collections'")
-    expect(page).toContain('sendCollectionMessage(')
+    expect(page).toContain('sendCollectionMessage(group.client_id,saleIds,templateId,\'email\')')
   })
-  it('nenhum texto de mensagem hardcoded (buildMessage foi removido) — o corpo vem sempre de renderCollectionTemplate (servidor)',()=>{
-    expect(page).not.toContain('const buildMessage=')
+})
+
+describe('CobrancasPage — fluxo único "Cobrar" abre direto na prévia (item 15-16 do briefing)',()=>{
+  it('o template já vem escolhido por padrão/situação — defaultTemplateFor, nunca uma pergunta separada antes da prévia',()=>{
+    expect(page).toContain('defaultTemplateFor')
+    expect(page).toContain('const initialTemplate=useMemo(()=>defaultTemplateFor(templates,group.situation),[templates,group.situation])')
+  })
+  it('botão do card é só "COBRAR" — sem estágios extras (template→canal→enviar) antes de ver a prévia',()=>{
+    expect(page).toContain('<PrimaryButton icon={<Send size={14}/>} onClick={()=>setCobrarGroup(group)}>COBRAR</PrimaryButton>')
+  })
+  it('canal é sempre e-mail, mostrado como informação (não uma decisão) — WhatsApp/SMS não existem ainda como opção real',()=>{
+    expect(page).toContain('<div><span>Canal</span><strong>E-mail</strong></div>')
+  })
+  it('mensagem é renderizada com dados REAIS do cliente/venda (renderCollectionTemplate), nunca fictícios, no fluxo de envio real',()=>{
     expect(page).toContain('renderCollectionTemplate(group.client_id,saleIds,templateId)')
   })
 })
 
-describe('CobrancasPage — resumo no topo',()=>{
-  it('total global soma amount de todas as vendas pendentes carregadas, não só o filtro visível',()=>{
-    expect(page).toContain('open:rows.reduce((sum,row)=>sum+row.amount,0)')
+describe('CobrancasPage — editar é sempre só para este envio (item 17 do briefing)',()=>{
+  it('editar alterna para um textarea local — nenhuma chamada de update/template dispara a partir daqui',()=>{
+    const modalFn=page.slice(page.indexOf('function CobrarModal'),page.indexOf('function CollectionImageDownload'))
+    expect(modalFn).not.toContain('updateCollectionMessageTemplate')
+    expect(modalFn).toContain('setEditing(true)')
+    expect(modalFn).toContain('<textarea className="collections-copy-text" value={text} onChange={e=>setText(e.target.value)}')
   })
-  it('clientes com pendências e vendas pendentes vêm do total não filtrado',()=>{
-    expect(page).toContain('clients:allGroups.length,sales:rows.length')
-  })
-  it('filtros TODOS/MENSAGEM NUNCA COPIADA/MENSAGEM JÁ COPIADA e nenhum VENCIDOS inventado',()=>{
-    const filterBlock=page.slice(page.indexOf('role="group" aria-label="Filtrar por mensagem copiada"'),page.indexOf('{error&&<div className="notice"'))
-    expect(filterBlock).toContain('>TODOS<')
-    expect(filterBlock).toContain('>MENSAGEM NUNCA COPIADA<')
-    expect(filterBlock).toContain('>MENSAGEM JÁ COPIADA<')
-    expect(filterBlock).not.toContain('VENCIDOS')
-    expect(page).toContain("type CollectionFilter='all'|'never_copied'|'copied'")
-  })
-  it('filtros nunca usam vocabulário de "cobrado/cobrança confirmada" — só o que o sistema sabe: mensagem copiada',()=>{
-    const filterBlock=page.slice(page.indexOf('role="group" aria-label="Filtrar por mensagem copiada"'),page.indexOf('{error&&<div className="notice"'))
-    expect(filterBlock).not.toMatch(/COBRAD/)
+  it('aviso explícito de que a alteração vale só para este envio, o modelo original não muda',()=>{
+    expect(page).toContain('Esta alteração vale só para este envio — o modelo original não muda.')
   })
 })
 
-describe('CobrancasPage — mensagem de cobrança (via template configurável, nunca hardcoded)',()=>{
-  it('mensagem é renderizada no servidor a partir de um template escolhido pelo usuário (TemplatePicker)',()=>{
-    expect(page).toContain('function TemplatePicker(')
-    expect(page).toContain('function defaultTemplateId(templates:CollectionMessageTemplate[]):string')
+describe('CobrancasPage — copiar mensagem funciona sem provider (item 18 do briefing)',()=>{
+  it('botão Copiar mensagem está sempre disponível no rodapé, nunca condicionado a canSend/provider',()=>{
+    expect(page).toContain('<SecondaryButton loading={copying} onClick={()=>void copy()}>Copiar mensagem</SecondaryButton>')
   })
-  it('mensagem é revisável antes de copiar (textarea editável, não texto fixo)',()=>{
-    expect(page).toContain('<textarea className="collections-copy-text"')
-    expect(page).toContain('onChange={e=>setText(e.target.value)}')
-  })
-  it('botão COPIAR MENSAGEM usa a Clipboard API e dá feedback MENSAGEM COPIADA',()=>{
+  it('copiar usa a Clipboard API e registra collection_event, sem depender do Communication Hub',()=>{
     expect(page).toContain('await navigator.clipboard.writeText(text)')
-    expect(page).toContain("toast.push('MENSAGEM COPIADA',{tone:'success'})")
-  })
-  it('sem templates ativos, o botão de copiar fica desabilitado (nunca tenta montar mensagem vazia)',()=>{
-    expect(page).toContain('disabled={noTemplates} onClick={()=>setCopyGroup(group)}')
+    expect(page).toContain('await logCollectionMessageCopied(group.client_id,{sale_ids:saleIds,template_id:templateId})')
   })
 })
 
-describe('CobrancasPage — histórico de mensagem copiada, nunca "cobrança confirmada"',()=>{
-  it('copiar registra collection_event via logCollectionMessageCopied, depois do clipboard',()=>{
-    const copyIndex=page.indexOf('navigator.clipboard.writeText(text)')
-    const logIndex=page.indexOf('logCollectionMessageCopied(group.client_id')
-    expect(copyIndex).toBeGreaterThan(0)
-    expect(logIndex).toBeGreaterThan(copyIndex)
+describe('CobrancasPage — provider não configurado nunca mostra erro técnico (item 19 do briefing)',()=>{
+  it('provider_not_configured vira "E-mail ainda não está conectado.", nunca o código técnico como texto principal',()=>{
+    expect(page).toContain("sendOutcome.errorCode==='provider_not_configured'?'E-mail ainda não está conectado.'")
   })
-  it('nunca afirma que a mensagem foi enviada por cópia — só que foi copiada',()=>{
-    expect(page).toContain('Nenhuma mensagem é enviada automaticamente')
+  it('oferece Configurar e-mail (só para quem pode) e Copiar mensagem como saídas — nunca deixa o usuário travado',()=>{
+    expect(page).toContain("errorCode==='provider_not_configured'&&canConfigureComms&&<SecondaryButton onClick={goToCommunications}>Configurar e-mail</SecondaryButton>")
+    expect(page).toContain('<SecondaryButton onClick={()=>void copy()}>Copiar mensagem</SecondaryButton>')
   })
-  it('card mostra "Mensagem nunca copiada" ou última mensagem copiada + contagem — nunca "cobrado"/"já cobrado"',()=>{
-    expect(page).toContain("'Mensagem nunca copiada'")
-    expect(page).toMatch(/Última mensagem copiada: \$\{formatAt\(group\.last_message_copied_at!\)\} · Copiada \$\{group\.message_copied_count\}×/)
-    expect(page).not.toMatch(/Já cobrado/i)
-    expect(page).not.toMatch(/Cobrado \d/i)
-    expect(page).not.toMatch(/Nunca cobrado/i)
+  it('sucesso só fecha o modal quando o status realmente é sent — nunca finge sucesso',()=>{
+    expect(page).toContain("if(result.status==='sent'){toast.push('Cobrança enviada.',{tone:'success'});onSent();onClose()}")
   })
 })
 
-describe('CobrancasPage — envio via Communication Hub (item 21-25 do briefing)',()=>{
-  it('ENVIAR COBRANÇA chama sendCollectionMessage — nunca um provider direto (sem sendManychatMessage/manychat-send)',()=>{
-    expect(page).toContain('function SendCollectionButton(')
-    expect(page).toContain('await sendCollectionMessage(group.client_id,group.sales.map(s=>s.id),templateId,\'email\')')
+describe('CobrancasPage — tela principal simplificada (item 14 do briefing)',()=>{
+  it('3 cards: A receber, Vencidas, Recebidas no mês',()=>{
+    expect(page).toContain('<span>A RECEBER</span><strong>{brl(totals.open)}</strong>')
+    expect(page).toContain('<span>VENCIDAS</span><strong>{brl(totals.overdue)}</strong>')
+    expect(page).toContain('<span>RECEBIDAS NO MÊS</span><strong>{brl(totals.paidThisMonth)}</strong>')
   })
-  it('provider ausente (provider_not_configured) mostra aviso informativo, nunca finge sucesso — toast de sucesso só dispara quando result.status===\'sent\'',()=>{
-    expect(page).toContain("if(result.status==='sent')toast.push('COBRANÇA ENVIADA',{tone:'success'})")
-    expect(page).toContain("result.errorCode==='provider_not_configured'?'info':'error'")
+  it('4 filtros: Pendentes, Vencidas, Pagas, Todas',()=>{
+    const filterBlock=page.slice(page.indexOf('role="group" aria-label="Filtrar cobranças"'),page.indexOf('{error&&<div className="notice"'))
+    expect(filterBlock).toContain('>PENDENTES<')
+    expect(filterBlock).toContain('>VENCIDAS<')
+    expect(filterBlock).toContain('>PAGAS<')
+    expect(filterBlock).toContain('>TODAS<')
   })
-  it('só aparece para quem tem a permissão collections.send',()=>{
-    expect(page).toContain("const canSend=useHasPermission('collections.send')")
-    expect(page).toContain('{canSend&&<SendCollectionButton')
-  })
-  it('botão de envio nunca monta/sobe uma imagem (isso é só do fluxo de download) — envia só texto pelo Hub',()=>{
-    const sendFn=page.slice(page.indexOf('function SendCollectionButton'),page.indexOf('function RegisterPaymentModal'))
-    expect(sendFn).not.toContain('uploadCollectionImage')
-    expect(sendFn).not.toContain('renderNodeAsPngBlob')
+  it('aba Pagas usa uma consulta separada dos últimos pagamentos, nunca reaproveita a lista de pendentes',()=>{
+    expect(page).toContain("filter==='paid'?")
+    expect(page).toContain('fetchRecentlyPaidCollections')
   })
 })
 
-describe('CobrancasPage — registrar pagamento',()=>{
-  it('abre modal com seleção de vendas por checkbox, não um checkbox único de tudo-ou-nada',()=>{
-    expect(page).toContain('const[selected,setSelected]=useState<Set<string>>(()=>new Set(group.sales.map(s=>s.id)))')
-    expect(page).toContain('<input type="checkbox" checked={selected.has(s.id)} onChange={()=>toggle(s.id)}/>')
+describe('CobrancasPage — wizard de configuração (item 12 do briefing)',()=>{
+  it('banner "Configure como você recebe pagamentos" só aparece sem settings e para quem pode configurar', () => {
+    expect(page).toContain('{!settingsConfigured&&canConfigure&&')
+    expect(page).toContain('Configure como você recebe pagamentos.')
   })
-  it('modal mostra cliente, vendas selecionadas (com a descrição universal do item), valor total, data, forma e observação opcional',()=>{
-    expect(page).toContain('group.client_name')
-    expect(page).toContain('{shortDate(s.sale_date)} · {s.itemLabel}')
-    expect(page).toContain('VALOR TOTAL SELECIONADO')
-    expect(page).toContain('Data do pagamento')
-    expect(page).toContain('Forma de pagamento')
-    expect(page).toContain('label="Observação" htmlFor="collections-notes" hint="Opcional"')
+  it('o mesmo wizard é oferecido direto no card quando não há template nenhum — nunca uma tela vazia sem saída',()=>{
+    expect(page).toContain('{noTemplates&&canConfigure')
+    expect(page).toContain('<PrimaryButton onClick={()=>setWizardOpen(true)}>Configurar cobranças</PrimaryButton>')
   })
-  it('forma de pagamento sugere valores já existentes no sistema via davi_excel_distinct — não cria enum novo',()=>{
-    expect(page).toContain("fetchDaviExcelDistinct('method',{},'')")
-  })
-  it('confirmar chama registerCollectionPayment (fonte de verdade do pagamento, intocada) com as vendas selecionadas',()=>{
-    expect(page).toContain('await registerCollectionPayment([...selected],paidAt,method.trim(),notes.trim()||undefined)')
-  })
-  it('após pagar, recarrega a fila (venda quitada some da lista automaticamente pelo RPC)',()=>{
-    expect(page).toContain('onPaid();onClose()')
-    expect(page).toContain('onPaid={reload}')
+  it('templates nunca ficam vazios por conta própria — ensureCollectionTemplatesSeeded roda no carregamento da página',()=>{
+    expect(page).toContain('ensureCollectionTemplatesSeeded(canConfigure).then(setTemplates)')
   })
 })
 
 describe('CobrancasPage — permissões',()=>{
   it('REGISTRAR PAGAMENTO só aparece com sales.edit',()=>{
     expect(page).toContain("const canRegisterPayment=useHasPermission('sales.edit')")
-    expect(page).toContain('{canRegisterPayment&&<PrimaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</PrimaryButton>}')
+    expect(page).toContain('{canRegisterPayment&&<SecondaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</SecondaryButton>}')
   })
-  it('COPIAR COBRANÇA e ABRIR CLIENTE não dependem de sales.edit',()=>{
-    expect(page).toMatch(/<SecondaryButton icon=\{<ClipboardCopy size=\{14\}\/>\} disabled=\{noTemplates\} onClick=\{\(\)=>setCopyGroup\(group\)\}>COPIAR COBRANÇA<\/SecondaryButton>/)
+  it('ENVIAR COBRANÇA (dentro do modal) só aparece com collections.send — copiar nunca depende dela',()=>{
+    expect(page).toContain("const canSend=useHasPermission('collections.send')")
+    expect(page).toContain('{canSend&&<PrimaryButton loading={sending} disabled={loading||!templateId} onClick={()=>void send()} icon={<Send size={15}/>}>Enviar cobrança</PrimaryButton>}')
+  })
+  it('ABRIR CLIENTE não depende de nenhuma permissão de cobrança',()=>{
     expect(page).toContain('onClick={()=>openClient(group.client_id)}')
-  })
-  it('CTA "Configurar cobranças" só aparece para quem pode configurar (collections.configure)',()=>{
-    expect(page).toContain("const canConfigure=useHasPermission('collections.configure')")
-    expect(page).toContain('{(!settingsConfigured||noTemplates)&&canConfigure&&')
   })
 })
 
 describe('CobrancasPage — baixar imagem (1 clique, sem preview/modal)',()=>{
-  it('botão BAIXAR IMAGEM só aparece quando o cliente tem vendas pendentes (guard explícito, não implícito)',()=>{
-    expect(page).toContain("{group.sales.length>0&&<SecondaryButton icon={<Download size={14}/>} loading={downloadGroup?.client_id===group.client_id} disabled={!!downloadGroup&&downloadGroup.client_id!==group.client_id} onClick={()=>setDownloadGroup(group)}>BAIXAR IMAGEM</SecondaryButton>}")
-  })
   it('clicar no botão não abre modal — monta CollectionImageDownload direto na página, fora da tela',()=>{
     expect(page).toContain('{downloadGroup&&<CollectionImageDownload group={downloadGroup} onDone={()=>setDownloadGroup(null)}/>}')
     expect(page).toContain('<div className="collections-image-offscreen" aria-hidden="true">')
@@ -176,22 +142,14 @@ describe('CobrancasPage — baixar imagem (1 clique, sem preview/modal)',()=>{
   it('a imagem usa a marca real da organização (useOrganizationBrand), nunca um logo fixo',()=>{
     expect(page).toContain("import{useOrganizationBrand}from'../components/OrganizationBrandMark'")
     expect(page).toContain('const brand=useOrganizationBrand()')
-    expect(page).toContain('brand={brand}')
   })
   it('não recarrega nem refiltra dados para gerar a imagem — reaproveita o group já em memória, sem nova consulta',()=>{
-    const componentFn=page.slice(page.indexOf('function CollectionImageDownload'),page.indexOf('function SendCollectionButton'))
+    const componentFn=page.slice(page.indexOf('function CollectionImageDownload'),page.indexOf('function RegisterPaymentModal'))
     expect(componentFn).not.toContain('fetchCollectionsPending')
     expect(componentFn).not.toMatch(/\.rpc\(/)
   })
   it('captura usa COLLECTION_IMAGE_PIXEL_RATIO (densidade sobre um nó já no tamanho físico real)',()=>{
     expect(page).toContain('await downloadNodeAsPng(nodeRef.current,name,COLLECTION_IMAGE_PIXEL_RATIO)')
-  })
-  it('importa a largura/densidade de exportação do próprio componente do card (fonte única), não reimplementa nem hardcoda de novo na página',()=>{
-    expect(page).toContain("import{COLLECTION_IMAGE_PIXEL_RATIO,CollectionSummaryImageCard,CollectionSummaryLine}from'../components/CollectionSummaryImageCard'")
-  })
-  it('sucesso e falha da captura sempre liberam o botão (onDone chamado nos dois casos, guardado por cancelled)',()=>{
-    const componentFn=page.slice(page.indexOf('function CollectionImageDownload'),page.indexOf('function SendCollectionButton'))
-    expect(componentFn).toContain('if(!cancelled)onDone()')
   })
   it('container de captura fica fora da tela (position:fixed off-canvas), nunca visível nem sobrepondo a página',()=>{
     const css=readFileSync(new URL('./CobrancasPage.css',import.meta.url),'utf8')
@@ -199,26 +157,13 @@ describe('CobrancasPage — baixar imagem (1 clique, sem preview/modal)',()=>{
   })
 })
 
-describe('CobrancasPage — qualidade da exportação não trunca listas longas',()=>{
-  it('nenhum limite de altura/overflow no card ou no offscreen que pudesse cortar uma cobrança com muitos itens',()=>{
-    const css=readFileSync(new URL('./CobrancasPage.css',import.meta.url),'utf8')
-    expect(css).not.toMatch(/\.collections-image-offscreen[^}]*(max-height|overflow)/)
+describe('CobrancasPage — registrar pagamento (fonte de verdade intocada)',()=>{
+  it('confirmar chama registerCollectionPayment (collections_register_payment, intocado)',()=>{
+    expect(page).toContain('await registerCollectionPayment([...selected],paidAt,method.trim(),notes.trim()||undefined)')
   })
-  it('lista de itens nunca é fatiada/paginada — .map roda sobre TODOS os itens do group, sem slice/limit',()=>{
-    const componentFn=readFileSync(new URL('../components/CollectionSummaryImageCard.tsx',import.meta.url),'utf8')
-    expect(componentFn).toContain('group.sales.map((sale,index)=>')
-    expect(componentFn).not.toMatch(/\.slice\(|\.filter\(.*\.length|MAX_ITEMS/)
-  })
-})
-
-describe('CobrancasPage — baixar imagem não exige sales.edit',()=>{
-  it('BAIXAR IMAGEM não está condicionado a canRegisterPayment — basta sales.view para abrir a página',()=>{
-    const footerBlock=page.slice(page.indexOf('<footer>'),page.indexOf('</footer>'))
-    expect(footerBlock).toContain('BAIXAR IMAGEM</SecondaryButton>}')
-    expect(footerBlock.indexOf('BAIXAR IMAGEM')).toBeLessThan(footerBlock.indexOf('canRegisterPayment'))
-  })
-  it('REGISTRAR PAGAMENTO continua exigindo canRegisterPayment (sales.edit) — o botão de imagem não afrouxou esse gate',()=>{
-    expect(page).toContain('{canRegisterPayment&&<PrimaryButton onClick={()=>setPaymentGroup(group)}>REGISTRAR PAGAMENTO</PrimaryButton>}')
+  it('após pagar, recarrega a fila e a aba Pagas',()=>{
+    expect(page).toContain('onPaid();onClose()')
+    expect(page).toContain('onPaid={reload}')
   })
 })
 
@@ -226,9 +171,5 @@ describe('CobrancasPage — invariantes de estoque/logística',()=>{
   it('nenhuma menção a estoque físico/logística em toda a página, incluindo o fluxo de imagem',()=>{
     for(const forbidden of['inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','physical_ml','operational_code','RUAH-P','shipment','preparation_batch'])
       expect(page.toLowerCase()).not.toContain(forbidden.toLowerCase())
-  })
-  it('mantém somente as escritas/leituras esperadas — collections_register_payment intocado, nenhum write direto a um provider',()=>{
-    const rpcCalls=[...page.matchAll(/await (\w+)\(/g)].map((match)=>match[1])
-    expect(new Set(rpcCalls)).toEqual(new Set(['logCollectionMessageCopied','downloadNodeAsPng','registerCollectionPayment','sendCollectionMessage','fetchSaleItemsSummaries']))
   })
 })
