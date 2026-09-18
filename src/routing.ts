@@ -1,5 +1,5 @@
 import {
-  Boxes, CircleDollarSign, FileSpreadsheet, FileText, Home, Import, ListChecks, Lightbulb, MessagesSquare, Package, Radar, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound,
+  Boxes, CircleDollarSign, FileSpreadsheet, FileText, Home, Import, ListChecks, Lightbulb, MessagesSquare, Package, Radar, Settings, ShoppingBag, Sparkles, Truck, UserRound, UsersRound, Zap,
 } from 'lucide-react'
 import { FeatureCode } from './core/features/featureCatalog'
 
@@ -20,10 +20,11 @@ import { FeatureCode } from './core/features/featureCatalog'
 // K/L, ver docs/TASK_ENGINE_MIGRATION_PLAN.md). Código antigo em
 // src/legacy/control-tower/. Um bookmark para /torre-de-controle cai
 // no fallback 'Visão Geral', não em 404.
-export type Page = 'Visão Geral'|'Tarefas'|'Conversas'|'Clientes'|'Vendas'|'Produtos'|'Planilha'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
+export type Page = 'Visão Geral'|'Tarefas'|'Conversas'|'Automações'|'Clientes'|'Vendas'|'Produtos'|'Planilha'|'Cobranças'|'Entregas'|'Estoque'|'Relatórios'|'Importação'|'IA'|'Insights'|'Radar'|'Interessados'|'Configurações'
 
 export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Visão Geral', icon: Home }, { label: 'Tarefas', icon: ListChecks }, { label: 'Conversas', icon: MessagesSquare },
+  { label: 'Automações', icon: Zap },
   { label: 'Planilha', icon: FileSpreadsheet }, { label: 'Produtos', icon: Package }, { label: 'Vendas', icon: ShoppingBag },
   { label: 'Cobranças', icon: CircleDollarSign },
   { label: 'Entregas', icon: Truck }, { label: 'Estoque', icon: Boxes },
@@ -35,7 +36,7 @@ export const navigation: { label: Page; icon: typeof Home }[] = [
   { label: 'Configurações', icon: Settings },
 ]
 
-export const routes:Record<Page,string>={'Visão Geral':'/','Tarefas':'/tarefas','Conversas':'/conversas','Clientes':'/clientes','Vendas':'/vendas','Produtos':'/produtos','Planilha':'/planilha','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
+export const routes:Record<Page,string>={'Visão Geral':'/','Tarefas':'/tarefas','Conversas':'/conversas','Automações':'/automacoes','Clientes':'/clientes','Vendas':'/vendas','Produtos':'/produtos','Planilha':'/planilha','Cobranças':'/cobrancas','Entregas':'/entregas','Estoque':'/estoque','Relatórios':'/relatorios','Importação':'/importacao','IA':'/ia','Insights':'/insights','Radar':'/radar','Interessados':'/interessados','Configurações':'/configuracoes'}
 
 // Permissão mínima para VER cada módulo no menu/rota (briefing "ROTAS E
 // MENU"). Configurações tem três códigos alternativos porque a página tem
@@ -49,7 +50,7 @@ export const routes:Record<Page,string>={'Visão Geral':'/','Tarefas':'/tarefas'
 // tudo automaticamente quando access_total=true — nenhum destes códigos
 // precisa listar "access_total" explicitamente aqui.
 export const pagePermission:Record<Page,string[]>={
-  'Visão Geral':['dashboard.view'],'Tarefas':['tasks.view'],'Conversas':['communications.view'],
+  'Visão Geral':['dashboard.view'],'Tarefas':['tasks.view'],'Conversas':['communications.view'],'Automações':['automations.view'],
   'Clientes':['clients.view'],'Vendas':['sales.view'],'Entregas':['shipping.view'],
   'Produtos':['catalog.view'],'Planilha':['sales.view'],'Cobranças':['sales.view'],
   'Estoque':['inventory.view'],'Relatórios':['reports.view'],'Importação':['ai_import.view'],
@@ -65,7 +66,7 @@ export const pagePermission:Record<Page,string[]>={
 // continua sendo checada sempre — isto só ADICIONA um segundo portão,
 // nunca substitui o primeiro.
 export const pageFeature:Partial<Record<Page,FeatureCode>>={
-  'Tarefas':'tasks','Estoque':'inventory','Entregas':'shipping','Radar':'radar','Interessados':'waitlist','Conversas':'communications',
+  'Tarefas':'tasks','Estoque':'inventory','Entregas':'shipping','Radar':'radar','Interessados':'waitlist','Conversas':'communications','Automações':'automations',
 }
 
 // '/configuracoes/equipe' (aba Equipe, ver TeamSettingsPage) não é uma rota

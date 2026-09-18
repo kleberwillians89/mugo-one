@@ -3,8 +3,8 @@ import{navigation}from'../routing'
 
 describe('ordem operacional do menu',()=>{
   it('prioriza o fluxo diário pedido pelo time (Planilha → Produtos → Vendas, ver Fase F da generalização)',()=>{
-    expect(navigation.slice(0,10).map(item=>item.label)).toEqual([
-      'Visão Geral','Tarefas','Conversas','Planilha','Produtos','Vendas','Cobranças','Entregas','Estoque','Clientes',
+    expect(navigation.slice(0,11).map(item=>item.label)).toEqual([
+      'Visão Geral','Tarefas','Conversas','Automações','Planilha','Produtos','Vendas','Cobranças','Entregas','Estoque','Clientes',
     ])
   })
 })

@@ -28,6 +28,7 @@ import { WaitlistPage } from './pages/WaitlistPage'
 import { ClientRecoveryPage } from './pages/ClientRecoveryPage'
 import { TasksPage } from './pages/TasksPage'
 import { ConversationsPage } from './pages/ConversationsPage'
+import { AutomationsPage } from './pages/AutomationsPage'
 import { GenericPage } from './pages/GenericPage'
 import { TeamSettingsPage } from './pages/TeamSettingsPage'
 import { LeadIntakeSettingsPage } from './pages/LeadIntakeSettingsPage'
@@ -88,6 +89,7 @@ export function App() {
     if (page === 'Visão Geral') return <Dashboard/>
     if (page === 'Tarefas') return <TasksPage/>
     if (page === 'Conversas') return <ConversationsPage/>
+    if (page === 'Automações') return <AutomationsPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
     if (page === 'Produtos') return <ProductsServicesPage/>
