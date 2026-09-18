@@ -16,7 +16,7 @@ describe('Estoque — filtro real por data e resolução de perfume',()=>{
   it('usa somente os perfumes do período nos cards, métricas e exportação',()=>{
     expect(page).toContain('const periodOperational=operational.filter')
     expect(page).toContain('periodOperational.reduce')
-    expect(page).toContain("exportCsv('estoque-ruah.csv',periodOperational")
+    expect(page).toContain("exportCsv('estoque.csv',periodOperational")
   })
 
   it('sempre oferece resolução quando o perfume não foi vinculado, inclusive em revisão',()=>{

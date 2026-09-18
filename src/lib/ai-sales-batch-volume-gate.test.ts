@@ -23,7 +23,7 @@ function blockers(preview:Preview|null):{text:string}[]{
   const list:{text:string}[]=[]
   if(preview.source_format==='tsv'){
     for(const group of preview.groups??[])if(!group.perfume_id)list.push({text:`Perfume "${group.display_name}" precisa de resolução no catálogo`})
-  }else if(!preview.perfume_id)list.push({text:'Resolva o perfume no catálogo da RUAH'})
+  }else if(!preview.perfume_id)list.push({text:'Resolva o perfume no catálogo'})
   if(preview.pricing_consistent===false)list.push({text:'Os valores publicados não conferem com a cotação, a recravação e o adicional do APC'})
   preview.sales.forEach(sale=>{if(sale.volume_ml<=0)list.push({text:`Volume inválido para ${sale.client_name}`})})
   preview.sales.forEach(sale=>{if(sale.client_match_status==='review'||(!sale.client_id&&sale.client_match_status!=='new'))list.push({text:`Confirme quem é ${sale.client_name}`})})
@@ -79,7 +79,7 @@ describe('10 cenários adicionais do briefing — matemática real, não só gre
     expect(blockers(tobaccoCarnaval({sales:[sale({volume_ml:-1})]}))).toEqual([{text:'Volume inválido para Cliente'}])
   })
   it('10) perfume não resolvido continua pendência real',()=>{
-    expect(blockers(tobaccoCarnaval({perfume_id:null}))).toEqual([{text:'Resolva o perfume no catálogo da RUAH'}])
+    expect(blockers(tobaccoCarnaval({perfume_id:null}))).toEqual([{text:'Resolva o perfume no catálogo'}])
     expect(blockers({...tobaccoCarnaval(),source_format:'tsv',groups:[{perfume_id:null,display_name:'X',normalized_perfume_name:'x'}]})).toEqual([{text:'Perfume "X" precisa de resolução no catálogo'}])
   })
   it('11) cliente pendente continua pendência real',()=>{

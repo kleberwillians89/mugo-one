@@ -4,41 +4,44 @@ import{describe,expect,it}from'vitest'
 const component=readFileSync(new URL('./CollectionSummaryImageCard.tsx',import.meta.url),'utf8')
 const css=readFileSync(new URL('./CollectionSummaryImageCard.css',import.meta.url),'utf8')
 const downloadLib=readFileSync(new URL('../lib/download-image.ts',import.meta.url),'utf8')
+const brandMark=readFileSync(new URL('./OrganizationBrandMark.tsx',import.meta.url),'utf8')
 
-describe('CollectionSummaryImageCard — só o que os dados têm, nada inventado',()=>{
-  it('recebe o grupo já pronto (client_name, sales, total) — não busca dados sozinho, não filtra nada por conta própria',()=>{
-    expect(component).toContain('export type CollectionSummaryGroup={client_name:string;sales:CollectionSaleRow[];total:number}')
+describe('CollectionSummaryImageCard — universal, só o que os dados têm, nada inventado',()=>{
+  it('recebe o grupo já pronto (client_name, sales, total) e a marca (brand) já resolvida — não busca dados sozinho, não filtra nada por conta própria',()=>{
+    expect(component).toContain('export type CollectionSummaryGroup={client_name:string;sales:CollectionSummaryLine[];total:number}')
     expect(component).not.toContain('fetchCollectionsPending')
     expect(component).not.toMatch(/payment_status/)
   })
-  it('itens numerados 01, 02, 03… com padStart(2,\'0\'), na mesma ordem em que chegam (sale_date asc, id asc — já garantido pela RPC/agrupamento)',()=>{
+  it('zero campo de perfume/frasco/volume — item é só {id, itemLabel, amount}, universal para qualquer vertical',()=>{
+    expect(component).toContain('export type CollectionSummaryLine={id:string;itemLabel:string;amount:number}')
+    for(const forbidden of['perfume_name','perfume_brand','sale.sale_type','sale.volume_ml','perfume_id'])
+      expect(component).not.toContain(forbidden)
+  })
+  it('itens numerados 01, 02, 03… com padStart(2,\'0\'), na mesma ordem em que chegam',()=>{
     expect(component).toContain("String(index+1).padStart(2,'0')")
     expect(component).toContain('group.sales.map((sale,index)=>')
   })
-  it('cada item mostra perfume, tipo, volume em ml e valor em BRL',()=>{
-    expect(component).toContain('sale.perfume_name??\'Perfume\'')
-    expect(component).toContain("sale.sale_type??'—'")
-    expect(component).toContain('sale.volume_ml??\'—\'')
+  it('cada item mostra a descrição genérica do item (itemLabel) e o valor em BRL — nenhum campo vertical',()=>{
+    expect(component).toContain('{sale.itemLabel}')
     expect(component).toContain('brl(sale.amount)')
   })
-  it('marca do perfume aparece quando existe (perfumes.brand_house) — some sem quebrar o layout quando o perfume não tem marca cadastrada',()=>{
-    expect(component).toContain('{sale.perfume_brand&&<span className="collection-summary-item-brand">{sale.perfume_brand}</span>}')
-  })
-  it('nome do cliente e contagem de pedidos em aberto aparecem no cabeçalho',()=>{
+  it('nome do cliente e contagem de pendências aparecem no cabeçalho',()=>{
     expect(component).toContain('<h2>{group.client_name}</h2>')
-    expect(component).toContain("{count} pedido{count===1?'':'s'} em aberto")
+    expect(component).toContain("{count} pendência{count===1?'':'s'} em aberto")
   })
   it('total no rodapé usa group.total (já somado só com pendentes por quem monta o grupo) — não recalcula por conta própria',()=>{
     expect(component).toContain('<strong>{brl(group.total)}</strong>')
     expect(component).not.toMatch(/reduce\(/)
   })
-  it('rodapé institucional presente, sem qualquer afirmação de envio/pagamento',()=>{
-    expect(component).toContain('RUAH PARFUMS • Conferência de pedidos em aberto')
+  it('rodapé institucional usa a marca da ORGANIZAÇÃO (brand.companyName), nunca um nome fixo — sem qualquer afirmação de envio/pagamento',()=>{
+    expect(component).toContain('{brand.companyName.toUpperCase()} • Conferência de pendências em aberto')
     expect(component.toLowerCase()).not.toContain('pago')
     expect(component.toLowerCase()).not.toContain('enviado')
   })
-  it('logo RUAH no topo',()=>{
-    expect(component).toContain('src="/ruah-brand.svg"')
+  it('logo vem de OrganizationBrandMark (marca real da organização, fallback neutro Mugô One) — nunca um arquivo/alt fixo de uma organização específica',()=>{
+    expect(component).toContain('<OrganizationBrandMark brand={brand} print={false}/>')
+    expect(component).not.toMatch(/src="\/[a-z-]+\.svg"/)
+    expect(brandMark).toContain("src={brand.logoUrl ?? '/mugo-logo.png'}")
   })
   it('largura fixa em CSS no tamanho FÍSICO real de exportação (1080px) — não um card pequeno para depois ampliar; formato retrato, estética clara/dourada',()=>{
     expect(css).toContain('.collection-summary-image{width:1080px')
@@ -61,13 +64,26 @@ describe('CollectionSummaryImageCard — só o que os dados têm, nada inventado
 })
 
 describe('CollectionSummaryImageCard — invariantes de escrita (item "Invariantes obrigatórias")',()=>{
-  it('componente é puramente visual: nenhum RPC, nenhuma chamada ao supabase, nenhum write',()=>{
-    for(const forbidden of ['supabase','registerCollectionPayment','logCollectionMessageCopied','.rpc(','useEffect','useState'])
+  it('componente é puramente visual: nenhum RPC, nenhuma chamada ao supabase, nenhum write, nenhum hook próprio (brand chega pronto — sem correr contra a captura de imagem)',()=>{
+    for(const forbidden of ['supabase','registerCollectionPayment','logCollectionMessageCopied','sendCollectionMessage','.rpc(','useEffect','useState'])
       expect(component).not.toContain(forbidden)
   })
-  it('nenhuma menção a estoque/físico/logística em todo o componente ou seu CSS',()=>{
-    for(const forbidden of ['inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','physical_ml','operational_code','RUAH-P','shipment','preparation_batch'])
+  it('nenhuma menção a estoque/físico/logística/Ruah em todo o componente ou seu CSS',()=>{
+    for(const forbidden of ['inventory_items','inventory_movements','inventory_purchase_entries','inventory_allocations','physical_ml','operational_code','RUAH-P','shipment','preparation_batch','ruah'])
       expect((component+css).toLowerCase()).not.toContain(forbidden.toLowerCase())
+  })
+})
+
+describe('OrganizationBrandMark — captura de imagem nunca corre contra um fetch assíncrono',()=>{
+  it('a variante usada dentro de um card exportado recebe brand pronto (prop obrigatória), sem chamar useOrganizationBrand sozinha',()=>{
+    const pureComponent=brandMark.slice(brandMark.indexOf('export function OrganizationBrandMark'),brandMark.indexOf('export function AutoOrganizationBrandMark'))
+    expect(pureComponent).not.toContain('useOrganizationBrand()')
+    expect(pureComponent).toContain('brand: OrganizationBrand }')
+  })
+  it('fallback é o logo neutro do próprio produto (/mugo-logo.png, já usado no rodapé do app), nunca uma marca de organização específica — nenhum src/alt fixo de uma organização',()=>{
+    expect(brandMark).toContain("companyName: 'Mugô One'")
+    expect(brandMark).not.toMatch(/src=["'/]ruah/i)
+    expect(brandMark).not.toMatch(/alt=["']RUAH/i)
   })
 })
 

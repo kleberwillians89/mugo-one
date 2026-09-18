@@ -23,7 +23,7 @@ describe('RadarPage: fonte desconhecida em resultados de busca', () => {
 
   it('badge "NOVA FONTE" aparece quando a fonte não é conhecida nem marketplace', () => {
     expect(radarPage).toContain("return { label: 'NOVA FONTE', tone: 'warning' }")
-    expect(radarPage).toContain('Ainda não validada pela RUAH.')
+    expect(radarPage).toContain('Ainda não validada.')
   })
 
   it('botão "Validar fonte" só aparece para fontes não validadas e para quem pode gerenciar fontes', () => {
