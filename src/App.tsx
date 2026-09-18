@@ -29,6 +29,8 @@ import { ClientRecoveryPage } from './pages/ClientRecoveryPage'
 import { TasksPage } from './pages/TasksPage'
 import { ConversationsPage } from './pages/ConversationsPage'
 import { AutomationsPage } from './pages/AutomationsPage'
+import { FiscalPage } from './pages/FiscalPage'
+import { FiscalSettingsPage } from './pages/FiscalSettingsPage'
 import { GenericPage } from './pages/GenericPage'
 import { TeamSettingsPage } from './pages/TeamSettingsPage'
 import { LeadIntakeSettingsPage } from './pages/LeadIntakeSettingsPage'
@@ -71,18 +73,19 @@ export function App() {
       const wantsTeam = routePath === '/configuracoes/equipe'
       const wantsLeadIntake = routePath === '/configuracoes/entradas-de-leads'
       const wantsCommunications = routePath === '/configuracoes/comunicacoes'
+      const wantsFiscal = routePath === '/configuracoes/fiscal'
       // Equipe: team.view OU team.manage (quem administra a equipe
       // precisa conseguir vê-la, mesmo numa combinação incomum onde só
       // team.manage foi concedido). Entradas de Leads: lead_intake.view.
-      // Comunicações: communications.manage (é a tela de CONEXÕES, não
-      // de conversas — communications.view não basta). Frete: só
-      // settings.view mesmo.
+      // Comunicações/Fiscal: *.manage (são as telas de CONFIGURAÇÃO,
+      // não de uso — *.view não basta). Frete: só settings.view mesmo.
       const allowed = wantsTeam ? can('team.view') || can('team.manage')
         : wantsLeadIntake ? can('lead_intake.view')
         : wantsCommunications ? can('communications.manage')
+        : wantsFiscal ? can('fiscal.manage')
         : can('settings.view')
       if (!permissionsLoading && !allowed) return <AccessRestricted/>
-      return wantsTeam ? <TeamSettingsPage/> : wantsLeadIntake ? <LeadIntakeSettingsPage/> : wantsCommunications ? <CommunicationsSettingsPage/> : <ShippingSettingsPage/>
+      return wantsTeam ? <TeamSettingsPage/> : wantsLeadIntake ? <LeadIntakeSettingsPage/> : wantsCommunications ? <CommunicationsSettingsPage/> : wantsFiscal ? <FiscalSettingsPage/> : <ShippingSettingsPage/>
     }
     const requiredFeature = pageFeature[page]
     if (!permissionsLoading && (!pagePermission[page].some((code) => can(code)) || (requiredFeature !== undefined && !hasFeature(requiredFeature)))) return <AccessRestricted/>
@@ -90,6 +93,7 @@ export function App() {
     if (page === 'Tarefas') return <TasksPage/>
     if (page === 'Conversas') return <ConversationsPage/>
     if (page === 'Automações') return <AutomationsPage/>
+    if (page === 'Fiscal') return <FiscalPage/>
     if (page === 'Clientes') { const clientId=routePath.match(/^\/clientes\/([0-9a-f-]{36})$/i)?.[1]; return clientId?<ClientDetailsPage clientId={clientId}/>:routePath==='/clientes/recuperacao'?<ClientRecoveryPage/>:routePath==='/clientes/acessos-minha-ruah'?<CustomerIdentityReviewsPage/>:<ClientsPage period={period} setPeriod={setPeriod}/> }
     if (page === 'Vendas') {const saleId=routePath.match(/^\/vendas\/([0-9a-f-]{36})$/i)?.[1];return saleId?<SaleDetailsPage saleId={saleId}/>:<SalesPage period={period} setPeriod={setPeriod}/>}
     if (page === 'Produtos') return <ProductsServicesPage/>

@@ -129,7 +129,7 @@ export const LEGACY_ONLY_PERMISSION_CODES = new Set(['tasks.split', 'inventory.s
 export const PERMISSION_MODULE_LABEL: Record<string, string> = {
   dashboard: 'Painel', clients: 'Clientes', sales: 'Vendas', catalog: 'Catálogo', inventory: 'Estoque', shipping: 'Envios',
   radar: 'Radar', waitlist: 'Lista de espera', recovery: 'Recuperação de clientes', cost_margin: 'Custo e margem',
-  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', task_engine: 'Tarefas (Task Engine)', lead_intake: 'Entradas de Leads', communications: 'Comunicações', automations: 'Automações', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
+  reports: 'Relatórios', ai_import: 'Importação com IA', tasks: 'Tarefas', task_engine: 'Tarefas (Task Engine)', lead_intake: 'Entradas de Leads', communications: 'Comunicações', automations: 'Automações', fiscal: 'Fiscal', audit: 'Auditoria', settings: 'Configurações', team: 'Equipe',
 }
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
@@ -192,6 +192,10 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { code: 'automations.create', module: 'automations', label: 'Criar automações' },
   { code: 'automations.edit', module: 'automations', label: 'Editar automações' },
   { code: 'automations.manage', module: 'automations', label: 'Ativar, pausar e arquivar automações' },
+  { code: 'fiscal.view', module: 'fiscal', label: 'Visualizar documentos fiscais' },
+  { code: 'fiscal.issue', module: 'fiscal', label: 'Emitir documentos fiscais' },
+  { code: 'fiscal.cancel', module: 'fiscal', label: 'Cancelar documentos fiscais' },
+  { code: 'fiscal.manage', module: 'fiscal', label: 'Configurar perfil e conexão fiscal' },
   { code: 'audit.view', module: 'audit', label: 'Visualizar auditoria' },
   { code: 'settings.view', module: 'settings', label: 'Visualizar configurações' },
   { code: 'team.view', module: 'team', label: 'Visualizar equipe' },

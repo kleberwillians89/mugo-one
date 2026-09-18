@@ -12,6 +12,7 @@ import { missingShippingClientFields } from '../lib/client-completeness'
 import { useHasFeature } from '../lib/PermissionsContext'
 import { Alert, DefinitionGroup, Divider, Modal, PrimaryButton, SecondaryButton, Table } from '../components/ui'
 import { EntityTasksBlock } from '../components/EntityTasksBlock'
+import { EntityFiscalBlock } from '../components/EntityFiscalBlock'
 import './SaleDetailsPage.css'
 
 const money = (value: number) => brl(value)
@@ -31,6 +32,7 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
   const [activities,setActivities]=useState<SaleActivity[]>([])
   const hasShippingFeature=useHasFeature('shipping')
   const hasInventoryFeature=useHasFeature('inventory')
+  const hasFiscalFeature=useHasFeature('fiscal')
   const reload=()=>fetchSale360(saleId).then(setSale).catch(()=>setOperationError('A operação foi concluída, mas não foi possível atualizar os dados da venda.'))
   useEffect(()=>{fetchSale360(saleId).then(setSale).catch(()=>setLoadError('Venda não encontrada.'))},[saleId])
   useEffect(()=>{
@@ -129,6 +131,8 @@ export function SaleDetailsPage({saleId}:{saleId:string}){
       {label:'Origem',value:sale.source==='spreadsheet'?'Importação':'Manual'},
       {label:'Observações',value:sale.notes||'—'},
     ]}/>
+
+    {hasFiscalFeature && <><Divider label="Fiscal"/><EntityFiscalBlock saleId={sale.id} saleTotal={Number(sale.amount)}/></>}
 
     <Divider label="Tarefas"/>
     <EntityTasksBlock entityType="sale" entityId={sale.id} entityLabel={clientName}/>
