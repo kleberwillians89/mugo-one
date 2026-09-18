@@ -35,6 +35,7 @@ import { GenericPage } from './pages/GenericPage'
 import { TeamSettingsPage } from './pages/TeamSettingsPage'
 import { LeadIntakeSettingsPage } from './pages/LeadIntakeSettingsPage'
 import { CommunicationsSettingsPage } from './pages/CommunicationsSettingsPage'
+import { CollectionsSettingsPage } from './pages/CollectionsSettingsPage'
 import { CustomerIdentityReviewsPage } from './pages/CustomerIdentityReviewsPage'
 
 export function App() {
@@ -74,6 +75,7 @@ export function App() {
       const wantsLeadIntake = routePath === '/configuracoes/entradas-de-leads'
       const wantsCommunications = routePath === '/configuracoes/comunicacoes'
       const wantsFiscal = routePath === '/configuracoes/fiscal'
+      const wantsCollections = routePath === '/configuracoes/cobrancas'
       // Equipe: team.view OU team.manage (quem administra a equipe
       // precisa conseguir vê-la, mesmo numa combinação incomum onde só
       // team.manage foi concedido). Entradas de Leads: lead_intake.view.
@@ -83,9 +85,10 @@ export function App() {
         : wantsLeadIntake ? can('lead_intake.view')
         : wantsCommunications ? can('communications.manage')
         : wantsFiscal ? can('fiscal.manage')
+        : wantsCollections ? can('collections.configure')
         : can('settings.view')
       if (!permissionsLoading && !allowed) return <AccessRestricted/>
-      return wantsTeam ? <TeamSettingsPage/> : wantsLeadIntake ? <LeadIntakeSettingsPage/> : wantsCommunications ? <CommunicationsSettingsPage/> : wantsFiscal ? <FiscalSettingsPage/> : <ShippingSettingsPage/>
+      return wantsTeam ? <TeamSettingsPage/> : wantsLeadIntake ? <LeadIntakeSettingsPage/> : wantsCommunications ? <CommunicationsSettingsPage/> : wantsFiscal ? <FiscalSettingsPage/> : wantsCollections ? <CollectionsSettingsPage/> : <ShippingSettingsPage/>
     }
     const requiredFeature = pageFeature[page]
     if (!permissionsLoading && (!pagePermission[page].some((code) => can(code)) || (requiredFeature !== undefined && !hasFeature(requiredFeature)))) return <AccessRestricted/>
