@@ -67,6 +67,30 @@ Rodei em paralelo uma auditoria mais ampla que confirmou os achados acima e enco
 
 **Testes que travam o texto da Ruah como "correto" hoje** (`CobrancasPage.test.ts`, `CollectionSummaryImageCard.test.ts`, `ai-sales-batch-volume-gate.test.ts`) serão reescritos junto com os itens que corrigem — não fazem parte do escopo os testes que travam comportamento **deferido** acima (`manychat-whatsapp.test.ts`, `customer-recovery-email.test.ts`), que continuam corretos por descreverem código que permanece como está.
 
+## Varredura final pós-implementação (`grep -ri ruah` em src/pages, src/components, src/core, src/modules)
+
+Depois de reescrever Cobranças, rodei a mesma varredura de novo sobre TODAS as superfícies ativas (não só Cobranças) e achei mais alguns pontos que a auditoria inicial não tinha citado com precisão de linha:
+
+**Corrigidos nesta sprint** (texto/branding, custo baixo, risco zero):
+- `src/pages/ReportsPage.tsx` — nome de arquivo de exportação `'relatorio-ruah.csv'` → `'relatorio.csv'`.
+- `src/pages/InventoryPage.tsx` — nome de arquivo de exportação `'estoque-ruah.csv'` → `'estoque.csv'`.
+- `src/pages/RadarPage.tsx` — texto `"Ainda não validada pela RUAH."` → `"Ainda não validada."`.
+- `src/components/ShipmentOperations.tsx` — texto `"· fluxo interno RUAH"` removido do card de aprovação de frete.
+- `src/pages/ShipmentPrintPage.tsx` — **documento operacional impresso** (Nota de Envio) tinha `<strong>RUAH</strong><span>PARFUMS</span>` no cabeçalho e `"RUAH Parfums"` no rodapé — agora usa `useOrganizationBrand()` (`brand.companyName`), a mesma marca real da organização usada em Cobranças/Envio 360. A tabela de itens deste documento (`item.sales?.perfume_name_raw`, coluna "Perfume") continua perfume-específica — **fora de escopo** (é o mesmo balde do `InventoryOfferImageCard`, generalização de item de Vendas/Envio, não de Cobrança).
+
+**Confirmado como a MESMA área já classificada C (Portal do Cliente "Minha RUAH"), agora com a lista completa de arquivos** — nenhum tocado nesta sprint, mesma razão (fluxo de autenticação de clientes reais, fora do título desta sprint):
+`src/pages/ClientDetailsPage.tsx` (aba Portal/Custódia, convite), `src/pages/ClientsPage.tsx` (link para `/clientes/acessos-minha-ruah`), `src/pages/DeliveriesPage.tsx` (texto sobre solicitações via Minha RUAH), `src/pages/CustomerIdentityReviewsPage.tsx` (eyebrow "MINHA RUAH"), `src/components/CustomerRequestsQueue.tsx` (texto sobre Minha RUAH).
+
+**Confirmado como a MESMA área já classificada C (prefixo de código de barras físico)**, mesma razão (etiquetas já impressas): `src/pages/InventoryPage.tsx:129` (regex `/^RUAH-P\d{6}$/` validando o operational_code gerado pelo servidor — não tocado), `src/pages/InventoryStationPage.tsx` (rótulo "RUAH" e placeholder "RUAH-P000123"), `src/components/ShipmentOperations.tsx:35` (comentário ilustrativo "RUAH-Fxxxxxx"), `src/components/bottles/PhysicalIdentityView.tsx:21` (comentário ilustrativo "RUAH-F000185").
+
+Este allowlist (Portal do Cliente + código de barras físico) está codificado explicitamente em `src/core/mugo-one-collections-cleanup-guard.test.ts`, com um teste que falha se QUALQUER OUTRO arquivo em `src/pages|src/components|src/core|src/modules` citar "ruah" — e um segundo teste que impede os próprios arquivos do allowlist de referenciar qualquer RPC/lib de Cobrança (a permissão de citar "ruah" pelo motivo documentado nunca se estende a mexer em Cobrança).
+
+## Decisões estruturais desta sprint (registradas para o relatório final)
+
+- **Sem `src/legacy/collections/`**: nada em Cobranças era código morto/duplicado — as 3 RPCs (`collections_pending_sales*`) foram generalizadas NO LUGAR (via `drop function` + `create function`, mesma disciplina de todo o resto do projeto), não isoladas. `docs/ACTIVE_LEGACY_COLLECTIONS_AUDIT.md` já registrava que `src/legacy/` não tinha (e continua sem ter) uma pasta `collections/` — não havia nada para mover.
+- **Sem feature flag `collections`**: Cobranças já é uma página ativa, sem gate de feature, para TODAS as organizações hoje (`routing.ts`'s `pageFeature` nunca listou 'Cobranças'). Criar uma feature nova `is_core=false` teria ESCONDIDO a página de organizações existentes até um backfill manual — uma regressão real, não uma melhoria. Mantido como está (só permissão, `sales.view`), consistente com "reaproveitar se já existe uma capacidade equivalente" (briefing §59-63).
+- **2 permissões novas, não mais**: `collections.configure`/`collections.send` cobrem só a superfície GENUINAMENTE nova (Configurações→Cobranças, templates, envio via Hub). Visualizar a fila e registrar pagamento continuam em `sales.view`/`sales.edit` — nenhuma duplicação de namespace.
+
 ## Schema real de Cobranças (não recriar o que já existe)
 
 - `collection_events` (organization_id, client_id, event_type **só `'message_copied'`**, created_by, metadata) — mecanismo genérico de "mensagem copiada manualmente", mantido como está.

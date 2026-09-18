@@ -73,7 +73,7 @@ export function InventoryPage({period,setPeriod}:{period:PeriodValue;setPeriod:(
       <div className="inventory-catalog-head">
         <div><strong>{integer(periodOperational.length)} perfumes no período</strong><span>Somente leitura: os ML nascem e são atualizados pelas vendas.</span></div>
         <label className="inventory-search"><Search size={17}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar perfume…" aria-label="Buscar perfume no estoque"/></label>
-        <SecondaryButton icon={<Download size={16}/>} onClick={()=>exportCsv('estoque-ruah.csv',periodOperational as unknown as Record<string,unknown>[])}>Exportar</SecondaryButton>
+        <SecondaryButton icon={<Download size={16}/>} onClick={()=>exportCsv('estoque.csv',periodOperational as unknown as Record<string,unknown>[])}>Exportar</SecondaryButton>
       </div>
       {visibleOperational.length===0?<div className="inventory-no-results"><Search/><strong>Nenhum perfume encontrado</strong><span>Tente buscar por outro nome.</span></div>:<div className="inventory-card-grid">{visibleOperational.map(balance=>{
         const state=stockState(balance),status=replenishmentByItem.get(balance.item_id),insight=insightByItem.get(balance.item_id),bottles=bottleLabelsByItem.get(balance.item_id)?.sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}))??[]

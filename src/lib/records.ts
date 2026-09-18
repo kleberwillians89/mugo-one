@@ -255,7 +255,7 @@ export async function setClientGift(clientId:string,hasGift:boolean,giftNotes:st
   return data as{id:string;has_gift:boolean;gift_notes:string|null;updated_at:string;changed:boolean}
 }
 
-export type CollectionSaleRow={id:string;client_id:string;client_number:number|null;client_name:string;sale_date:string;perfume_name:string|null;perfume_brand:string|null;sale_type:string|null;volume_ml:number|null;amount:number;payment_status:string;last_message_copied_at:string|null;message_copied_count:number}
+export type CollectionSaleRow={id:string;client_id:string;client_number:number|null;client_name:string;sale_date:string;due_date:string;amount:number;payment_status:string;owner_user_id:string|null;owner_name:string|null;last_message_copied_at:string|null;message_copied_count:number;last_attempt_at:string|null;last_attempt_channel:string|null;last_attempt_status:string|null}
 export async function fetchCollectionsPending(search=''){
   await authenticatedOrganization()
   const{data,error}=await supabase!.rpc('collections_pending_sales',{p_search:search||null})

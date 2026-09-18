@@ -451,7 +451,7 @@ function RadarSearchResultCard({ item, sources, canManageSources, onValidate }:{
   return <article className="radar-offer-card">
     <header><strong>{item.seller_name ?? 'Loja não identificada'}</strong><StatusBadge tone={badge.tone}>{badge.label}</StatusBadge></header>
     <p className="radar-offer-title">{item.title ?? '—'}</p>
-    {unvalidated && <p className="radar-new-source-hint"><ShieldAlert size={13} /> Ainda não validada pela RUAH.</p>}
+    {unvalidated && <p className="radar-new-source-hint"><ShieldAlert size={13} /> Ainda não validada.</p>}
     <div className="radar-offer-meta">
       <strong>{item.currency ? `${item.currency} ${item.price_native ?? '—'}` : item.raw_price ?? 'Preço não informado'}</strong>
       {item.delivery && <span>{item.delivery}</span>}

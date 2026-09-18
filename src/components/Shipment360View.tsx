@@ -12,6 +12,7 @@ import { isBottleTrackedItem, unassignedBottleItems } from "../lib/shipment-bott
 import { brl, shortDate } from "../lib/format";
 import { friendlyIntegrationError, operationalLabel } from "../lib/presentation";
 import { getLabelUiState, shipmentHumanState } from "../lib/superfrete";
+import { AutoOrganizationBrandMark } from "./OrganizationBrandMark";
 
 /**
  * Presentation-only mapping from shipment state to a specific "próximo
@@ -47,7 +48,7 @@ function nextStep(shipment: OperationalShipment): { description: string; button:
     };
   if (shipment.status === "awaiting_customer_approval")
     return {
-      description: "O frete foi selecionado e aguarda a aprovação da equipe RUAH.",
+      description: "O frete foi selecionado e aguarda a aprovação da equipe.",
       button: "APROVAR FRETE",
     };
   const labelAction = getLabelUiState(shipment).primaryAction;
@@ -62,7 +63,7 @@ function nextStep(shipment: OperationalShipment): { description: string; button:
     return {
       description:
         shipment.integration_error && shipment.integration_error !== "SUPERFRETE_PROVIDER_PROCESSING"
-          ? "A etiqueta foi liberada na SuperFrete, mas o RUAH ainda não conseguiu obter o arquivo oficial."
+          ? "A etiqueta foi liberada na SuperFrete, mas o sistema ainda não conseguiu obter o arquivo oficial."
           : "A SuperFrete ainda está preparando o arquivo da etiqueta.",
       button: "ATUALIZAR ETIQUETA",
     };
@@ -90,15 +91,6 @@ type Props = {
   onScanBottle: (item: Item, rawValue: string) => Promise<BottleScanResult>;
 };
 
-export function RuahBrand({ print = false }: { print?: boolean }) {
-  return (
-    <img
-      className={`ruah-brand ${print ? "ruah-brand-print" : ""}`}
-      src="/ruah-brand.svg"
-      alt="RUAH Parfums"
-    />
-  );
-}
 
 const humanStatus = (s: OperationalShipment) => {
   const label = shipmentHumanState(s);
@@ -229,7 +221,7 @@ export function ShipmentHeader({
   return (
     <>
       <header className="shipment-premium-head surface-dark">
-        <RuahBrand />
+        <AutoOrganizationBrandMark />
         <div className="shipment-title">
           <span>ENVIO 360</span>
           <h1 data-surface-role="primary">{shipment.recipient_name}</h1>
@@ -304,7 +296,7 @@ export function ShipmentChecklist({
       </div>
       <div className="conference-owner">
         <span>RESPONSÁVEL PELA CONFERÊNCIA</span>
-        {shipment.conference_owner_user_id ? <><strong>{shipment.conference_owner_name_snapshot || "Usuário RUAH"}</strong><small>{shipment.conference_completed_at ? `Conferência concluída em ${new Date(shipment.conference_completed_at).toLocaleString('pt-BR')}` : `Assumiu em ${new Date(shipment.conference_started_at!).toLocaleString('pt-BR')}`}</small><em>🔒 Responsável confirmado</em>{shipment.conference_owner_user_id!==currentUserId&&<p>Conferência em andamento por {shipment.conference_owner_name_snapshot}. Você pode visualizar, mas não alterar.</p>}</> : <><strong>Nenhum responsável definido.</strong><button className="primary" onClick={onAssumeConference}>ASSUMIR CONFERÊNCIA</button></>}
+        {shipment.conference_owner_user_id ? <><strong>{shipment.conference_owner_name_snapshot || "Usuário do sistema"}</strong><small>{shipment.conference_completed_at ? `Conferência concluída em ${new Date(shipment.conference_completed_at).toLocaleString('pt-BR')}` : `Assumiu em ${new Date(shipment.conference_started_at!).toLocaleString('pt-BR')}`}</small><em>🔒 Responsável confirmado</em>{shipment.conference_owner_user_id!==currentUserId&&<p>Conferência em andamento por {shipment.conference_owner_name_snapshot}. Você pode visualizar, mas não alterar.</p>}</> : <><strong>Nenhum responsável definido.</strong><button className="primary" onClick={onAssumeConference}>ASSUMIR CONFERÊNCIA</button></>}
       </div>
       {divergent.length > 0 && (
         <div className="divergence-callout">
@@ -519,7 +511,7 @@ export function ShipmentLabelCenter({
   return (
     <section className="label-atelier surface-dark" aria-labelledby="label-center-title">
       <header className="label-atelier-head surface-dark">
-        <RuahBrand />
+        <AutoOrganizationBrandMark />
         <div>
           <span>ETIQUETA DE ENVIO</span>
           <p>Envio #{shipment.id.slice(0, 8).toUpperCase()}</p>

@@ -1,9 +1,10 @@
 import{forwardRef}from'react'
 import{brl}from'../lib/format'
-import{CollectionSaleRow}from'../lib/records'
+import{OrganizationBrandMark,OrganizationBrand}from'./OrganizationBrandMark'
 import'./CollectionSummaryImageCard.css'
 
-export type CollectionSummaryGroup={client_name:string;sales:CollectionSaleRow[];total:number}
+export type CollectionSummaryLine={id:string;itemLabel:string;amount:number}
+export type CollectionSummaryGroup={client_name:string;sales:CollectionSummaryLine[];total:number}
 
 /**
  * pixelRatio usado na exportação deste card (ver download-image.ts) — 2,
@@ -16,23 +17,30 @@ export type CollectionSummaryGroup={client_name:string;sales:CollectionSaleRow[]
  */
 export const COLLECTION_IMAGE_PIXEL_RATIO=2
 
-/** Layout puro para captura (html-to-image) — só o que está nos dados: nenhum campo inventado (ex.: sem casa/marca separada, que a RPC de cobranças não expõe). */
-export const CollectionSummaryImageCard=forwardRef<HTMLDivElement,{group:CollectionSummaryGroup}>(({group},ref)=>{
+/**
+ * Layout puro para captura (html-to-image) — universal: nenhum campo
+ * de perfume/frasco/ml (ver docs/ACTIVE_LEGACY_COLLECTIONS_AUDIT.md).
+ * itemLabel vem pronto do chamador (fetchSaleItemsSummaries/
+ * itemsSummaryLabel, mesmo mecanismo de Vendas/Planilha) para nunca
+ * disparar uma busca assíncrona durante a captura da imagem — a marca
+ * (brand) também é resolvida no componente pai e passada pronta, pelo
+ * mesmo motivo.
+ */
+export const CollectionSummaryImageCard=forwardRef<HTMLDivElement,{group:CollectionSummaryGroup;brand:OrganizationBrand}>(({group,brand},ref)=>{
  const count=group.sales.length
  return<div ref={ref} className="collection-summary-image">
   <header>
-   <img src="/ruah-brand.svg" alt="RUAH Parfums" className="collection-summary-logo"/>
-   <p className="collection-summary-kicker">CONFIRMAÇÃO DO PEDIDO</p>
+   <OrganizationBrandMark brand={brand} print={false}/>
+   <p className="collection-summary-kicker">RESUMO DE COBRANÇA</p>
    <h2>{group.client_name}</h2>
-   <p className="collection-summary-subtitle">{count} pedido{count===1?'':'s'} em aberto</p>
+   <p className="collection-summary-subtitle">{count} pendência{count===1?'':'s'} em aberto</p>
   </header>
   <ol className="collection-summary-list">
    {group.sales.map((sale,index)=><li key={sale.id}>
     <span className="collection-summary-index">{String(index+1).padStart(2,'0')}</span>
     <div className="collection-summary-item-body">
-     <strong>{sale.perfume_name??'Perfume'}</strong>
-     {sale.perfume_brand&&<span className="collection-summary-item-brand">{sale.perfume_brand}</span>}
-     <span>{sale.sale_type??'—'} • {sale.volume_ml??'—'} ml • {brl(sale.amount)}</span>
+     <strong>{sale.itemLabel}</strong>
+     <span>{brl(sale.amount)}</span>
     </div>
    </li>)}
   </ol>
@@ -41,7 +49,7 @@ export const CollectionSummaryImageCard=forwardRef<HTMLDivElement,{group:Collect
     <span>VALOR TOTAL</span>
     <strong>{brl(group.total)}</strong>
    </div>
-   <p className="collection-summary-institutional">RUAH PARFUMS • Conferência de pedidos em aberto</p>
+   <p className="collection-summary-institutional">{brand.companyName.toUpperCase()} • Conferência de pendências em aberto</p>
   </footer>
  </div>
 })
