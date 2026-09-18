@@ -1,6 +1,6 @@
 import type { PeriodValue } from './period'
 
-/** Primeiro dia canônico da operação atual da RUAH. */
+/** Primeiro dia canônico da operação atual. */
 export const OPERATIONAL_START_DATE = '2026-09-01'
 
 export function operationalStartDate(configured?: string | null) {

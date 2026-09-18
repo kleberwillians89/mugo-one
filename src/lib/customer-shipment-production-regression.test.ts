@@ -12,7 +12,7 @@ const root=readFileSync('src/portal/CustomerPortalRoot.tsx','utf8')
 const custody:CustodyItem={allocation_id:'allocation-ambre',perfume_id:'perfume-ambre',perfume_name:'Ambre Crush',quantity_ml:100,sale_date:'2026-08-23',allocation_status:'shipping',requested:true,request_id:null,shipping_requestable:false,requestable_quantity_ml:0,prepared_quantity_ml:0}
 const shipment:ShipmentRequest={request_id:'shipment:12d3f0a6-3696-4fcf-bfd3-107848346a76',customer_request_id:null,source:'shipment',status:'converted',requested_at:'2026-08-23T04:00:09Z',cancelled_at:null,items:[{allocation_id:'allocation-ambre',perfume_id:'perfume-ambre',perfume:'Ambre Crush',quantity_ml:100}],converted_shipment_id:'12d3f0a6-3696-4fcf-bfd3-107848346a76',shipment_status:'awaiting_customer_approval',awaiting_approval:true,shipping_price:9.36,carrier:'loggi',service:'LOGGI',selected_quote_id:'quote-loggi',customer_approved_at:null,tracking_code:null,posted_at:null,delivered_at:null}
 
-describe('regressão do shipment real no Minha RUAH',()=>{
+describe('regressão do shipment real no Portal do Cliente',()=>{
   it('contabiliza o snapshot congelado como 100 ml aguardando aprovação',()=>{
     expect(summarizeCustomerCustody([custody],[shipment])).toEqual({physicalMl:100,availableMl:0,awaitingApprovalMl:100,preparingMl:0,inTransitMl:0})
   })
@@ -31,7 +31,7 @@ describe('regressão do shipment real no Minha RUAH',()=>{
   })
   it('exibe item, frete e valor sem exigir ação da cliente',()=>{
     expect(portal).toContain('ENVIO EM ANDAMENTO')
-    expect(portal).toContain('EM APROVAÇÃO PELA RUAH')
+    expect(portal).toContain('EM APROVAÇÃO')
     expect(portal).toContain('r.shipping_price != null ? brl(r.shipping_price)')
     expect(portal).toContain('Nenhuma ação é necessária')
     expect(portal).not.toContain('confirmCustomerShipment')

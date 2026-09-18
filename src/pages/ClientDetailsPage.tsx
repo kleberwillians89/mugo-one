@@ -30,7 +30,7 @@ function journeyIndex(status: string) {
   return 0
 }
 
-/** Aba "Portal / Custódia": status da conta Minha RUAH + ativação
+/** Aba "Portal / Custódia": status da conta do Portal do Cliente + ativação
  * ("ENVIAR ACESSO"). Nunca impersona a cliente — só lê o status via
  * client_portal_status (RPC staff-only) e dispara o convite nativo do
  * Supabase Auth via customer-account-invite (Edge Function). */
@@ -45,7 +45,7 @@ function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;default
   const invite=async()=>{if((emailChannel&&!email.includes('@'))||(!emailChannel&&!whatsappChannel))return;setSending(true);setFeedback('');setInviteError('');try{const result=await inviteCustomerAccount(clientId,email,{email:emailChannel,whatsapp:whatsappChannel});const emailFailed=emailChannel&&result.channels.email.status!=='sent',whatsappFailed=whatsappChannel&&result.channels.whatsapp.status!=='sent';if(emailFailed||whatsappFailed){setInviteError(emailFailed?'Não foi possível enviar o convite por e-mail. Tente novamente.':'Não foi possível enviar o convite pelo WhatsApp. Tente novamente.');return}setInviteSuccess(true);await reload()}catch(reason){setInviteError(reason instanceof Error?reason.message:'Não foi possível enviar o convite. Tente novamente.')}finally{setSending(false)}}
   const sendAccess=async()=>{if(accessSending||accessSent)return;setAccessSending(true);setAccessError('');try{await sendManychatMessage(clientId,'access');setAccessSent(true)}catch(reason){setAccessError(reason instanceof Error?reason.message:'Não foi possível enviar o acesso por WhatsApp.')}finally{setAccessSending(false)}}
   const active=status?.account_status==='active'
-  return <section className="dossier-columns"><DefinitionGroup title="Portal Minha RUAH" items={[
+  return <section className="dossier-columns"><DefinitionGroup title="Portal do Cliente" items={[
     {label:'Conta',value:active?'ATIVA':status?.account_status==='pending_verification'?'CONVITE ENVIADO':'NÃO ATIVADA'},
     {label:'E-mail',value:status?.sent_email_at?'ENVIADO':'NÃO ENVIADO'},
     {label:'WhatsApp',value:status?.sent_whatsapp_at?'ENVIADO':phone?'NÃO ENVIADO':'INDISPONÍVEL'},
@@ -56,10 +56,10 @@ function ClientPortalCard({clientId,defaultEmail,phone}:{clientId:string;default
   <div>
     <SecondaryButton loading={accessSending} disabled={accessSending||accessSent} onClick={()=>void sendAccess()}>{accessSent?'WHATSAPP ENVIADO':accessSending?'ENVIANDO...':'ENVIAR ACESSO WHATSAPP'}</SecondaryButton>
     {accessError&&<Alert tone="danger" title="Não foi possível enviar o acesso.">{accessError}</Alert>}
-    {!active&&<SecondaryButton onClick={()=>setInviteOpen(true)}>{status?.account_status==='pending_verification'?'Reenviar convite':'Convidar para Minha RUAH'}</SecondaryButton>}
+    {!active&&<SecondaryButton onClick={()=>setInviteOpen(true)}>{status?.account_status==='pending_verification'?'Reenviar convite':'Convidar para o Portal do Cliente'}</SecondaryButton>}
     {feedback&&<small>{feedback}</small>}
-    <Modal open={inviteOpen} onClose={()=>{setInviteOpen(false);setInviteSuccess(false);setInviteError('')}} eyebrow="MINHA RUAH" title={inviteSuccess?'Convite enviado.':'Enviar convite'}>
-      {inviteSuccess?<div className="record-form"><Alert tone="success" title="✓ Convite enviado.">Enviamos um link para: {maskEmail(email)}. A cliente receberá um e-mail com o link para criar sua senha e acessar o Minha RUAH.</Alert><div className="form-actions"><PrimaryButton onClick={()=>{setInviteOpen(false);setInviteSuccess(false);setFeedback('Convite enviado com sucesso.')}}>FECHAR</PrimaryButton></div></div>:<div className="record-form"><p>Escolha os canais para este mesmo acesso. Cada canal terá resultado independente.</p>
+    <Modal open={inviteOpen} onClose={()=>{setInviteOpen(false);setInviteSuccess(false);setInviteError('')}} eyebrow="PORTAL DO CLIENTE" title={inviteSuccess?'Convite enviado.':'Enviar convite'}>
+      {inviteSuccess?<div className="record-form"><Alert tone="success" title="✓ Convite enviado.">Enviamos um link para: {maskEmail(email)}. A cliente receberá um e-mail com o link para criar sua senha e acessar o Portal do Cliente.</Alert><div className="form-actions"><PrimaryButton onClick={()=>{setInviteOpen(false);setInviteSuccess(false);setFeedback('Convite enviado com sucesso.')}}>FECHAR</PrimaryButton></div></div>:<div className="record-form"><p>Escolha os canais para este mesmo acesso. Cada canal terá resultado independente.</p>
         <label className="confirm-checkbox"><input type="checkbox" checked={emailChannel} onChange={event=>setEmailChannel(event.target.checked)}/><span><strong>E-mail</strong><br/>{email||'E-mail não cadastrado'}</span></label>
         <label className="field"><span>E-mail do convite</span><input value={email} onChange={event=>setEmail(event.target.value)} placeholder="cliente@email.com"/></label>
         <label className="confirm-checkbox"><input type="checkbox" disabled={!phone} checked={whatsappChannel} onChange={event=>setWhatsappChannel(event.target.checked)}/><span><strong>WhatsApp</strong><br/>{phone||'WhatsApp indisponível'}</span></label>
@@ -234,7 +234,7 @@ export function ClientDetailsPage({clientId}:{clientId:string}) {
     <ClientPortalCard clientId={clientId} defaultEmail={client.email??''} phone={client.whatsapp_phone||client.phone||''}/>
 
     <Divider label="Produtos aguardando envio"/>
-    <SectionHeader title={`${integer(waitingSorted.length)} ${waitingSorted.length===1?'produto':'produtos'} na RUAH`} description="O modal de frete mostra todas as compras e permite selecionar somente itens elegíveis." action={<PrimaryButton onClick={()=>setShipmentModal(true)}>Criar frete</PrimaryButton>}/>
+    <SectionHeader title={`${integer(waitingSorted.length)} ${waitingSorted.length===1?'produto':'produtos'} sob custódia`} description="O modal de frete mostra todas as compras e permite selecionar somente itens elegíveis." action={<PrimaryButton onClick={()=>setShipmentModal(true)}>Criar frete</PrimaryButton>}/>
     {waitingSorted.length===0?<EmptyState icon={Boxes} title="Nenhum produto confirmado para envio" description="Confirme o produto em custódia na Venda 360 correspondente para que ele apareça aqui, pronto para ser incluído em um envio."/>:
     <div className="card clients-table"><div className="table-wrap"><table><thead><tr><th>Nº</th><th>Venda</th><th>Perfume</th><th>Tipo</th><th>ML</th><th>Valor</th><th>Origem</th><th>Guardado há</th></tr></thead><tbody>{waitingSorted.map((item,index)=><tr key={item.allocation_id}><td className="row-number">{String(index+1).padStart(2,'0')}</td><td>{shortDate(item.sale_date)}</td><td><strong>{item.perfume}</strong></td><td>{item.sale_type}</td><td>{Number(item.quantity_ml).toLocaleString('pt-BR')} ML</td><td>{brl(Number(item.amount))}</td><td><span className={`badge ${item.stock_managed?'paid':'pending'}`}>{item.stock_managed?'ESTOQUE OPERACIONAL':'CONFERIDO MANUALMENTE'}</span>{item.storage_location&&<small>{item.storage_location}</small>}</td><td>{item.days_waiting} dias</td></tr>)}</tbody></table></div></div>}
 

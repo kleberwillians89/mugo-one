@@ -68,25 +68,35 @@ describe('collections cleanup guard — Cobrança é 100% universal, zero Ruah/p
   })
 })
 
-describe('collections cleanup guard — varredura ampla das superfícies ativas (src/pages, src/components, src/core, src/modules)', () => {
-  // Allowlist EXPLÍCITO e documentado (ver docs/ACTIVE_LEGACY_COLLECTIONS_AUDIT.md
-  // — "documentados e propositalmente NÃO tocados nesta sprint"): Portal do
-  // Cliente "Minha RUAH" (fluxo de autenticação de clientes REAIS, fora do
-  // título desta sprint) e o prefixo de código de barras físico já impresso
-  // (RUAH-/RUAH-P/RUAH-F — mudar exige plano de migração de etiquetas, não
-  // uma troca de string). Qualquer arquivo FORA desta lista precisa estar
-  // 100% limpo.
+describe('collections cleanup guard — varredura ampla das superfícies ativas (src/pages, src/components, src/core, src/modules, src/lib, src/portal)', () => {
+  // Allowlist EXPLÍCITO e documentado (nunca silencioso) — Sprint Final de
+  // Produto §27-33: a única exceção aceita agora é o PARSER de barcode
+  // legado (src/lib/bottle-scan.ts e os 2 comentários que o citam),
+  // claramente marcado como compatibilidade retroativa — nunca gera código
+  // novo com prefixo Ruah (ver migration 202609270011_neutral_barcode_prefix.sql
+  // e o próprio parser, que default para MUGO- quando nenhum prefixo é lido).
+  // Portal do Cliente, convites e IA já foram limpos nesta sprint — não
+  // ficam mais no allowlist.
   const allowlist = new Set([
-    'src/pages/ClientDetailsPage.tsx', 'src/pages/ClientsPage.tsx', 'src/pages/DeliveriesPage.tsx',
-    'src/pages/CustomerIdentityReviewsPage.tsx', 'src/pages/InventoryPage.tsx', 'src/pages/InventoryStationPage.tsx',
-    'src/components/CustomerRequestsQueue.tsx', 'src/components/ShipmentOperations.tsx', 'src/components/bottles/PhysicalIdentityView.tsx',
+    // Parser canônico de leitura de barcode — precisa reconhecer o prefixo
+    // legado "RUAH-" para não invalidar etiquetas físicas já impressas
+    // (briefing §31-32). Geração de código NOVO (as 3 RPCs SQL) já usa só
+    // "MUGO-" — ver mugo-one-collections-cleanup-guard's próprio teste de
+    // regressão de payment acima e a suíte bottle-scan.test.ts.
+    'src/lib/bottle-scan.ts',
+    // Comentários ilustrativos citando o formato legado ao lado do novo — não é código executável, é documentação da compatibilidade.
+    'src/lib/print-labels.ts', 'src/lib/shipment-queue.ts', 'src/components/ShipmentOperations.tsx', 'src/components/bottles/PhysicalIdentityView.tsx',
     // Comentário do próprio arquivo cita o nome ANTIGO da classe CSS (.ruah-brand) para documentar a renomeação — histórico, não resíduo.
     'src/components/OrganizationBrandMark.tsx',
+    // Rota histórica /clientes/acessos-minha-ruah (URL, não texto exibido) — trocar a URL quebraria links já compartilhados; mesma regra de compatibilidade do barcode. Nenhum texto visível "RUAH" permanece nesta página.
+    'src/pages/ClientsPage.tsx',
+    // Rotas /minha-ruah/* do Portal do Cliente (URL pública, já usada em e-mails/links reais enviados a clientes) — preservadas de propósito; toda MARCA visível ("RUAH"/"Minha RUAH") já foi removida destes 2 arquivos.
+    'src/portal/CustomerPortalRoot.tsx', 'src/portal/CustomerPortalApp.tsx',
   ])
 
-  it('nenhum arquivo FORA do allowlist em src/pages|src/components|src/core|src/modules contém "ruah" (case-insensitive)', () => {
+  it('nenhum arquivo FORA do allowlist em src/pages|src/components|src/core|src/modules|src/lib|src/portal contém "ruah" (case-insensitive)', () => {
     const offenders: string[] = []
-    for (const dir of ['src/pages', 'src/components', 'src/core', 'src/modules']) {
+    for (const dir of ['src/pages', 'src/components', 'src/core', 'src/modules', 'src/lib', 'src/portal']) {
       for (const file of listFiles(dir)) {
         if (allowlist.has(file)) continue
         if (read(file).toLowerCase().includes('ruah')) offenders.push(file)
@@ -95,12 +105,35 @@ describe('collections cleanup guard — varredura ampla das superfícies ativas 
     expect(offenders, `arquivos com resíduo Ruah novo/não catalogado: ${offenders.join(', ')}`).toEqual([])
   })
 
+  it('fora do parser de barcode legado, nenhum arquivo do allowlist contém a MARCA "RUAH" fora de uma URL/rota (só o parser pode citar o prefixo como dado a interpretar)', () => {
+    for (const file of allowlist) {
+      if (file === 'src/lib/bottle-scan.ts') continue
+      const withoutUrlsAndPrefixExamples = read(file).replace(/\/[a-z0-9/_-]*minha-ruah[a-z0-9/_-]*/gi, '').replace(/["'`(]?RUAH-[A-Z0-9<>.]*["'`).,]?/gi, '')
+      expect(withoutUrlsAndPrefixExamples, `${file} ainda cita a marca RUAH fora de uma URL/exemplo de prefixo legado`).not.toMatch(/\bRUAH\b/i)
+    }
+  })
+
   it('nenhum arquivo do allowlist chama uma RPC ou lib de Cobrança — a permissão de citar "ruah" (Portal do Cliente/código de barras) nunca se estende a mexer em Cobrança', () => {
     for (const file of allowlist) {
       const content = read(file)
       for (const forbidden of ['collections_pending_sales', 'collections_register_payment', 'send_collection_message', "from'../lib/collections'", 'from"../lib/collections"'])
         expect(content, `${file} não deveria referenciar Cobrança`).not.toContain(forbidden)
     }
+  })
+})
+
+describe('collections cleanup guard — geração de código de barras NOVO nunca usa o prefixo Ruah (briefing §31-32)', () => {
+  const barcodeMigration = read('supabase/migrations/202609270011_neutral_barcode_prefix.sql')
+  it('inventory_bottle_generate, inventory_split_bottle e ensure_perfume_operational_code geram só o prefixo neutro MUGO-', () => {
+    expect(barcodeMigration).toContain("v_barcode:='MUGO-'||v_code")
+    expect(barcodeMigration).toContain("v_split_code,'MUGO-'||v_split_code")
+    expect(barcodeMigration).toContain("update public.perfumes set operational_code='MUGO-P'")
+    expect(barcodeMigration).not.toMatch(/:='RUAH-'|operational_code='RUAH-P'/)
+  })
+  it('o parser de leitura aceita RUAH- (legado) e MUGO- (novo), sempre resolvendo um código legado contra a linha histórica exata — nunca reescreve para o prefixo novo', () => {
+    const parser = read('src/lib/bottle-scan.ts')
+    expect(parser).toContain('LEGACY_OR_NEUTRAL_PREFIX = /^(RUAH-|MUGO-)?/i')
+    expect(parser).toContain("const prefix=(perfumeMatch[1]??'MUGO-').toUpperCase()")
   })
 })
 

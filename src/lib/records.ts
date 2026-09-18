@@ -61,10 +61,10 @@ export async function fetchDashboardActivity(){
   const activeShipments=(shipments.data??[]).filter(s=>!['delivered','cancelled'].includes(s.status))
   const actorIds=[...new Set([...(sales.data??[]).map(x=>x.created_by),...(events.data??[]).map(x=>x.actor_id)].filter(Boolean))] as string[]
   const profiles=actorIds.length?await supabase!.from('profiles').select('id,full_name').in('id',actorIds):{data:[]}
-  const names=new Map((profiles.data??[]).map(x=>[x.id,x.full_name||'Usuário RUAH'])),grouped=new Map<string,{count:number;last:string}>()
+  const names=new Map((profiles.data??[]).map(x=>[x.id,x.full_name||'Usuário do sistema'])),grouped=new Map<string,{count:number;last:string}>()
   for(const sale of sales.data??[]){const key=sale.created_by||'unknown',current=grouped.get(key);grouped.set(key,{count:(current?.count??0)+1,last:current?.last&&current.last>sale.created_at?current.last:sale.created_at})}
   const activity:DashboardActivityItem[]=[...grouped].map(([actor,value])=>({id:`sales-${actor}`,kind:'activity',message:`${names.get(actor)?`${names.get(actor)} registrou`:'Foram registradas'} ${value.count} ${value.count===1?'venda':'vendas'} hoje`,created_at:value.last,href:'/vendas'}))
-  for(const event of events.data??[]){const owner=names.get(event.actor_id)||'Usuário RUAH';activity.push({id:`event-${event.id}`,kind:'activity',message:`${owner} ${event.event_type==='conference_completed'?'concluiu':'assumiu'} a conferência do Envio #${event.shipment_id.slice(0,8).toUpperCase()}`,created_at:event.created_at,href:`/entregas/${event.shipment_id}`})}
+  for(const event of events.data??[]){const owner=names.get(event.actor_id)||'Usuário do sistema';activity.push({id:`event-${event.id}`,kind:'activity',message:`${owner} ${event.event_type==='conference_completed'?'concluiu':'assumiu'} a conferência do Envio #${event.shipment_id.slice(0,8).toUpperCase()}`,created_at:event.created_at,href:`/entregas/${event.shipment_id}`})}
   const incomplete=(clients.data??[]).filter(c=>![c.cpf||c.cnpj,c.phone||c.whatsapp_phone,c.postal_code,c.address_line,c.address_number,c.district,c.city,c.state].every(Boolean)).length
   const values:[[number,string,string],[number,string,string],[number,string,string],[number,string,string]]=[
     [incomplete,'cadastro precisa completar dados para envio','cadastros precisam completar dados para envio'],

@@ -1,4 +1,4 @@
-// RUAH — Inteligência de Reposição: traduz os sinais determinísticos (public.replenishment_signals)
+// Inteligência de Reposição: traduz os sinais determinísticos (public.replenishment_signals)
 // para uma frase em português. A IA nunca recalcula estoque/vendas/velocidade — só recebe o
 // jsonb já pronto e o resumo determinístico de referência, e não pode contradizê-los.
 // Sem OPENAI_API_KEY (ou qualquer falha do provedor), degrada graciosamente para o resumo
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     input: [
       {
         role: 'system',
-        content: `Você é uma analista de estoque da RUAH Parfums explicando para uma pessoa não técnica. Use exclusivamente os números fornecidos e NUNCA invente estoque, vendas, velocidade, fornecedor ou preço. Nunca contradiga o status já calculado ("${signal.status}") nem os números do resumo determinístico de referência. No máximo 2 frases curtas, tom prático e direto, em português.`,
+        content: `Você é uma analista de estoque explicando para uma pessoa não técnica. Use exclusivamente os números fornecidos e NUNCA invente estoque, vendas, velocidade, fornecedor ou preço. Nunca contradiga o status já calculado ("${signal.status}") nem os números do resumo determinístico de referência. No máximo 2 frases curtas, tom prático e direto, em português.`,
       },
       { role: 'user', content: JSON.stringify({ agregados_autorizados: signal, resumo_deterministico: deterministic }) },
     ],

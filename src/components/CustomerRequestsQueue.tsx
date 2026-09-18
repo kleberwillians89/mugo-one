@@ -5,7 +5,7 @@ import { shortDate } from '../lib/format'
 import { EmptyState, SecondaryButton } from './ui'
 
 /** "Entregas → Solicitações de clientes": fila de pedidos feitos no
- * portal Minha RUAH. Reivindicar usa o mesmo task_assign/task_resolve já
+ * Portal do Cliente. Reivindicar usa o mesmo task_assign/task_resolve já
  * usado por vendas bloqueadas/waitlist/recuperação — nenhuma fila
  * paralela. "COTAR FRETE" cria o shipment real (endereço já confirmado
  * pela cliente) e leva a equipe direto para o fluxo operacional já
@@ -23,7 +23,7 @@ export function CustomerRequestsQueue() {
   }
   if (loading) return null
   if (error) return <div className="notice"><AlertTriangle /><span>{error}</span></div>
-  if (rows.length === 0) return <EmptyState icon={UserRound} title="Nenhuma solicitação de cliente pendente" description="Pedidos feitos pela cliente no Minha RUAH aparecem aqui." />
+  if (rows.length === 0) return <EmptyState icon={UserRound} title="Nenhuma solicitação de cliente pendente" description="Pedidos feitos pela cliente no Portal do Cliente aparecem aqui." />
   return <div className="customer-requests-queue">
     {rows.map((row) => <div className="card customer-request-card" key={row.request_id}>
       <div><strong>{row.client_name}</strong><span>{row.total_ml} ml · {row.item_count} {row.item_count === 1 ? 'item' : 'itens'} · {shortDate(row.requested_at)}</span>

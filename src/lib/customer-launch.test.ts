@@ -11,7 +11,7 @@ const mailer=read('supabase/functions/_shared/customer-invite.ts')
 const records=read('src/lib/records.ts')
 const clientDetails=read('src/pages/ClientDetailsPage.tsx')
 
-describe('Minha RUAH launch without mandatory MFA',()=>{
+describe('Portal do Cliente launch without mandatory MFA',()=>{
   it('keeps administrative e-mail invites on secure generated links delivered by Resend',()=>{expect(invite).toContain('admin.auth.admin.generateLink');expect(invite).toContain("?'recovery':'invite'");expect(invite).toContain('sendInviteEmail');expect(mailer).toContain("fetch('https://api.resend.com/emails'");expect(mailer).toContain("Deno.env.get('RESEND_API_KEY')")})
   it('does not claim delivery without a successful Resend response and provider id',()=>{expect(mailer).toContain('const raw=await response.text()');expect(mailer).toContain("status:'failed',provider:'resend'");expect(mailer).toContain('provider_message_id:result.id');expect(registration).toContain("emailResult.status!=='sent'");expect(invite).toContain("sent_email_at: emailResult.status === 'sent'")})
   it('keeps transport and premium e-mail presentation separated',()=>{expect(mailer).toContain('export function renderCustomerInviteEmail');expect(mailer).toContain('export function renderCustomerInviteText');expect(mailer).toContain('html:renderCustomerInviteEmail(input)');expect(mailer).toContain('text:renderCustomerInviteText(input)');expect(mailer).toContain('CRIAR MINHA SENHA')})

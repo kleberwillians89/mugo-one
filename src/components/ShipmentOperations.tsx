@@ -32,7 +32,7 @@ export function OperationalShipments({initialTask}:{initialTask?:ShippingTaskFil
   useEffect(()=>{reload()},[])
   // Priority 0 (nota de controle impressa): Code128 carrega o shipment.id
   // inteiro — bipar aqui abre o envio direto, sem precisar procurar na
-  // lista. Um código de frasco (RUAH-Fxxxxxx) nunca casa com a forma de
+  // lista. Um código de frasco (MUGO-Fxxxxxx, ou RUAH-Fxxxxxx para códigos legados) nunca casa com a forma de
   // UUID, então os dois tipos de bipagem nunca se confundem.
   useKeyboardWedgeListener((value)=>{
     const shipmentId=shipmentIdFromScan(value)

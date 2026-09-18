@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { hasValidRecoverySession } from './recovery-session'
 
-describe('Minha RUAH recovery session gate', () => {
+describe('Portal do Cliente recovery session gate', () => {
   it('accepts an authenticated recovery session without identity finalization', async () => {
     const getSession = vi.fn().mockResolvedValue({ data: { session: { access_token: 'recovery-session' } }, error: null })
     const getUser = vi.fn().mockResolvedValue({ data: { user: { id: 'auth-user' } }, error: null })

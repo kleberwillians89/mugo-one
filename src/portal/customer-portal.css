@@ -1,4 +1,4 @@
-/* Minha RUAH — portal da cliente. Mobile-first (390px é a prioridade),
+/* Portal do Cliente. Mobile-first (390px é a prioridade),
    sem sidebar administrativa, sem tabelas (só cards), sem overflow
    horizontal, alvo de toque >=44px em todo elemento interativo. */
 :root{--portal-gold:#b78d2d;--portal-ink:#1d1b18;--portal-muted:#7c756a;--portal-line:#e8e3da;--portal-cream:#f6f4ef}

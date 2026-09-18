@@ -208,7 +208,7 @@ export async function summarizeRadar(payload:{ perfume_id?:string|null; watch_it
   return data.data as { resumo:string; menor_preco_por_moeda:{moeda:string;valor:string}[]; ofertas_disponiveis:number; quedas_de_preco:number; alertas:string[]; data_geracao:string }
 }
 
-// Marcas conhecidas do catálogo RUAH. Usadas para reconhecer a marca em qualquer posição do
+// Marcas conhecidas do catálogo. Usadas para reconhecer a marca em qualquer posição do
 // texto digitado (início, fim, meio) sem reordenar palavras — só extraímos o trecho reconhecido.
 const KNOWN_BRANDS = [
   'Amouage', 'Xerjoff', 'Nishane', 'Initio Parfums Privés', 'Initio', 'Parfums de Marly',

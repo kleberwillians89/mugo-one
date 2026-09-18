@@ -13,13 +13,17 @@ export type ScanLookup =
 
 /**
  * A QR decode yields a full deep-link URL; a physical barcode scanner types
- * "RUAH-F000185" + Enter; manual entry may be either the bare code
+ * "MUGO-F000185" (or a legacy "RUAH-F000185", already printed before this
+ * prefix was generalized — see docs/ACTIVE_LEGACY_COLLECTIONS_AUDIT.md §
+ * barcode strategy) + Enter; manual entry may be either the bare code
  * ("F000185") or the full barcode value. A split code ("S000185-001",
- * bare or "RUAH-"-prefixed) resolves as its own kind — a split is never a
+ * bare or prefixed) resolves as its own kind — a split is never a
  * bottle, so it is never a "kind: code" match — one canonical parser, used
  * by camera/HID/manual entry alike (briefing seção 9: "resolvedor
  * canônico", nunca lógica duplicada por componente).
  */
+const LEGACY_OR_NEUTRAL_PREFIX = /^(RUAH-|MUGO-)?/i
+
 export function parseScannedValue(raw: string): ScanLookup | null {
   const value = raw.trim()
   if (!value) return null
@@ -31,14 +35,23 @@ export function parseScannedValue(raw: string): ScanLookup | null {
   // shape a deep link resolves to once the /q/:token path segment is peeled off.
   if (/^[0-9a-f]{64}$/i.test(value)) return { kind: 'token', value }
 
-  const splitMatch = value.match(/^(?:RUAH-)?(S\d{6}-\d{3})$/i)
-  if (splitMatch) return { kind: 'split', value: splitMatch[1].toUpperCase() }
+  const splitMatch = value.match(new RegExp(`${LEGACY_OR_NEUTRAL_PREFIX.source}(S\\d{6}-\\d{3})$`, 'i'))
+  if (splitMatch) return { kind: 'split', value: splitMatch[2].toUpperCase() }
 
-  const perfumeMatch=value.match(/^(?:RUAH-)?(P\d{6})$/i)
-  if(perfumeMatch)return{kind:'perfume',value:`RUAH-${perfumeMatch[1].toUpperCase()}`}
+  // operational_code é gravado no banco COM o prefixo (ao contrário de
+  // bottle_code/split_code acima, que são sempre lidos/comparados sem
+  // prefixo) — por isso aqui o prefixo IMPORTA: um código legado escaneado
+  // como "RUAH-P000123" precisa resolver exatamente contra a linha
+  // histórica, que continua tendo esse prefixo gravado; só quando nenhum
+  // prefixo foi digitado/lido é que assumimos o prefixo neutro novo.
+  const perfumeMatch=value.match(new RegExp(`${LEGACY_OR_NEUTRAL_PREFIX.source}(P\\d{6})$`, 'i'))
+  if(perfumeMatch){
+    const prefix=(perfumeMatch[1]??'MUGO-').toUpperCase()
+    return{kind:'perfume',value:`${prefix}${perfumeMatch[2].toUpperCase()}`}
+  }
 
-  const codeMatch = value.match(/^(?:RUAH-)?(F\d{6})$/i)
-  if (codeMatch) return { kind: 'code', value: codeMatch[1].toUpperCase() }
+  const codeMatch = value.match(new RegExp(`${LEGACY_OR_NEUTRAL_PREFIX.source}(F\\d{6})$`, 'i'))
+  if (codeMatch) return { kind: 'code', value: codeMatch[2].toUpperCase() }
 
   return null
 }

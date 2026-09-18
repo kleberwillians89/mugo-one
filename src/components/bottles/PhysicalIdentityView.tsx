@@ -18,7 +18,7 @@ type Props = {
   volumeLabel: string
   statusLabel: string
   statusTone: 'success' | 'warning' | 'neutral'
-  /** Identidade legível/impressa no Code128 (ex.: RUAH-F000185 ou RUAH-S000185-001) — igual em texto e em barras, nunca trocada por estética (briefing seção 14). */
+  /** Identidade legível/impressa no Code128 (ex.: MUGO-F000185 ou MUGO-S000185-001; códigos legados podem começar com RUAH-, ver src/lib/bottle-scan.ts) — igual em texto e em barras, nunca trocada por estética (briefing seção 14). */
   code: string
   /**
    * Payload do QR exibido na tela. Para frasco: o deep link (/q/:token) já

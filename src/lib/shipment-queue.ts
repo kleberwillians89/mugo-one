@@ -37,7 +37,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Nota de controle do envio (impressão, briefing "Priority 0"): o Code128
  * carrega o shipment.id inteiro (o identificador canônico já existente —
  * nenhum esquema de código curto novo foi inventado só para impressão).
- * Frascos nunca têm essa forma (são "RUAH-Fxxxxxx"), então o mesmo leitor
+ * Frascos nunca têm essa forma (são "MUGO-Fxxxxxx", ou "RUAH-Fxxxxxx" para códigos legados), então o mesmo leitor
  * de scanner distingue os dois tipos de bipagem sem nenhuma coordenação
  * extra: um valor que não é UUID simplesmente não é um envio.
  */

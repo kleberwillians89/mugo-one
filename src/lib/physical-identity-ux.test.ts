@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { bottleDeepLink } from './inventory-bottles'
+import { parseScannedValue } from './bottle-scan'
 
 /**
  * Regression suite for "finalizar o fluxo físico de identificação e
@@ -123,11 +124,14 @@ describe('I/J — documento de impressão isolado (causa real do bug de A4)', ()
 })
 
 describe('K/L/M/N/O — resolvedor canônico: QR, Code128/HID, manual e câmera convergem no mesmo lugar', () => {
-  it('K: manual "RUAH-F000001" é reconhecido como um frasco pelo parser canônico', () => {
-    expect(read('lib/bottle-scan.ts')).toContain("const codeMatch = value.match(/^(?:RUAH-)?(F\\d{6})$/i)")
+  it('K: manual "RUAH-F000001" (legado) e "MUGO-F000001" (prefixo novo) são reconhecidos como um frasco pelo parser canônico', () => {
+    expect(parseScannedValue('RUAH-F000001')).toEqual({ kind: 'code', value: 'F000001' })
+    expect(parseScannedValue('MUGO-F000001')).toEqual({ kind: 'code', value: 'F000001' })
+    expect(read('lib/bottle-scan.ts')).toContain("LEGACY_OR_NEUTRAL_PREFIX = /^(RUAH-|MUGO-)?/i")
   })
-  it('L: manual "RUAH-S000185-001" é reconhecido como um SPLIT pelo mesmo parser — antes só resolvia frasco; resolveSplitByCode fecha essa lacuna sem precisar de RPC/migration nova (select direto, mesma RLS por organization_id já existente em inventory_split_units)', () => {
-    expect(read('lib/bottle-scan.ts')).toContain("const splitMatch = value.match(/^(?:RUAH-)?(S\\d{6}-\\d{3})$/i)")
+  it('L: manual "RUAH-S000185-001" (legado) e "MUGO-S000185-001" (prefixo novo) são reconhecidos como SPLIT pelo mesmo parser — antes só resolvia frasco; resolveSplitByCode fecha essa lacuna sem precisar de RPC/migration nova (select direto, mesma RLS por organization_id já existente em inventory_split_units)', () => {
+    expect(parseScannedValue('RUAH-S000185-001')).toEqual({ kind: 'split', value: 'S000185-001' })
+    expect(parseScannedValue('MUGO-S000185-001')).toEqual({ kind: 'split', value: 'S000185-001' })
     expect(inventoryBottlesLib).toContain('export async function resolveSplitByCode')
     expect(inventoryBottlesLib).toContain(".from('inventory_split_units')")
     expect(inventoryBottlesLib).toContain(".eq('organization_id', organizationId)")

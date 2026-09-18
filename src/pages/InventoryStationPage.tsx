@@ -144,7 +144,7 @@ export function InventoryStationPage() {
     <div className="station-page">
       <header className="station-header">
         <button className="station-back" onClick={goToInventory}><ArrowLeft size={16} /> Voltar para o estoque</button>
-        <span>RUAH</span>
+        <span>MUGÔ ONE</span>
         <strong>Estação do Perfume</strong>
       </header>
 
@@ -216,7 +216,7 @@ export function InventoryStationPage() {
             <form className="station-manual" onSubmit={(event) => { event.preventDefault(); if (manualCode.trim()) resolve(manualCode) }}>
               <label><Keyboard size={14} /> Ou digite o código manualmente</label>
               <div className="station-manual-row">
-                <input ref={manualInput} autoFocus inputMode="text" placeholder="RUAH-P000123" value={manualCode} onChange={(event) => setManualCode(event.target.value)} />
+                <input ref={manualInput} autoFocus inputMode="text" placeholder="MUGO-P000123" value={manualCode} onChange={(event) => setManualCode(event.target.value)} />
                 <button type="submit" disabled={!manualCode.trim()}>Consultar</button>
               </div>
             </form>

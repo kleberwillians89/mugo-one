@@ -7,7 +7,7 @@ const localIso = (date:Date) => format(date,'yyyy-MM-dd')
 
 // 'operational' resolve para organizations.operational_sales_start_date (ver
 // operational_sales_floor no banco) — quem chama passa essa data já
-// carregada (PermissionsContext). O fallback central da RUAH impede que uma
+// carregada (PermissionsContext). O fallback central impede que uma
 // falha/ausência transitória da configuração exponha o acervo histórico.
 export function presetPeriod(preset:PeriodPreset,now=new Date(),operationalStart?:string|null):PeriodValue {
   const end=new Date(now),start=new Date(now)

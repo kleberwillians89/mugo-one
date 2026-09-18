@@ -38,7 +38,7 @@ export function getLabelUiState(shipment:ShipmentActionState):LabelUiState{
   const printableStatus=['released','posted','delivered'].includes(String(shipment.superfrete_status||'').toLowerCase())
   const canPrint=printableStatus&&shipment.print_available&&Boolean(shipment.print_url||shipment.label_pdf_url)
   if(isCancelled(shipment.superfrete_status))return {title:'ETIQUETA CANCELADA',description:'Esta etiqueta foi cancelada na SuperFrete. Nenhum arquivo de impressão está disponível.',canSync:false,canPrint:false,canCopyTracking:hasTracking,primaryAction:'none',printUnavailableReason:'Esta etiqueta foi cancelada na SuperFrete.',isCancelled:true}
-  if(primaryAction==='approve_team')return {title:'AGUARDANDO APROVAÇÃO DO TIME',description:'O frete selecionado precisa ser aprovado pela equipe RUAH antes da etiqueta.',canSync:false,canPrint:false,canCopyTracking:false,primaryAction,printUnavailableReason:'Aguarde a aprovação interna antes de criar a etiqueta.',isCancelled:false}
+  if(primaryAction==='approve_team')return {title:'AGUARDANDO APROVAÇÃO DO TIME',description:'O frete selecionado precisa ser aprovado pela equipe antes da etiqueta.',canSync:false,canPrint:false,canCopyTracking:false,primaryAction,printUnavailableReason:'Aguarde a aprovação interna antes de criar a etiqueta.',isCancelled:false}
   if(primaryAction==='checkout')return {title:'ETIQUETA AGUARDANDO PAGAMENTO',description:'O pedido foi criado na SuperFrete, mas a compra ainda não foi concluída.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction,printUnavailableReason:'A compra precisa ser confirmada antes da impressão.',isCancelled:false}
   if(canPrint)return {title:'ETIQUETA PRONTA',description:'A compra foi concluída e o arquivo oficial está disponível.',canSync:true,canPrint:true,canCopyTracking:hasTracking,primaryAction:'print',printUnavailableReason:null,isCancelled:false}
   if(hasOrder&&printableStatus){
@@ -49,10 +49,10 @@ export function getLabelUiState(shipment:ShipmentActionState):LabelUiState{
     // SUPERFRETE_FILE_* quando não). "Ainda sendo preparado" só é verdade
     // antes da primeira sincronização; depois disso, dizer isso quando na
     // verdade JÁ tentamos e falhamos estaria mentindo sobre o estado real
-    // (bug relatado: painel oficial já libera impressão, RUAH insiste que
-    // "está sendo preparado" mesmo depois de sincronizar).
+    // (bug relatado: painel oficial já libera impressão, o sistema insiste
+    // que "está sendo preparado" mesmo depois de sincronizar).
     const probedAndUnavailable=Boolean(shipment.integration_error)&&shipment.integration_error!=='SUPERFRETE_PROVIDER_PROCESSING'
-    if(probedAndUnavailable)return {title:'ETIQUETA LIBERADA — ARQUIVO PENDENTE',description:'A etiqueta foi emitida na SuperFrete, mas o RUAH ainda não conseguiu obter o arquivo oficial para impressão.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'O RUAH ainda não conseguiu obter o arquivo oficial da SuperFrete. Tente sincronizar novamente.',isCancelled:false}
+    if(probedAndUnavailable)return {title:'ETIQUETA LIBERADA — ARQUIVO PENDENTE',description:'A etiqueta foi emitida na SuperFrete, mas o sistema ainda não conseguiu obter o arquivo oficial para impressão.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'O sistema ainda não conseguiu obter o arquivo oficial da SuperFrete. Tente sincronizar novamente.',isCancelled:false}
     return {title:'ETIQUETA CRIADA',description:'A compra foi concluída e o rastreio já foi gerado. O arquivo ainda está sendo preparado pela SuperFrete.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.',isCancelled:false}
   }
   if(hasOrder)return {title:'ETIQUETA SENDO PREPARADA',description:'A SuperFrete ainda está processando o arquivo. Você não precisa criar outra etiqueta.',canSync:true,canPrint:false,canCopyTracking:hasTracking,primaryAction:'sync',printUnavailableReason:'A SuperFrete ainda não liberou o arquivo para impressão.',isCancelled:false}

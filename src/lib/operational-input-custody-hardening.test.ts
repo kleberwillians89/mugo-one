@@ -47,7 +47,7 @@ describe('custódia manual após original_quantity_ml obrigatório',()=>{
   })
 })
 
-describe('URL pública consistente entre os fluxos Minha RUAH',()=>{
+describe('URL pública consistente entre os fluxos do Portal do Cliente',()=>{
   it('invite, reinvite e first access usam o mesmo resolver canônico',()=>{
     for(const source of [invite,registration,claim])expect(source).toContain('firstAccessRedirectUrl()')
     expect(publicUrl).toContain("DEPLOYED_PUBLIC_APP_URL='https://crm.ruahparfums.com.br'")

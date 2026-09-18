@@ -4,8 +4,8 @@ const customerMfaRequired = import.meta.env.VITE_CUSTOMER_MFA_REQUIRED?.trim().t
 
 /**
  * Allowlist explícita de infraestrutura do Mugô One. Proteção contra
- * conexão acidental a qualquer outro projeto Supabase (ex: o projeto
- * legado da RUAH) — nunca um fallback, nunca silencioso. Se
+ * conexão acidental a qualquer outro projeto Supabase (ex: um projeto
+ * legado de outro tenant) — nunca um fallback, nunca silencioso. Se
  * VITE_SUPABASE_URL não bater com um host permitido, o client
  * simplesmente não é criado (ver supabase.ts): a aplicação falha com
  * uma mensagem clara em vez de conectar em outro lugar.

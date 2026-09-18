@@ -54,7 +54,7 @@ export function DeliveriesPage({period,setPeriod}:{period:PeriodValue;setPeriod:
       <PrimaryButton icon={<Plus size={16}/>} onClick={()=>setNewShipment(true)}>Novo envio</PrimaryButton>
     </>}/>
 
-    <SectionHeader title="Solicitações de clientes" description="Pedidos de envio feitos pela cliente no Minha RUAH — cote o frete para continuar pelo fluxo normal."/>
+    <SectionHeader title="Solicitações de clientes" description="Pedidos de envio feitos pela cliente no Portal do Cliente — cote o frete para continuar pelo fluxo normal."/>
     <CustomerRequestsQueue/>
 
     <SectionHeader title="Envios em andamento" description="Operação atual — cada etiqueta pode reunir várias compras do mesmo cliente."/>

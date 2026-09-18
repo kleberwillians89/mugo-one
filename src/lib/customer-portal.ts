@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 /**
- * Camada de dados do portal "Minha RUAH" — deliberadamente separada de
+ * Camada de dados do Portal do Cliente — deliberadamente separada de
  * records.ts. Toda função em records.ts passa por currentOrganization()/
  * authenticatedOrganization(), que exigem uma linha em organization_members
  * (cliente final NUNCA é organization_member — briefing explícito). Toda
@@ -27,12 +27,12 @@ export const maskCpf = (digits: string) => digits.length === 11 ? `${digits.slic
 export function customerPortalErrorMessage(reason: unknown, fallback = 'Não foi possível concluir esta ação. Tente novamente.') {
   const raw = reason instanceof Error ? reason.message : String((reason as { message?: unknown })?.message ?? reason ?? '')
   const normalized = raw.toLowerCase()
-  if (normalized.includes('shipping_availability_pending')) return 'Este perfume está previsto, mas ainda não teve a chegada confirmada pela RUAH. A solicitação de envio será liberada assim que ele estiver disponível.'
+  if (normalized.includes('shipping_availability_pending')) return 'Este perfume está previsto, mas ainda não teve a chegada confirmada. A solicitação de envio será liberada assim que ele estiver disponível.'
   if (normalized.includes('invalid_or_unavailable_custody') || normalized.includes('already_requested')) return 'Este perfume já está vinculado a uma solicitação ou não está mais disponível para um novo envio.'
   if (normalized.includes('active_shipment_exists')) return 'Você já possui um envio em andamento. Os novos perfumes ficarão disponíveis para a próxima solicitação quando este envio for concluído.'
-  if (normalized.includes('quote_changed') || normalized.includes('quote_not_available')) return 'A cotação deste envio mudou ou não está mais disponível. Aguarde uma nova cotação da equipe RUAH.'
-  if (normalized.includes('request_already_in_progress') || normalized.includes('request_cannot_be_cancelled') || normalized.includes('shipment_cannot_be_cancelled')) return 'Esta solicitação já avançou e não pode mais ser cancelada por aqui. Fale com a equipe RUAH.'
-  if (normalized.includes('external_shipping_cancellation_requires_review')) return 'Este envio já entrou em processamento. Fale com a equipe RUAH para continuar.'
+  if (normalized.includes('quote_changed') || normalized.includes('quote_not_available')) return 'A cotação deste envio mudou ou não está mais disponível. Aguarde uma nova cotação da nossa equipe.'
+  if (normalized.includes('request_already_in_progress') || normalized.includes('request_cannot_be_cancelled') || normalized.includes('shipment_cannot_be_cancelled')) return 'Esta solicitação já avançou e não pode mais ser cancelada por aqui. Fale com a nossa equipe.'
+  if (normalized.includes('external_shipping_cancellation_requires_review')) return 'Este envio já entrou em processamento. Fale com a nossa equipe para continuar.'
   if (normalized.includes('forbidden') || normalized.includes('permission_denied') || normalized.includes('42501')) return 'Você não tem acesso a esta solicitação.'
   if (normalized.includes('request_not_found') || normalized.includes('pgrst116')) return 'Não encontramos esta solicitação. Atualize a página e tente novamente.'
   if (normalized.includes('invalid_status')) return 'Esta ação não está disponível na etapa atual.'

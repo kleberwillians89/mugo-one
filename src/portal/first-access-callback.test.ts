@@ -10,7 +10,7 @@ const auth=(overrides:Record<string,unknown>={})=>({
   ...overrides,
 })
 
-describe('callback do primeiro acesso Minha RUAH',()=>{
+describe('callback do primeiro acesso do Portal do Cliente',()=>{
   it('processa convite novo com PKCE code',async()=>{const client=auth();const result=await resolveInviteSession(client as never,captureInviteCallback({search:'?flow=invite&code=valid',hash:''}));expect(result).toEqual(session);expect(client.exchangeCodeForSession).toHaveBeenCalledWith('valid')})
   it('processa clique no e-mail com hash do Supabase no mobile/desktop',async()=>{const client=auth();await expect(resolveInviteSession(client as never,captureInviteCallback({search:'?flow=invite',hash:'#type=invite&access_token=a&refresh_token=r'}))).resolves.toEqual(session);expect(client.setSession).toHaveBeenCalledWith({access_token:'a',refresh_token:'r'})})
   it('processa token_hash de convite',async()=>{const client=auth();await resolveInviteSession(client as never,captureInviteCallback({search:'?flow=invite&token_hash=hash',hash:''}));expect(client.verifyOtp).toHaveBeenCalledWith({token_hash:'hash',type:'invite'})})

@@ -48,6 +48,23 @@ describe('parseScannedValue', () => {
       expect(parseScannedValue('RUAH-S000185-001')?.kind).toBe('split')
       expect(parseScannedValue('RUAH-F000185')?.kind).toBe('code')
     })
+    it('reconhece também o prefixo novo MUGO- (barcode/split gerados depois da generalização)', () => {
+      expect(parseScannedValue('MUGO-S000185-001')).toEqual({ kind: 'split', value: 'S000185-001' })
+      expect(parseScannedValue('mugo-f000185')).toEqual({ kind: 'code', value: 'F000185' })
+    })
+  })
+
+  describe('perfume (operational_code — único caso onde o prefixo importa, ver bottle-scan.ts)', () => {
+    it('um código legado escaneado com o prefixo RUAH- resolve exatamente contra a linha histórica (nunca reescreve para o prefixo novo)', () => {
+      expect(parseScannedValue('RUAH-P000123')).toEqual({ kind: 'perfume', value: 'RUAH-P000123' })
+      expect(parseScannedValue('ruah-p000123')).toEqual({ kind: 'perfume', value: 'RUAH-P000123' })
+    })
+    it('um código já gerado com o prefixo novo resolve com MUGO-', () => {
+      expect(parseScannedValue('MUGO-P000456')).toEqual({ kind: 'perfume', value: 'MUGO-P000456' })
+    })
+    it('código digitado SEM nenhum prefixo assume o prefixo neutro novo (MUGO-), nunca o legado', () => {
+      expect(parseScannedValue('P000789')).toEqual({ kind: 'perfume', value: 'MUGO-P000789' })
+    })
   })
 })
 

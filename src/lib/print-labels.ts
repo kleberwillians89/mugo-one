@@ -4,7 +4,7 @@
  * construção da URL em cada lugar que tem um botão "Imprimir etiqueta"
  * (BottleOnboardingModal, BottleSplitModal, PhysicalIdentityView).
  * Nenhum dado sensível: perfume + código humano do frasco/split, nada de
- * cliente/preço/envio. O barcode_value (RUAH-<code>) é derivado dentro de
+ * cliente/preço/envio. O barcode_value (MUGO-<code>, ou RUAH-<code> para códigos legados) é derivado dentro de
  * PrintLabelPage a partir do code, pela mesma convenção que
  * inventory_bottle_generate já usa no backend — não duplicado aqui.
  */

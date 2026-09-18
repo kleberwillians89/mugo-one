@@ -126,7 +126,7 @@ function InventoryCreate({close,saved}:{close:()=>void;saved:()=>void}) {
       if(!selected)return setError('Selecione novamente o perfume recebido.')
       await receiveInventoryPerfume({perfumeId:selected.id,receivedMl:openingMl,minimumMl,referenceDate:reference,notes,idempotencyKey:receiptKey})
       const operational=await fetchCanonicalPerfume(selected.id)
-      if(!/^RUAH-P\d{6}$/.test(operational.operational_code??''))throw new Error('A entrada foi registrada, mas a identidade operacional não foi retornada. Atualize a tela antes de repetir.')
+      if(!/^MUGO-P\d{6}$/.test(operational.operational_code??''))throw new Error('A entrada foi registrada, mas a identidade operacional não foi retornada. Atualize a tela antes de repetir.')
       setSuccess(operational as PerfumeCandidate&{operational_code:string});saved()
     }catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível cadastrar o estoque.')}finally{setSaving(false)}
   }
