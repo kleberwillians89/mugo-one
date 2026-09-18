@@ -1,5 +1,5 @@
 /*
-  Tokens de design RUAH Intelligence.
+  Tokens de design Mugô One.
 
   Ordem de carregamento (ver src/main.tsx): tokens.css entra primeiro, depois
   os arquivos CSS legados (styles.css, enhancements.css, auth.css, mugo.css).
@@ -14,7 +14,7 @@
   fase para não gerar um diff de alto risco.
 */
 :root {
-  /* Cor — paleta RUAH existente (preservada de styles.css) */
+  /* Cor — paleta existente (preservada de styles.css) */
   --gold: #b58a32;
   --gold-deep: #80601f;
   --gold-soft: #dbc176;

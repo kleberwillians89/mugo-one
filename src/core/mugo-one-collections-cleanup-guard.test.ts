@@ -32,6 +32,19 @@ function listFiles(dir: string): string[] {
   return out
 }
 
+/** Só os arquivos direto em `dir`, sem recursar — para `src` isso evita duplicar src/pages|components|core|modules|lib|portal (já escaneados à parte) e pular src/legacy (nunca escaneado, de propósito). */
+function listTopLevelFiles(dir: string): string[] {
+  const abs = new URL(dir, ROOT)
+  const out: string[] = []
+  for (const entry of readdirSync(abs)) {
+    if (entry.startsWith('.')) continue
+    const relPath = `${dir}/${entry}`
+    if (statSync(new URL(relPath, ROOT)).isDirectory()) continue
+    if (/\.(tsx?|css)$/.test(entry) && !entry.endsWith('.test.ts') && !entry.endsWith('.test.tsx')) out.push(relPath)
+  }
+  return out
+}
+
 describe('collections cleanup guard — Cobrança é 100% universal, zero Ruah/perfume/PIX/CNPJ hardcoded', () => {
   const files = ['src/pages/CobrancasPage.tsx', 'src/pages/CollectionsSettingsPage.tsx', 'src/components/CollectionSummaryImageCard.tsx', 'src/lib/collections.ts']
   // \b (fronteira de palavra) para não confundir "davi" com identificadores
@@ -92,15 +105,23 @@ describe('collections cleanup guard — varredura ampla das superfícies ativas 
     'src/pages/ClientsPage.tsx',
     // Rotas /minha-ruah/* do Portal do Cliente (URL pública, já usada em e-mails/links reais enviados a clientes) — preservadas de propósito; toda MARCA visível ("RUAH"/"Minha RUAH") já foi removida destes 2 arquivos.
     'src/portal/CustomerPortalRoot.tsx', 'src/portal/CustomerPortalApp.tsx',
+    // App.tsx: mesma rota histórica /clientes/acessos-minha-ruah do ClientsPage.tsx acima (URL, não texto exibido).
+    'src/App.tsx',
+    // Auth.tsx: leitura de fallback de 2 chaves de storage ANTIGAS (ruah_remember/ruah_session) de antes da migração para mugo_one_* — mesma regra de nunca quebrar estado já salvo no navegador de quem já usa o produto; e o mesmo comentário sobre /minha-ruah do Portal do Cliente.
+    'src/Auth.tsx',
   ])
 
-  it('nenhum arquivo FORA do allowlist em src/pages|src/components|src/core|src/modules|src/lib|src/portal contém "ruah" (case-insensitive)', () => {
+  it('nenhum arquivo FORA do allowlist em src/pages|src/components|src/core|src/modules|src/lib|src/portal|src (raiz) contém "ruah" (case-insensitive)', () => {
     const offenders: string[] = []
-    for (const dir of ['src/pages', 'src/components', 'src/core', 'src/modules', 'src/lib', 'src/portal']) {
+    for (const dir of ['src/pages', 'src/components', 'src/core', 'src/modules', 'src/lib', 'src/portal', 'src/styles']) {
       for (const file of listFiles(dir)) {
         if (allowlist.has(file)) continue
         if (read(file).toLowerCase().includes('ruah')) offenders.push(file)
       }
+    }
+    for (const file of listTopLevelFiles('src')) {
+      if (allowlist.has(file)) continue
+      if (read(file).toLowerCase().includes('ruah')) offenders.push(file)
     }
     expect(offenders, `arquivos com resíduo Ruah novo/não catalogado: ${offenders.join(', ')}`).toEqual([])
   })
